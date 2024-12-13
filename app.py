@@ -38,9 +38,6 @@ def run_query(query, values=None):
     except Exception as e:
         st.error(f"Error executing query: {e}")
         return []
-    finally:
-        if conn:
-            conn.close()
 
 def run_insert(query, values):
     """
@@ -57,9 +54,6 @@ def run_insert(query, values):
     except Exception as e:
         st.error(f"Error executing insert: {e}")
         return False
-    finally:
-        if conn:
-            conn.close()
 
 #####################
 # Data Loading
