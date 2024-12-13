@@ -193,23 +193,34 @@ def commands_page():
         selected_client = st.selectbox("Select a Client", clients_data)
 
         if st.button("Open Command"):
-            # Consulta à view vw_pedido_produto para obter os pedidos do cliente selecionado
+            # Consulta à view vw_pedido_produto
             query = """
-            SELECT "Cliente", "Produto", "Quantidade", "Data", status, unit_value
+            SELECT "Cliente", "Produto", "Quantidade", "Data", status, unit_value, total
             FROM vw_pedido_produto
             WHERE "Cliente" = %s;
             """
             client_orders = run_query(query, (selected_client,))
 
             # Configuração das colunas da tabela
-            columns = ["Client", "Product", "Quantity", "Date", "Status", "Unit Value"]
+            columns = ["Client", "Product", "Quantity", "Date", "Status", "Unit Value", "Total"]
             if client_orders:
-                # Exibir os dados na tabela
-                st.dataframe([dict(zip(columns, row)) for row in client_orders], use_container_width=True)
+                # Converter os dados em um DataFrame para facilitar o cálculo
+                import pandas as pd
+                df = pd.DataFrame(client_orders, columns=columns)
+
+                # Exibir a tabela
+                st.dataframe(df, use_container_width=True)
+
+                # Calcular a soma da coluna "Total"
+                total_sum = df["Total"].sum()
+
+                # Exibir o valor total em formato de moeda
+                st.subheader(f"Total Amount: R$ {total_sum:,.2f}")
             else:
                 st.info("No orders found for this client.")
     else:
         st.info("No clients found.")
+
 
 
 def stock_page():
