@@ -92,17 +92,16 @@ def sidebar_navigation():
     Create a sidebar for navigation.
     """
     st.sidebar.title("Menu")
-    st.sidebar.radio("Navigate to:", ["Home", "Orders", "Products", "Commands", "Stock", "Clients"], key="page")
+    st.sidebar.radio("Navigate to:", ["Home", "Orders", "Products", "Commands", "Stock"], key="page")
 
 #####################
 # Page Functions
 #####################
 def home_page():
     st.title("Boituva Beach Club")
-    st.write("🎾 BeachTennis📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
-    
-    st.button("Refresh Data", on_click=refresh_data)
+    st.write("🎾 BeachTennis |📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
 
+    st.button("Refresh Data", on_click=refresh_data)
 
 def orders_page():
     st.title("Orders")
@@ -142,6 +141,13 @@ def orders_page():
 def products_page():
     st.title("Products")
 
+    products_data = st.session_state.data.get("products", [])
+    columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
+    if products_data:
+        st.dataframe([dict(zip(columns, row)) for row in products_data])
+    else:
+        st.info("No products found.")
+
     st.subheader("Add a new product")
     with st.form(key='product_form'):
         supplier = st.text_input("Supplier", max_chars=100)
@@ -165,14 +171,6 @@ def products_page():
         else:
             st.warning("Please fill in all fields correctly.")
 
-    products_data = st.session_state.data.get("products", [])
-    columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
-    if products_data:
-        st.subheader("All Products")
-        st.dataframe([dict(zip(columns, row)) for row in products_data])
-    else:
-        st.info("No products found.")
-
 def commands_page():
     st.title("Commands")
 
@@ -194,6 +192,13 @@ def commands_page():
 
 def stock_page():
     st.title("Stock")
+
+    stock_data = st.session_state.data.get("stock", [])
+    columns = ["Product", "Quantity", "Value", "Total", "Transaction", "Date"]
+    if stock_data:
+        st.dataframe([dict(zip(columns, row)) for row in stock_data])
+    else:
+        st.info("No stock records found.")
 
     st.subheader("Add a new stock record")
     with st.form(key='stock_form'):
@@ -218,40 +223,6 @@ def stock_page():
         else:
             st.warning("Please fill in all fields correctly.")
 
-    stock_data = st.session_state.data.get("stock", [])
-    columns = ["Product", "Quantity", "Value", "Total", "Transaction", "Date"]
-    if stock_data:
-        st.subheader("All Stock Records")
-        st.dataframe([dict(zip(columns, row)) for row in stock_data])
-    else:
-        st.info("No stock records found.")
-
-def clients_page():
-    st.title("Clients")
-
-    st.subheader("Register a New Client")
-    with st.form(key='client_form'):
-        nome_completo = st.text_input("Full Name", max_chars=100)
-        data_nascimento = st.date_input("Date of Birth")
-        genero = st.text_input("Sex/Gender (optional)", max_chars=50)
-        telefone = st.text_input("Phone", max_chars=15)
-        email = st.text_input("Email", max_chars=100)
-        endereco = st.text_area("Address")
-        submit_client = st.form_submit_button(label="Register New Client")
-
-    if submit_client:
-        if nome_completo and data_nascimento and telefone and email and endereco:
-            query = """
-            INSERT INTO public.tb_clientes (nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro)
-            VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP);
-            """
-            success = run_insert(query, (nome_completo, data_nascimento, genero, telefone, email, endereco))
-            if success:
-                st.success("Client registered successfully!")
-                refresh_data()
-        else:
-            st.warning("Please fill in all required fields.")
-
 #####################
 # Initialization
 #####################
@@ -272,5 +243,3 @@ elif st.session_state.page == "Commands":
     commands_page()
 elif st.session_state.page == "Stock":
     stock_page()
-elif st.session_state.page == "Clients":
-    clients_page()
