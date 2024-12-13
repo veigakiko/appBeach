@@ -219,37 +219,37 @@ def commands_page():
 
                 # Adicionar botões de pagamento
                 col1, col2, col3 = st.columns(3)
-                payment_status = None
 
                 # Determinar o novo status com base no botão clicado
+                if "payment_status" not in st.session_state:
+                    st.session_state.payment_status = None
+
                 with col1:
                     if st.button("Debit"):
-                        payment_status = "Received - Debited"
+                        st.session_state.payment_status = "Received - Debited"
                 with col2:
                     if st.button("Credit"):
-                        payment_status = "Received - Credit"
+                        st.session_state.payment_status = "Received - Credit"
                 with col3:
                     if st.button("Pix"):
-                        payment_status = "Received - Pix"
+                        st.session_state.payment_status = "Received - Pix"
 
                 # Atualizar os registros no banco de dados se um botão for clicado
-                if payment_status:
-                    try:
-                        update_query = """
-                        UPDATE public.tb_pedido
-                        SET status = %s, "Data" = CURRENT_TIMESTAMP
-                        WHERE "Cliente" = %s AND status = 'em aberto';
-                        """
-                        success = run_insert(update_query, (payment_status, selected_client))
-                        if success:
-                            st.success(f"OK - Amount Received via {payment_status.split(' - ')[1]}")
-                            # Atualizar os dados na sessão
-                            refresh_data()
-                        else:
-                            st.error("Failed to update order status.")
-                    except Exception as e:
-                        st.error(f"Error while updating: {e}")
-                        st.stop()
+                if st.session_state.payment_status:
+                    update_query = """
+                    UPDATE public.tb_pedido
+                    SET status = %s, "Data" = CURRENT_TIMESTAMP
+                    WHERE "Cliente" = %s AND status = 'em aberto';
+                    """
+                    success = run_insert(update_query, (st.session_state.payment_status, selected_client))
+                    if success:
+                        st.success(f"OK - Amount Received via {st.session_state.payment_status.split(' - ')[1]}")
+                        # Atualizar os dados na sessão
+                        refresh_data()
+                        # Resetar o estado do pagamento para evitar múltiplas atualizações
+                        st.session_state.payment_status = None
+                    else:
+                        st.error("Failed to update order status.")
 
                 # Exibir o texto explicativo abaixo dos botões
                 st.write("_Close the command by clicking one of the options above._")
@@ -257,6 +257,7 @@ def commands_page():
                 st.info("No orders found for this client.")
     else:
         st.info("No clients found.")
+
 
 
 def stock_page():
