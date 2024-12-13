@@ -9,16 +9,17 @@ from datetime import datetime
 @st.cache_resource
 def get_db_connection():
     """
-    Return a new database connection using psycopg2.
+    Return a persistent database connection using psycopg2.
     """
     try:
-        return psycopg2.connect(
+        conn = psycopg2.connect(
             host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
             database="beachtennis",
             user="kiko",
             password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
             port=5432
         )
+        return conn
     except OperationalError as e:
         st.error("Could not connect to the database. Please try again later.")
         return None
@@ -84,21 +85,33 @@ def refresh_data():
     st.session_state.data = load_all_data()
 
 #####################
-# Sidebar Navigation
-#####################
-def sidebar_navigation():
-    """
-    Create a sidebar for navigation.
-    """
-    st.sidebar.title("Menu")
-    st.sidebar.radio("Navigate to:", ["Home", "Orders", "Products", "Commands", "Stock"], key="page")
-
-#####################
 # Page Functions
 #####################
 def home_page():
     st.title("Boituva Beach Club")
-    st.write("Welcome! Use the sidebar to navigate.")
+    st.write("Welcome! Use the buttons below to navigate.")
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+    with col1:
+        if st.button("Home"):
+            st.session_state.page = "Home"
+
+    with col2:
+        if st.button("Orders"):
+            st.session_state.page = "Orders"
+
+    with col3:
+        if st.button("Products"):
+            st.session_state.page = "Products"
+
+    with col4:
+        if st.button("Commands"):
+            st.session_state.page = "Commands"
+
+    with col5:
+        if st.button("Stock"):
+            st.session_state.page = "Stock"
 
     st.button("Refresh Data", on_click=refresh_data)
 
@@ -133,19 +146,12 @@ def orders_page():
     if orders_data:
         st.subheader("All Orders")
         columns = ["Client", "Product", "Quantity", "Date"]
-        st.dataframe([dict(zip(columns, row)) for row in orders_data])
+        st.dataframe([dict(zip(columns, row)) for row in orders_data], use_container_width=True)
     else:
         st.info("No orders found.")
 
 def products_page():
     st.title("Products")
-
-    products_data = st.session_state.data.get("products", [])
-    columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
-    if products_data:
-        st.dataframe([dict(zip(columns, row)) for row in products_data])
-    else:
-        st.info("No products found.")
 
     st.subheader("Add a new product")
     with st.form(key='product_form'):
@@ -170,6 +176,13 @@ def products_page():
         else:
             st.warning("Please fill in all fields correctly.")
 
+    products_data = st.session_state.data.get("products", [])
+    columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
+    if products_data:
+        st.dataframe([dict(zip(columns, row)) for row in products_data])
+    else:
+        st.info("No products found.")
+
 def commands_page():
     st.title("Commands")
 
@@ -191,13 +204,6 @@ def commands_page():
 
 def stock_page():
     st.title("Stock")
-
-    stock_data = st.session_state.data.get("stock", [])
-    columns = ["Product", "Quantity", "Value", "Total", "Transaction", "Date"]
-    if stock_data:
-        st.dataframe([dict(zip(columns, row)) for row in stock_data])
-    else:
-        st.info("No stock records found.")
 
     st.subheader("Add a new stock record")
     with st.form(key='stock_form'):
@@ -221,3 +227,28 @@ def stock_page():
                 refresh_data()
         else:
             st.warning("Please fill in all fields correctly.")
+
+    stock_data = st.session_state.data.get("stock", [])
+    columns = ["Product", "Quantity", "Value", "Total", "Transaction", "Date"]
+    if stock_data:
+        st.dataframe([dict(zip(columns, row)) for row in stock_data])
+    else:
+        st.info("No stock records found.")
+
+#####################
+# Initialization
+#####################
+if 'data' not in st.session_state:
+    st.session_state.data = load_all_data()
+
+# Page Routing
+if st.session_state.page == "Home":
+    home_page()
+elif st.session_state.page == "Orders":
+    orders_page()
+elif st.session_state.page == "Products":
+    products_page()
+elif st.session_state.page == "Commands":
+    commands_page()
+elif st.session_state.page == "Stock":
+    stock_page()
