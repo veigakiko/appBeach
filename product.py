@@ -164,22 +164,39 @@ def checkout_page():
     FROM public.tb_pedido
     WHERE status LIKE 'Received%';
     """
+
+    # Fetch data for open and received orders
     open_orders = run_query(open_orders_query)
     received_orders = run_query(received_orders_query)
 
-    # Convert data to DataFrames
-    open_orders_df = pd.DataFrame(open_orders, columns=["Client", "Product", "Quantity", "Date", "Status"])
-    received_orders_df = pd.DataFrame(received_orders, columns=["Client", "Product", "Quantity", "Date", "Status"])
+    # Check if the data is not empty and handle missing columns
+    if open_orders:
+        open_orders_df = pd.DataFrame(open_orders, columns=["Client", "Product", "Quantity", "Date", "Status"])
+    else:
+        open_orders_df = pd.DataFrame(columns=["Client", "Product", "Quantity", "Date", "Status"])
+
+    if received_orders:
+        received_orders_df = pd.DataFrame(received_orders, columns=["Client", "Product", "Quantity", "Date", "Status"])
+    else:
+        received_orders_df = pd.DataFrame(columns=["Client", "Product", "Quantity", "Date", "Status"])
 
     # Display the tables side by side
     st.markdown("### Orders Overview")
     col1, col2 = st.columns(2)
+
     with col1:
         st.subheader("Open Orders")
-        st.dataframe(open_orders_df, use_container_width=True)
+        if open_orders_df.empty:
+            st.info("No open orders.")
+        else:
+            st.dataframe(open_orders_df, use_container_width=True)
+
     with col2:
         st.subheader("Received Orders")
-        st.dataframe(received_orders_df, use_container_width=True)
+        if received_orders_df.empty:
+            st.info("No received orders.")
+        else:
+            st.dataframe(received_orders_df, use_container_width=True)
 
 #####################
 # Initialization
