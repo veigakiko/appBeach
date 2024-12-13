@@ -186,7 +186,7 @@ def commands_page():
             orders_data = st.session_state.data.get("orders", [])
             client_orders = [o for o in orders_data if o[0] == selected_client]
 
-            columns = ["Client", "Product", "Quantity", "Date"]
+            columns = ["Client", "Product", "Quantity", "Date","Status"]
             if client_orders:
                 st.dataframe([dict(zip(columns, row)) for row in client_orders])
             else:
