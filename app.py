@@ -103,7 +103,7 @@ def home_page():
     
 
     st.button("Refresh Data", on_click=refresh_data)
-    st.button("Pedido", on_click=orders_page)
+   
 def orders_page():
     st.title("Orders")
     st.subheader("Register a new order")
