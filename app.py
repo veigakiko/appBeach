@@ -2,26 +2,27 @@ import streamlit as st
 import psycopg2
 from psycopg2 import OperationalError
 from datetime import datetime
-import os
 
 #####################
 # Database Utilities
 #####################
+@st.cache_resource
 def get_db_connection():
     """
     Return a new database connection using psycopg2.
     """
     try:
         return psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            database=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            port=os.getenv("DB_PORT")
+            host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
+            database="beachtennis",
+            user="kiko",
+            password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
+            port=5432
         )
     except OperationalError as e:
-        st.error(f"Database connection failed: {e}")
+        st.error("Could not connect to the database. Please try again later.")
         return None
+
 
 def run_query(query, values=None):
     """
@@ -38,7 +39,8 @@ def run_query(query, values=None):
         st.error(f"Error executing query: {e}")
         return []
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def run_insert(query, values):
     """
@@ -56,7 +58,8 @@ def run_insert(query, values):
         st.error(f"Error executing insert: {e}")
         return False
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 #####################
 # Data Loading
@@ -104,9 +107,7 @@ def home_page():
     st.title("Boituva Beach Club")
     st.write("Welcome! Use the sidebar to navigate.")
 
-    if st.button("Refresh Data"):
-        refresh_data()
-        st.success("Data refreshed!")
+    st.button("Refresh Data", on_click=refresh_data)
 
 def orders_page():
     st.title("Orders")
@@ -139,7 +140,7 @@ def orders_page():
     if orders_data:
         st.subheader("All Orders")
         columns = ["Client", "Product", "Quantity", "Date"]
-        st.table([dict(zip(columns, row)) for row in orders_data])
+        st.dataframe([dict(zip(columns, row)) for row in orders_data])
     else:
         st.info("No orders found.")
 
@@ -149,7 +150,7 @@ def products_page():
     products_data = st.session_state.data.get("products", [])
     columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
     if products_data:
-        st.table([dict(zip(columns, row)) for row in products_data])
+        st.dataframe([dict(zip(columns, row)) for row in products_data])
     else:
         st.info("No products found.")
 
@@ -189,7 +190,7 @@ def commands_page():
 
             columns = ["Client", "Product", "Quantity", "Date"]
             if client_orders:
-                st.table([dict(zip(columns, row)) for row in client_orders])
+                st.dataframe([dict(zip(columns, row)) for row in client_orders])
             else:
                 st.info("No orders found for this client.")
     else:
@@ -201,7 +202,7 @@ def stock_page():
     stock_data = st.session_state.data.get("stock", [])
     columns = ["Product", "Quantity", "Value", "Total", "Transaction", "Date"]
     if stock_data:
-        st.table([dict(zip(columns, row)) for row in stock_data])
+        st.dataframe([dict(zip(columns, row)) for row in stock_data])
     else:
         st.info("No stock records found.")
 
