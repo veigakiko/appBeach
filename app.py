@@ -1,71 +1,89 @@
 import streamlit as st
-from psycopg import connect
+import psycopg2
+from psycopg2 import OperationalError
 from datetime import datetime
-from contextlib import closing
-from psycopg import connect
 
 #####################
 # Database Utilities
 #####################
-@st.cache_resource
 def get_db_connection():
-    return connect(
-        "postgresql://kiko:ff15dHpkRtuoNgeF8eWjpqymWLleEM00@dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com:5432/beachtennis"
-    )
-
+    """
+    Return a new database connection using psycopg2.
+    """
+    try:
+        return psycopg2.connect(
+            host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
+            database="beachtennis",
+            user="kiko",
+            password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
+            port=5432
+        )
+    except OperationalError as e:
+        st.error("Could not connect to the database. Please try again later.")
+        return None
 
 def run_query(query, values=None):
     """
     Runs a read-only query (SELECT) and returns the fetched data.
     """
-    with get_db_connection() as conn:
+    conn = get_db_connection()
+    if conn is None:
+        return []
+    try:
         with conn.cursor() as cursor:
-            if values:
-                cursor.execute(query, values)
-            else:
-                cursor.execute(query)
+            cursor.execute(query, values or ())
             return cursor.fetchall()
+    except Exception as e:
+        st.error(f"Error executing query: {e}")
+        return []
+    finally:
+        conn.close()
 
 def run_insert(query, values):
     """
     Runs an insert or update query.
     """
-    with get_db_connection() as conn:
+    conn = get_db_connection()
+    if conn is None:
+        return False
+    try:
         with conn.cursor() as cursor:
             cursor.execute(query, values)
         conn.commit()
+        return True
+    except Exception as e:
+        st.error(f"Error executing insert: {e}")
+        return False
+    finally:
+        conn.close()
 
 #####################
-# Data Loading & Caching
+# Data Loading
 #####################
-@st.cache_data
 def load_all_data():
     """
     Load all data used by the application and return it as a dictionary.
-    This function is cached to avoid re-querying the database unnecessarily.
     """
     data = {}
-    # Load orders data with the newest first
-    data["orders"] = run_query(
-        'SELECT "Cliente", "Produto", "Quantidade", "Data" FROM public.tb_pedido ORDER BY "Data" DESC;'
-    )
-    # Load products data
-    data["products"] = run_query(
-        "SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products;"
-    )
-    # Load distinct clients for commands page
-    data["clients"] = run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido;')
-    # Load stock data
-    data["stock"] = run_query(
-        'SELECT "Produto", "Quantidade", "Valor", "Total", "Transação", "Data" FROM public.tb_estoque;'
-    )
+    try:
+        data["orders"] = run_query(
+            'SELECT "Cliente", "Produto", "Quantidade", "Data" FROM public.tb_pedido ORDER BY "Data" DESC;'
+        )
+        data["products"] = run_query(
+            "SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products;"
+        )
+        data["clients"] = run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido;')
+        data["stock"] = run_query(
+            'SELECT "Produto", "Quantidade", "Valor", "Total", "Transação", "Data" FROM public.tb_estoque;'
+        )
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
     return data
 
 def refresh_data():
     """
-    Force a data refresh by clearing the cache and reloading everything.
+    Reload all data and update the session state.
     """
-    load_all_data.clear()
     st.session_state.data = load_all_data()
 
 #####################
@@ -73,34 +91,18 @@ def refresh_data():
 #####################
 def sidebar_navigation():
     """
-    Create a sidebar with navigation buttons. When a button is clicked,
-    update the session state and rerun the app to show the selected page.
+    Create a sidebar for navigation.
     """
     st.sidebar.title("Menu")
-    if st.sidebar.button("Boituva Beach Club"):
-        st.session_state.page = "home"
-        st.experimental_rerun()
-    if st.sidebar.button("Orders"):
-        st.session_state.page = "orders"
-        st.experimental_rerun()
-    if st.sidebar.button("Products"):
-        st.session_state.page = "products"
-        st.experimental_rerun()
-    if st.sidebar.button("Commands"):
-        st.session_state.page = "commands"
-        st.experimental_rerun()
-    if st.sidebar.button("Stock"):
-        st.session_state.page = "stock"
-        st.experimental_rerun()
+    st.sidebar.radio("Navigate to:", ["Home", "Orders", "Products", "Commands", "Stock"], key="page")
 
 #####################
 # Page Functions
 #####################
 def home_page():
     st.title("Boituva Beach Club")
-    st.write("Welcome! Please choose an option:")
+    st.write("Welcome! Use the sidebar to navigate.")
 
-    # Refresh data button (optional)
     if st.button("Refresh Data"):
         refresh_data()
         st.success("Data refreshed!")
@@ -109,39 +111,33 @@ def orders_page():
     st.title("Orders")
     st.subheader("Register a new order")
 
-    # Get product names from loaded product data
     product_data = st.session_state.data.get("products", [])
-    product_list = [row[1] for row in product_data]  # 'product' is the second column in the SELECT
-    if not product_list:
-        product_list = ["No products available"]
+    product_list = [row[1] for row in product_data] if product_data else ["No products available"]
 
     with st.form(key='order_form'):
         customer_name = st.text_input("Customer Name", max_chars=100)
-        product = st.selectbox("Product", product_list)  # Using selectbox instead of text_input
+        product = st.selectbox("Product", product_list)
         quantity = st.number_input("Quantity", min_value=1, step=1)
         submit_button = st.form_submit_button(label="Register Order")
 
     if submit_button:
         if customer_name and product and quantity > 0:
-            insert_query = """
+            query = """
             INSERT INTO public.tb_pedido ("Cliente", "Produto", "Quantidade", "Data")
             VALUES (%s, %s, %s, %s);
             """
             timestamp = datetime.now()
-            try:
-                run_insert(insert_query, (customer_name, product, quantity, timestamp))
+            success = run_insert(query, (customer_name, product, quantity, timestamp))
+            if success:
                 st.success("Order registered successfully!")
                 refresh_data()
-            except Exception as e:
-                st.error(f"An error occurred: {e}")
         else:
             st.warning("Please fill in all fields correctly.")
 
-    # Show all orders (cached and sorted by date desc from the query)
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
-        columns = ["Client", "Product", "Quantity", "Date"]
         st.subheader("All Orders")
+        columns = ["Client", "Product", "Quantity", "Date"]
         st.table([dict(zip(columns, row)) for row in orders_data])
     else:
         st.info("No orders found.")
@@ -149,7 +145,6 @@ def orders_page():
 def products_page():
     st.title("Products")
 
-    # Display existing products (cached)
     products_data = st.session_state.data.get("products", [])
     columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
     if products_data:
@@ -168,30 +163,26 @@ def products_page():
 
     if submit_product:
         if supplier and product and quantity > 0 and unit_value >= 0:
-            insert_query = """
+            query = """
             INSERT INTO public.tb_products (supplier, product, quantity, unit_value, total_value, creation_date)
             VALUES (%s, %s, %s, %s, %s, %s);
             """
             total_value = quantity * unit_value
-            try:
-                run_insert(insert_query, (supplier, product, quantity, unit_value, total_value, creation_date))
+            success = run_insert(query, (supplier, product, quantity, unit_value, total_value, creation_date))
+            if success:
                 st.success("Product added successfully!")
                 refresh_data()
-            except Exception as e:
-                st.error(f"An error occurred: {e}")
         else:
             st.warning("Please fill in all fields correctly.")
 
 def commands_page():
     st.title("Commands")
 
-    # Fetch distinct clients (cached)
     clients_data = [row[0] for row in st.session_state.data.get("clients", [])]
 
     if clients_data:
         selected_client = st.selectbox("Select a Client", clients_data)
         if st.button("Open Command"):
-            # Filtered from cached orders data
             orders_data = st.session_state.data.get("orders", [])
             client_orders = [o for o in orders_data if o[0] == selected_client]
 
@@ -206,7 +197,6 @@ def commands_page():
 def stock_page():
     st.title("Stock")
 
-    # Display stock data (cached)
     stock_data = st.session_state.data.get("stock", [])
     columns = ["Product", "Quantity", "Value", "Total", "Transaction", "Date"]
     if stock_data:
@@ -225,43 +215,35 @@ def stock_page():
 
     if submit_stock:
         if product and quantity > 0 and value >= 0:
-            insert_query = """
+            query = """
             INSERT INTO public.tb_estoque ("Produto", "Quantidade", "Valor", "Total", "Transação", "Data")
             VALUES (%s, %s, %s, %s, %s, %s);
             """
             total = quantity * value
-            try:
-                run_insert(insert_query, (product, quantity, value, total, transaction, current_date))
+            success = run_insert(query, (product, quantity, value, total, transaction, current_date))
+            if success:
                 st.success("Stock record added successfully!")
                 refresh_data()
-            except Exception as e:
-                st.error(f"An error occurred: {e}")
         else:
             st.warning("Please fill in all fields correctly.")
 
 #####################
 # Initialization
 #####################
-if 'page' not in st.session_state:
-    st.session_state.page = "home"
-
-# Load all data if not already loaded
 if 'data' not in st.session_state:
     st.session_state.data = load_all_data()
 
-# Render Sidebar Navigation on every page
+# Sidebar Navigation
 sidebar_navigation()
 
-#####################
 # Page Routing
-#####################
-if st.session_state.page == "home":
+if st.session_state.page == "Home":
     home_page()
-elif st.session_state.page == "orders":
+elif st.session_state.page == "Orders":
     orders_page()
-elif st.session_state.page == "products":
+elif st.session_state.page == "Products":
     products_page()
-elif st.session_state.page == "commands":
+elif st.session_state.page == "Commands":
     commands_page()
-elif st.session_state.page == "stock":
+elif st.session_state.page == "Stock":
     stock_page()
