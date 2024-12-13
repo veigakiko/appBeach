@@ -67,7 +67,7 @@ def load_all_data():
     data = {}
     try:
         data["orders"] = run_query(
-            'SELECT "Cliente", "Produto", "Quantidade", "Data", "Status" FROM public.tb_pedido ORDER BY "Data" DESC;'
+            'SELECT "Cliente", "Produto", "Quantidade", "Data" FROM public.tb_pedido ORDER BY "Data" DESC;'
         )
         data["products"] = run_query(
             "SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products;"
@@ -105,6 +105,7 @@ def home_page():
     
     st.button("Refresh Data", on_click=refresh_data)
 
+
 def orders_page():
     st.title("Orders")
     st.subheader("Register a new order")
@@ -135,10 +136,44 @@ def orders_page():
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
         st.subheader("All Orders")
-        columns = ["Client", "Product", "Quantity", "Date", "Status"]
+        columns = ["Client", "Product", "Quantity", "Date"]
         st.dataframe([dict(zip(columns, row)) for row in orders_data])
     else:
         st.info("No orders found.")
+
+def products_page():
+    st.title("Products")
+
+    st.subheader("Add a new product")
+    with st.form(key='product_form'):
+        supplier = st.text_input("Supplier", max_chars=100)
+        product = st.text_input("Product", max_chars=100)
+        quantity = st.number_input("Quantity", min_value=1, step=1)
+        unit_value = st.number_input("Unit Value", min_value=0.0, step=0.01, format="%.2f")
+        creation_date = st.date_input("Creation Date")
+        submit_product = st.form_submit_button(label="Insert Product")
+
+    if submit_product:
+        if supplier and product and quantity > 0 and unit_value >= 0:
+            query = """
+            INSERT INTO public.tb_products (supplier, product, quantity, unit_value, total_value, creation_date)
+            VALUES (%s, %s, %s, %s, %s, %s);
+            """
+            total_value = quantity * unit_value
+            success = run_insert(query, (supplier, product, quantity, unit_value, total_value, creation_date))
+            if success:
+                st.success("Product added successfully!")
+                refresh_data()
+        else:
+            st.warning("Please fill in all fields correctly.")
+
+    products_data = st.session_state.data.get("products", [])
+    columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
+    if products_data:
+        st.subheader("All Products")
+        st.dataframe([dict(zip(columns, row)) for row in products_data])
+    else:
+        st.info("No products found.")
 
 def commands_page():
     st.title("Commands")
@@ -148,18 +183,76 @@ def commands_page():
     if clients_data:
         selected_client = st.selectbox("Select a Client", clients_data)
         if st.button("Open Command"):
-            orders_data = run_query(
-                'SELECT "Cliente", "Produto", "Quantidade", "Data", "Status" FROM public.tb_pedido WHERE "Cliente" = %s;',
-                (selected_client,)
-            )
+            orders_data = st.session_state.data.get("orders", [])
+            client_orders = [o for o in orders_data if o[0] == selected_client]
 
-            columns = ["Client", "Product", "Quantity", "Date", "Status"]
-            if orders_data:
-                st.dataframe([dict(zip(columns, row)) for row in orders_data])
+            columns = ["Client", "Product", "Quantity", "Date"]
+            if client_orders:
+                st.dataframe([dict(zip(columns, row)) for row in client_orders])
             else:
                 st.info("No orders found for this client.")
     else:
         st.info("No clients found.")
+
+def stock_page():
+    st.title("Stock")
+
+    st.subheader("Add a new stock record")
+    with st.form(key='stock_form'):
+        product = st.text_input("Product", max_chars=100)
+        quantity = st.number_input("Quantity", min_value=1, step=1)
+        value = st.number_input("Value", min_value=0.0, step=0.01, format="%.2f")
+        transaction = "Entry"
+        current_date = datetime.now().date()
+        submit_stock = st.form_submit_button(label="Register")
+
+    if submit_stock:
+        if product and quantity > 0 and value >= 0:
+            query = """
+            INSERT INTO public.tb_estoque ("Produto", "Quantidade", "Valor", "Total", "Transação", "Data")
+            VALUES (%s, %s, %s, %s, %s, %s);
+            """
+            total = quantity * value
+            success = run_insert(query, (product, quantity, value, total, transaction, current_date))
+            if success:
+                st.success("Stock record added successfully!")
+                refresh_data()
+        else:
+            st.warning("Please fill in all fields correctly.")
+
+    stock_data = st.session_state.data.get("stock", [])
+    columns = ["Product", "Quantity", "Value", "Total", "Transaction", "Date"]
+    if stock_data:
+        st.subheader("All Stock Records")
+        st.dataframe([dict(zip(columns, row)) for row in stock_data])
+    else:
+        st.info("No stock records found.")
+
+def clients_page():
+    st.title("Clients")
+
+    st.subheader("Register a New Client")
+    with st.form(key='client_form'):
+        nome_completo = st.text_input("Full Name", max_chars=100)
+        data_nascimento = st.date_input("Date of Birth")
+        genero = st.text_input("Sex/Gender (optional)", max_chars=50)
+        telefone = st.text_input("Phone", max_chars=15)
+        email = st.text_input("Email", max_chars=100)
+        endereco = st.text_area("Address")
+        submit_client = st.form_submit_button(label="Register New Client")
+
+    if submit_client:
+        if nome_completo and data_nascimento and telefone and email and endereco:
+            query = """
+            INSERT INTO public.tb_clientes (nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro)
+            VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP);
+            """
+            success = run_insert(query, (nome_completo, data_nascimento, genero, telefone, email, endereco))
+            if success:
+                st.success("Client registered successfully!")
+                refresh_data()
+        else:
+            st.warning("Please fill in all required fields.")
 
 #####################
 # Initialization
