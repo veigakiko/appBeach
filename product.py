@@ -186,7 +186,7 @@ def products_page():
 def commands_page():
     st.title("Commands")
 
-    # Obter lista de clientes da sessão
+    # Obter lista de clientes
     clients_data = [row[0] for row in st.session_state.data.get("clients", [])]
 
     if clients_data:
@@ -204,60 +204,49 @@ def commands_page():
             # Configuração das colunas da tabela
             columns = ["Client", "Product", "Quantity", "Date", "Status", "Unit Value", "Total"]
             if client_orders:
-                # Converter os dados em um DataFrame para facilitar o cálculo
                 import pandas as pd
                 df = pd.DataFrame(client_orders, columns=columns)
 
-                # Exibir a tabela
+                # Exibir tabela e total
                 st.dataframe(df, use_container_width=True)
-
-                # Calcular a soma da coluna "Total"
                 total_sum = df["Total"].sum()
-
-                # Exibir o valor total em formato de moeda
                 st.subheader(f"Total Amount: R$ {total_sum:,.2f}")
 
-                # Adicionar botões de pagamento
-                col1, col2, col3 = st.columns(3)
+                # Formulário de pagamento
+                with st.form(key="payment_form"):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        debit = st.form_submit_button("Debit")
+                    with col2:
+                        credit = st.form_submit_button("Credit")
+                    with col3:
+                        pix = st.form_submit_button("Pix")
 
-                # Determinar o novo status com base no botão clicado
-                if "payment_status" not in st.session_state:
-                    st.session_state.payment_status = None
+                    # Determinar status e atualizar
+                    payment_status = None
+                    if debit:
+                        payment_status = "Received - Debited"
+                    elif credit:
+                        payment_status = "Received - Credit"
+                    elif pix:
+                        payment_status = "Received - Pix"
 
-                with col1:
-                    if st.button("Debit"):
-                        st.session_state.payment_status = "Received - Debited"
-                with col2:
-                    if st.button("Credit"):
-                        st.session_state.payment_status = "Received - Credit"
-                with col3:
-                    if st.button("Pix"):
-                        st.session_state.payment_status = "Received - Pix"
-
-                # Atualizar os registros no banco de dados se um botão for clicado
-                if st.session_state.payment_status:
-                    update_query = """
-                    UPDATE public.tb_pedido
-                    SET status = %s, "Data" = CURRENT_TIMESTAMP
-                    WHERE "Cliente" = %s AND status = 'em aberto';
-                    """
-                    success = run_insert(update_query, (st.session_state.payment_status, selected_client))
-                    if success:
-                        st.success(f"OK - Amount Received via {st.session_state.payment_status.split(' - ')[1]}")
-                        # Atualizar os dados na sessão
-                        refresh_data()
-                        # Resetar o estado do pagamento para evitar múltiplas atualizações
-                        st.session_state.payment_status = None
-                    else:
-                        st.error("Failed to update order status.")
-
-                # Exibir o texto explicativo abaixo dos botões
-                st.write("_Close the command by clicking one of the options above._")
+                    if payment_status:
+                        update_query = """
+                        UPDATE public.tb_pedido
+                        SET status = %s, "Data" = CURRENT_TIMESTAMP
+                        WHERE "Cliente" = %s AND status = 'em aberto';
+                        """
+                        success = run_insert(update_query, (payment_status, selected_client))
+                        if success:
+                            st.success(f"OK - Amount Received via {payment_status.split(' - ')[1]}")
+                            refresh_data()  # Atualizar dados após sucesso
+                        else:
+                            st.error("Failed to update order status.")
             else:
                 st.info("No orders found for this client.")
     else:
         st.info("No clients found.")
-
 
 
 def stock_page():
