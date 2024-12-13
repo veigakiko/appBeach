@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_option_menu import option_menu
 import psycopg2
 from psycopg2 import OperationalError
 from datetime import datetime
@@ -89,24 +90,29 @@ def refresh_data():
     st.session_state.data = load_all_data()
 
 #####################
-# Sidebar Navigation
+# Menu Navigation
 #####################
 def sidebar_navigation():
     """
-    Create a sidebar for navigation.
+    Create a sidebar or horizontal menu for navigation using streamlit_option_menu.
     """
-    st.sidebar.title("Menu")
-    st.sidebar.radio("Navigate to:", ["Home", "Orders", "Products", "Commands", "Stock", "Clients"], key="page")
+    with st.sidebar:
+        st.title("Boituva Beach Club")
+        selected = option_menu(
+            "Navigation", ["Home", "Orders", "Products", "Commands", "Stock", "Clients"],
+            icons=["house", "file-text", "box", "list-task", "layers", "user"],
+            menu_icon="cast",
+            default_index=0
+        )
+    return selected
 
 #####################
 # Page Functions
 #####################
 def home_page():
     st.title("Boituva Beach Club")
-    st.write("🎾 BeachTennis📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
-    
+    st.write("\ud83c\udfbe BeachTennis\ud83d\udccdAv. Do Trabalhador, 1879\ud83c\udfc6 5° Open BBC")
     st.button("Refresh Data", on_click=refresh_data)
-
 
 def orders_page():
     st.title("Orders")
@@ -262,8 +268,8 @@ def clients_page():
 if 'data' not in st.session_state:
     st.session_state.data = load_all_data()
 
-# Sidebar Navigation
-sidebar_navigation()
+# Menu Navigation
+st.session_state.page = sidebar_navigation()
 
 # Page Routing
 if st.session_state.page == "Home":
