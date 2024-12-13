@@ -1,22 +1,17 @@
 import streamlit as st
-import psycopg2
+from psycopg import connect
 from datetime import datetime
 from contextlib import closing
-from psycopg import connect
-
 
 #####################
 # Database Utilities
 #####################
 @st.cache_resource
 def get_db_connection():
-    """Return a persistent database connection."""
-    return psycopg2.connect(
-        host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
-        database="beachtennis",
-        user="kiko",
-        password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
-        port=5432
+    """Return a persistent database connection using psycopg (psycopg3)."""
+    # Utilize uma string de conexão completa:
+    return connect(
+        "postgresql://kiko:ff15dHpkRtuoNgeF8eWjpqymWLleEM00@dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com:5432/beachtennis"
     )
 
 def run_query(query, values=None):
@@ -59,7 +54,7 @@ def load_all_data():
         "SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products;"
     )
     # Load distinct clients for commands page
-    data["clients"] = run_query("SELECT DISTINCT \"Cliente\" FROM public.tb_pedido;")
+    data["clients"] = run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido;')
     # Load stock data
     data["stock"] = run_query(
         'SELECT "Produto", "Quantidade", "Valor", "Total", "Transação", "Data" FROM public.tb_estoque;'
