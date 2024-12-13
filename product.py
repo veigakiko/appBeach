@@ -124,8 +124,8 @@ def orders_page():
     if submit_button:
         if customer_name and product and quantity > 0:
             query = """
-            INSERT INTO public.tb_pedido ("Cliente", "Produto", "Quantidade", "Data")
-            VALUES (%s, %s, %s, %s);
+            INSERT INTO public.tb_pedido ("Cliente", "Produto", "Quantidade", "Data", "status")
+            VALUES (%s, %s, %s, %s, 'em aberto');
             """
             timestamp = datetime.now()
             success = run_insert(query, (customer_name, product, quantity, timestamp))
