@@ -110,6 +110,36 @@ def home_page():
 
 def orders_page():
     st.title("Orders")
+
+    st.subheader("Register a new order")
+
+    st.subheader("Edit an Existing Order")
+    orders_data = st.session_state.data.get("orders", [])
+    if orders_data:
+        columns = ["Client", "Product", "Quantity", "Date", "Status"]
+        order_list = [dict(zip(columns, row)) for row in orders_data]
+        selected_order = st.selectbox("Select an Order to Edit", order_list, format_func=lambda x: f"{x['Client']} - {x['Product']} - {x['Date']}")
+
+        if selected_order:
+            with st.form(key='edit_order_form'):
+                new_client = st.text_input("Client", selected_order["Client"])
+                new_product = st.text_input("Product", selected_order["Product"])
+                new_quantity = st.number_input("Quantity", min_value=1, step=1, value=selected_order["Quantity"])
+                new_status = st.selectbox("Status", ["em aberto", "completed", "cancelled"], index=["em aberto", "completed", "cancelled"].index(selected_order["Status"]))
+                update_button = st.form_submit_button(label="Update Order")
+
+            if update_button:
+                query = """
+                UPDATE public.tb_pedido
+                SET "Cliente" = %s, "Produto" = %s, "Quantidade" = %s, "status" = %s
+                WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
+                """
+                success = run_insert(query, (new_client, new_product, new_quantity, new_status, selected_order["Client"], selected_order["Product"], selected_order["Date"]))
+                if success:
+                    st.success("Order updated successfully!")
+                    refresh_data()
+    else:
+        st.info("No orders available for editing.")
     st.subheader("Register a new order")
 
     product_data = st.session_state.data.get("products", [])
@@ -234,6 +264,9 @@ def clients_page():
     st.title("Clients")
 
     st.subheader("Register a New Client")
+
+    st.subheader("Register a New Client")
+
     with st.form(key='client_form'):
         nome_completo = st.text_input("Full Name", max_chars=100)
         data_nascimento = st.date_input("Date of Birth")
@@ -255,6 +288,14 @@ def clients_page():
                 refresh_data()
         else:
             st.warning("Please fill in all required fields.")
+
+    st.subheader("All Clients")
+    clients_data = run_query("SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro FROM public.tb_clientes;")
+    columns = ["Full Name", "Date of Birth", "Gender", "Phone", "Email", "Address", "Registration Date"]
+    if clients_data:
+        st.dataframe([dict(zip(columns, row)) for row in clients_data], use_container_width=True)
+    else:
+        st.info("No clients found.")
 
 #####################
 # Initialization
