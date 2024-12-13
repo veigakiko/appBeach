@@ -9,20 +9,20 @@ from datetime import datetime
 @st.cache_resource
 def get_db_connection():
     """
-    Return a new database connection using psycopg2.
+    Return a persistent database connection using psycopg2.
     """
     try:
-        return psycopg2.connect(
+        conn = psycopg2.connect(
             host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
             database="beachtennis",
             user="kiko",
             password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
             port=5432
         )
+        return conn
     except OperationalError as e:
         st.error("Could not connect to the database. Please try again later.")
         return None
-
 
 def run_query(query, values=None):
     """
@@ -38,9 +38,6 @@ def run_query(query, values=None):
     except Exception as e:
         st.error(f"Error executing query: {e}")
         return []
-    finally:
-        if conn:
-            conn.close()
 
 def run_insert(query, values):
     """
@@ -57,9 +54,18 @@ def run_insert(query, values):
     except Exception as e:
         st.error(f"Error executing insert: {e}")
         return False
-    finally:
-        if conn:
-            conn.close()
+
+# Função para fechar a conexão ao finalizar o app
+def close_db_connection():
+    """
+    Close the database connection if it exists.
+    """
+    conn = get_db_connection()
+    if conn:
+        conn.close()
+
+# Configuração para fechar a conexão ao sair
+st.on_event("shutdown", close_db_connection)
 
 #####################
 # Data Loading
