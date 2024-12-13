@@ -318,4 +318,4 @@ elif st.session_state.page == "Commands":
 elif st.session_state.page == "Stock":
     stock_page()
 elif st.session_state.page == "Clients":
-    clients_page() 
+    clients_page()
