@@ -99,7 +99,7 @@ def sidebar_navigation():
 #####################
 def home_page():
     st.title("Boituva Beach Club")
-    st.write("Welcome! Use the sidebar to navigate.")
+    st.write("🎾 BeachTennis |📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
 
     st.button("Refresh Data", on_click=refresh_data)
 
