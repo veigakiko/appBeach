@@ -92,7 +92,7 @@ def sidebar_navigation():
     Create a sidebar for navigation.
     """
     st.sidebar.title("Menu")
-    st.sidebar.radio("Navigate to:", ["Home", "Orders", "Products", "Commands", "Stock"], key="page")
+    st.sidebar.radio("Navigate to:", ["Home", "Orders", "Products", "Commands", "Stock", "Clients"], key="page")
 
 #####################
 # Page Functions
@@ -226,6 +226,32 @@ def stock_page():
     else:
         st.info("No stock records found.")
 
+def clients_page():
+    st.title("Clients")
+
+    st.subheader("Register a New Client")
+    with st.form(key='client_form'):
+        full_name = st.text_input("Full Name", max_chars=100)
+        date_of_birth = st.date_input("Date of Birth")
+        gender = st.text_input("Sex/Gender (optional)", max_chars=50)
+        phone = st.text_input("Phone", max_chars=15)
+        email = st.text_input("Email", max_chars=100)
+        address = st.text_area("Address")
+        submit_client = st.form_submit_button(label="Register New Client")
+
+    if submit_client:
+        if full_name and date_of_birth and phone and email and address:
+            query = """
+            INSERT INTO public.tb_clientes (full_name, date_of_birth, gender, phone, email, address, registration_date)
+            VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP);
+            """
+            success = run_insert(query, (full_name, date_of_birth, gender, phone, email, address))
+            if success:
+                st.success("Client registered successfully!")
+                refresh_data()
+        else:
+            st.warning("Please fill in all required fields.")
+
 #####################
 # Initialization
 #####################
@@ -246,3 +272,5 @@ elif st.session_state.page == "Commands":
     commands_page()
 elif st.session_state.page == "Stock":
     stock_page()
+elif st.session_state.page == "Clients":
+    clients_page()
