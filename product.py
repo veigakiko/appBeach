@@ -214,7 +214,7 @@ def commands_page():
             st.subheader(f"Total Amount: R$ {total_sum:,.2f}")
 
             # Botões para atualização de status
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3 = st.columns(3)
             payment_status = None
 
             with col1:
@@ -226,8 +226,6 @@ def commands_page():
             with col3:
                 if st.button("Pix"):
                     payment_status = "Received - Pix"
-            with col4:
-                checkout = st.button("Checkout")
 
             # Atualizar o status no banco de dados
             if payment_status:
@@ -243,41 +241,11 @@ def commands_page():
                     refresh_data()
                 else:
                     st.error("Failed to update order status.")
-
-            # Abrir janela de checkout
-            if checkout:
-                # Obter dados de pedidos abertos e recebidos
-                open_orders_query = """
-                SELECT "Cliente", "Produto", "Quantidade", "Data", status
-                FROM public.tb_pedido
-                WHERE "Cliente" = %s AND status = 'em aberto';
-                """
-                received_orders_query = """
-                SELECT "Cliente", "Produto", "Quantidade", "Data", status
-                FROM public.tb_pedido
-                WHERE "Cliente" = %s AND status LIKE 'Received%';
-                """
-                open_orders = run_query(open_orders_query, (selected_client,))
-                received_orders = run_query(received_orders_query, (selected_client,))
-
-                # Transformar em DataFrames
-                open_orders_df = pd.DataFrame(open_orders, columns=["Client", "Product", "Quantity", "Date", "Status"])
-                received_orders_df = pd.DataFrame(received_orders, columns=["Client", "Product", "Quantity", "Date", "Status"])
-
-                # Exibir tabelas lado a lado
-                st.markdown("### Checkout Details")
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.subheader("Open Orders")
-                    st.dataframe(open_orders_df, use_container_width=True)
-                with col2:
-                    st.subheader("Received Orders")
-                    st.dataframe(received_orders_df, use_container_width=True)
-
         else:
             st.info("No orders found for this client.")
     else:
         st.info("No clients found.")
+
 
 def stock_page():
     st.title("Stock")
