@@ -234,18 +234,22 @@ def commands_page():
 
                 # Atualizar os registros no banco de dados se um botão for clicado
                 if payment_status:
-                    update_query = """
-                    UPDATE public.tb_pedido
-                    SET status = %s, "Data" = CURRENT_TIMESTAMP
-                    WHERE "Cliente" = %s AND status = 'em aberto';
-                    """
-                    success = run_insert(update_query, (payment_status, selected_client))
-                    if success:
-                        st.success(f"OK - Amount Received via {payment_status.split(' - ')[1]}")
-                        # Atualizar os dados na sessão
-                        refresh_data()
-                    else:
-                        st.error("Failed to update order status.")
+                    try:
+                        update_query = """
+                        UPDATE public.tb_pedido
+                        SET status = %s, "Data" = CURRENT_TIMESTAMP
+                        WHERE "Cliente" = %s AND status = 'em aberto';
+                        """
+                        success = run_insert(update_query, (payment_status, selected_client))
+                        if success:
+                            st.success(f"OK - Amount Received via {payment_status.split(' - ')[1]}")
+                            # Atualizar os dados na sessão
+                            refresh_data()
+                        else:
+                            st.error("Failed to update order status.")
+                    except Exception as e:
+                        st.error(f"Error while updating: {e}")
+                        st.stop()
 
                 # Exibir o texto explicativo abaixo dos botões
                 st.write("_Close the command by clicking one of the options above._")
@@ -253,7 +257,6 @@ def commands_page():
                 st.info("No orders found for this client.")
     else:
         st.info("No clients found.")
-
 
 
 def stock_page():
