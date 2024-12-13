@@ -2,6 +2,7 @@ import streamlit as st
 import psycopg2
 from psycopg2 import OperationalError
 from datetime import datetime
+import os
 
 #####################
 # Database Utilities
@@ -12,14 +13,14 @@ def get_db_connection():
     """
     try:
         return psycopg2.connect(
-            host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
-            database="beachtennis",
-            user="kiko",
-            password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
-            port=5432
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            port=os.getenv("DB_PORT")
         )
     except OperationalError as e:
-        st.error("Could not connect to the database. Please try again later.")
+        st.error(f"Database connection failed: {e}")
         return None
 
 def run_query(query, values=None):
