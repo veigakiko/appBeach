@@ -101,7 +101,7 @@ def sidebar_navigation():
 #####################
 def home_page():
     st.title("Boituva Beach Club")
-    st.write("\ud83c\udfbe BeachTennis\ud83d\udccdAv. Do Trabalhador, 1879\ud83c\udfc6 5\u00b0 Open BBC")
+    st.write("🎾 BeachTennis📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
     
     st.button("Refresh Data", on_click=refresh_data)
 
