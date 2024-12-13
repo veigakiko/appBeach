@@ -234,6 +234,9 @@ def clients_page():
     st.title("Clients")
 
     st.subheader("Register a New Client")
+
+    st.subheader("Register a New Client")
+
     with st.form(key='client_form'):
         nome_completo = st.text_input("Full Name", max_chars=100)
         data_nascimento = st.date_input("Date of Birth")
@@ -255,6 +258,14 @@ def clients_page():
                 refresh_data()
         else:
             st.warning("Please fill in all required fields.")
+
+    st.subheader("All Clients")
+    clients_data = run_query("SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro FROM public.tb_clientes;")
+    columns = ["Full Name", "Date of Birth", "Gender", "Phone", "Email", "Address", "Registration Date"]
+    if clients_data:
+        st.dataframe([dict(zip(columns, row)) for row in clients_data], use_container_width=True)
+    else:
+        st.info("No clients found.")
 
 #####################
 # Initialization
