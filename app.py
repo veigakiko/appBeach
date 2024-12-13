@@ -2,6 +2,8 @@ import streamlit as st
 import psycopg2
 from datetime import datetime
 from contextlib import closing
+from psycopg import connect
+
 
 #####################
 # Database Utilities
