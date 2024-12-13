@@ -268,7 +268,7 @@ sidebar_navigation()
 # Page Routing
 if st.session_state.page == "Home":
     home_page()
-elif st.session_state.page == "Pedidos":
+elif st.session_state.page == "Orders":
     orders_page()
 elif st.session_state.page == "Products":
     products_page()
