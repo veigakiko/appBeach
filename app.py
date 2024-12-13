@@ -2,17 +2,17 @@ import streamlit as st
 from psycopg import connect
 from datetime import datetime
 from contextlib import closing
+from psycopg import connect
 
 #####################
 # Database Utilities
 #####################
 @st.cache_resource
 def get_db_connection():
-    """Return a persistent database connection using psycopg (psycopg3)."""
-    # Utilize uma string de conexão completa:
     return connect(
         "postgresql://kiko:ff15dHpkRtuoNgeF8eWjpqymWLleEM00@dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com:5432/beachtennis"
     )
+
 
 def run_query(query, values=None):
     """
