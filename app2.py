@@ -89,31 +89,19 @@ def refresh_data():
 #####################
 def navigation_buttons():
     """
-    Display navigation buttons at the top of every page.
+    Display navigation buttons on the left side, stacked vertically.
     """
-    col1, col2, col3, col4, col5 = st.columns(5)
-
-    with col1:
-        if st.button("Home"):
-            st.session_state.page = "Home"
-
-    with col2:
-        if st.button("Orders"):
-            st.session_state.page = "Orders"
-
-    with col3:
-        if st.button("Products"):
-            st.session_state.page = "Products"
-
-    with col4:
-        if st.button("Commands"):
-            st.session_state.page = "Commands"
-
-    with col5:
-        if st.button("Stock"):
-            st.session_state.page = "Stock"
-
-    st.button("Refresh Data", on_click=refresh_data)
+    st.sidebar.title("Navigation")
+    if st.sidebar.button("Home"):
+        st.session_state.page = "Home"
+    if st.sidebar.button("Orders"):
+        st.session_state.page = "Orders"
+    if st.sidebar.button("Products"):
+        st.session_state.page = "Products"
+    if st.sidebar.button("Commands"):
+        st.session_state.page = "Commands"
+    if st.sidebar.button("Stock"):
+        st.session_state.page = "Stock"
 
 #####################
 # Page Functions
@@ -121,7 +109,7 @@ def navigation_buttons():
 def home_page():
     navigation_buttons()
     st.title("Boituva Beach Club")
-    st.write("Welcome! Use the buttons above to navigate.")
+    st.write("Welcome! Use the buttons on the left to navigate.")
 
 def orders_page():
     navigation_buttons()
