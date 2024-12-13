@@ -92,16 +92,9 @@ def navigation_buttons():
     Display navigation buttons on the left side, stacked vertically.
     """
     st.sidebar.title("Navigation")
-    if st.sidebar.button("Home"):
-        st.session_state.page = "Home"
-    if st.sidebar.button("Orders"):
-        st.session_state.page = "Orders"
-    if st.sidebar.button("Products"):
-        st.session_state.page = "Products"
-    if st.sidebar.button("Commands"):
-        st.session_state.page = "Commands"
-    if st.sidebar.button("Stock"):
-        st.session_state.page = "Stock"
+    for page in ["Home", "Orders", "Products", "Commands", "Stock"]:
+        if st.sidebar.button(page):
+            st.session_state.page = page
 
 #####################
 # Page Functions
