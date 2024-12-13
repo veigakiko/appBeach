@@ -186,21 +186,31 @@ def products_page():
 def commands_page():
     st.title("Commands")
 
+    # Obter lista de clientes da sessão
     clients_data = [row[0] for row in st.session_state.data.get("clients", [])]
 
     if clients_data:
         selected_client = st.selectbox("Select a Client", clients_data)
-        if st.button("Open Command"):
-            orders_data = st.session_state.data.get("orders", [])
-            client_orders = [o for o in orders_data if o[0] == selected_client]
 
-            columns = ["Client", "Product", "Quantity", "Date", "Status"]
+        if st.button("Open Command"):
+            # Consulta à view vw_pedido_produto para obter os pedidos do cliente selecionado
+            query = """
+            SELECT "Cliente", "Produto", "Quantidade", "Data", status, unit_value
+            FROM vw_pedido_produto
+            WHERE "Cliente" = %s;
+            """
+            client_orders = run_query(query, (selected_client,))
+
+            # Configuração das colunas da tabela
+            columns = ["Client", "Product", "Quantity", "Date", "Status", "Unit Value"]
             if client_orders:
-                st.dataframe([dict(zip(columns, row)) for row in client_orders])
+                # Exibir os dados na tabela
+                st.dataframe([dict(zip(columns, row)) for row in client_orders], use_container_width=True)
             else:
                 st.info("No orders found for this client.")
     else:
         st.info("No clients found.")
+
 
 def stock_page():
     st.title("Stock")
