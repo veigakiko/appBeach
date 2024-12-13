@@ -231,21 +231,21 @@ def clients_page():
 
     st.subheader("Register a New Client")
     with st.form(key='client_form'):
-        full_name = st.text_input("Full Name", max_chars=100)
-        date_of_birth = st.date_input("Date of Birth")
-        gender = st.text_input("Sex/Gender (optional)", max_chars=50)
-        phone = st.text_input("Phone", max_chars=15)
+        nome_completo = st.text_input("Full Name", max_chars=100)
+        data_nascimento = st.date_input("Date of Birth")
+        genero = st.text_input("Sex/Gender (optional)", max_chars=50)
+        telefone = st.text_input("Phone", max_chars=15)
         email = st.text_input("Email", max_chars=100)
-        address = st.text_area("Address")
+        endereco = st.text_area("Address")
         submit_client = st.form_submit_button(label="Register New Client")
 
     if submit_client:
-        if full_name and date_of_birth and phone and email and address:
+        if nome_completo and data_nascimento and telefone and email and endereco:
             query = """
-            INSERT INTO public.tb_clientes (full_name, date_of_birth, gender, phone, email, address, registration_date)
+            INSERT INTO public.tb_clientes (nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro)
             VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP);
             """
-            success = run_insert(query, (full_name, date_of_birth, gender, phone, email, address))
+            success = run_insert(query, (nome_completo, data_nascimento, genero, telefone, email, endereco))
             if success:
                 st.success("Client registered successfully!")
                 refresh_data()
