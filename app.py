@@ -52,8 +52,6 @@ def run_insert(query, values):
         conn.commit()
         return True
     except Exception as e:
-        if conn:
-            conn.rollback()
         st.error(f"Error executing insert: {e}")
         return False
 
