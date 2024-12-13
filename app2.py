@@ -240,6 +240,8 @@ def stock_page():
 #####################
 if 'data' not in st.session_state:
     st.session_state.data = load_all_data()
+if 'page' not in st.session_state:
+    st.session_state.page = "Home"
 
 # Page Routing
 if st.session_state.page == "Home":
