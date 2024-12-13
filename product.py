@@ -116,7 +116,7 @@ def orders_page():
     product_list = [row[1] for row in product_data] if product_data else ["No products available"]
 
     with st.form(key='order_form'):
-        customer_name = st.text_input("Customer Name", max_chars=100)
+        customer_name = st.selectbox("Customer Name", [row[0] for row in run_query('SELECT nome_completo FROM public.tb_clientes')])
         product = st.selectbox("Product", product_list)
         quantity = st.number_input("Quantity", min_value=1, step=1)
         submit_button = st.form_submit_button(label="Register Order")
@@ -139,7 +139,7 @@ def orders_page():
     if orders_data:
         st.subheader("All Orders")
         columns = ["Client", "Product", "Quantity", "Date", "Status"]
-        st.dataframe([dict(zip(columns, row)) for row in orders_data])
+        st.dataframe([dict(zip(columns, row)) for row in orders_data], use_container_width=True)
     else:
         st.info("No orders found.")
 
