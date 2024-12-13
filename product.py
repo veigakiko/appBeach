@@ -216,10 +216,26 @@ def commands_page():
 
                 # Exibir o valor total em formato de moeda
                 st.subheader(f"Total Amount: R$ {total_sum:,.2f}")
+
+                # Adicionar botões de pagamento
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    if st.button("Debit"):
+                        st.success("OK - Amount Received via Debit")
+                with col2:
+                    if st.button("Credit"):
+                        st.success("OK - Amount Received via Credit")
+                with col3:
+                    if st.button("Pix"):
+                        st.success("OK - Amount Received via Pix")
+
+                # Exibir o texto explicativo abaixo dos botões
+                st.write("_Close the command by clicking one of the options above._")
             else:
                 st.info("No orders found for this client.")
     else:
         st.info("No clients found.")
+
 
 
 
