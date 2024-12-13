@@ -38,6 +38,9 @@ def run_query(query, values=None):
     except Exception as e:
         st.error(f"Error executing query: {e}")
         return []
+    finally:
+        if conn:
+            conn.close()
 
 def run_insert(query, values):
     """
@@ -54,18 +57,9 @@ def run_insert(query, values):
     except Exception as e:
         st.error(f"Error executing insert: {e}")
         return False
-
-# Função para fechar a conexão ao finalizar o app
-def close_db_connection():
-    """
-    Close the database connection if it exists.
-    """
-    conn = get_db_connection()
-    if conn:
-        conn.close()
-
-# Configuração para fechar a conexão ao sair
-st.on_event("shutdown", close_db_connection)
+    finally:
+        if conn:
+            conn.close()
 
 #####################
 # Data Loading
