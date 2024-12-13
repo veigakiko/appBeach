@@ -85,12 +85,12 @@ def refresh_data():
     st.session_state.data = load_all_data()
 
 #####################
-# Page Functions
+# Navigation Buttons
 #####################
-def home_page():
-    st.title("Boituva Beach Club")
-    st.write("Welcome! Use the buttons below to navigate.")
-
+def navigation_buttons():
+    """
+    Display navigation buttons at the top of every page.
+    """
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
@@ -115,7 +115,16 @@ def home_page():
 
     st.button("Refresh Data", on_click=refresh_data)
 
+#####################
+# Page Functions
+#####################
+def home_page():
+    navigation_buttons()
+    st.title("Boituva Beach Club")
+    st.write("Welcome! Use the buttons above to navigate.")
+
 def orders_page():
+    navigation_buttons()
     st.title("Orders")
     st.subheader("Register a new order")
 
@@ -151,6 +160,7 @@ def orders_page():
         st.info("No orders found.")
 
 def products_page():
+    navigation_buttons()
     st.title("Products")
 
     st.subheader("Add a new product")
@@ -184,6 +194,7 @@ def products_page():
         st.info("No products found.")
 
 def commands_page():
+    navigation_buttons()
     st.title("Commands")
 
     clients_data = [row[0] for row in st.session_state.data.get("clients", [])]
@@ -203,6 +214,7 @@ def commands_page():
         st.info("No clients found.")
 
 def stock_page():
+    navigation_buttons()
     st.title("Stock")
 
     st.subheader("Add a new stock record")
