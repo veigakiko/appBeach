@@ -237,7 +237,7 @@ def clients_page():
     with st.form(key='client_form'):
         nome_completo = st.text_input("Full Name", max_chars=100)
         data_nascimento = st.date_input("Date of Birth")
-        genero = st.text_input("Sex/Gender (optional)", max_chars=50)
+        genero = st.selectbox("Sex/Gender (optional)", ["Man", "Woman"], index=0)
         telefone = st.text_input("Phone", max_chars=15)
         email = st.text_input("Email", max_chars=100)
         endereco = st.text_area("Address")
