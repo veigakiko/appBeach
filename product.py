@@ -336,10 +336,34 @@ def invoice_page():
             if invoice_data:
                 df = pd.DataFrame(invoice_data, columns=["Produto", "Quantidade", "total"])
                 generate_invoice_for_printer(df)
+
+                col1, col2, col3 = st.columns(3)
+
+                if col1.button("Debit"):
+                    update_status(selected_client, "Received - Debited")
+
+                if col2.button("Credit"):
+                    update_status(selected_client, "Received - Credit")
+
+                if col3.button("Pix"):
+                    update_status(selected_client, "Received - Pix")
             else:
                 st.info("Não há pedidos em aberto para o cliente selecionado.")
         else:
             st.warning("Por favor, selecione um cliente.")
+
+def update_status(client, status):
+    query = """
+    UPDATE public.tb_pedido
+    SET status = %s, "Data" = CURRENT_TIMESTAMP
+    WHERE "Cliente" = %s AND status = 'em aberto';
+    """
+    success = run_insert(query, (status, client))
+    if success:
+        st.success(f"Status atualizado para: {status}")
+        refresh_data()
+    else:
+        st.error("Erro ao atualizar o status.")
 
 def generate_invoice_for_printer(df):
     company = "Boituva Beach Club"
@@ -382,7 +406,8 @@ def generate_invoice_for_printer(df):
 
 #####################
 # Initialization
-#####################
+################
+
 if 'data' not in st.session_state:
     st.session_state.data = load_all_data()
 
