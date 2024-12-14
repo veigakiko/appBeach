@@ -112,29 +112,33 @@ def orders_page():
     st.title("Orders")
     st.subheader("Register a new order")
 
+    # Load product data
     product_data = st.session_state.data.get("products", [])
-    product_list = [row[1] for row in product_data] if product_data else ["No products available"]
+    product_list = [""] + [row[1] for row in product_data] if product_data else [""]
 
+    # Order form with empty default values
     with st.form(key='order_form'):
-        customer_name = st.text_input("Customer Name", max_chars=100)
-        product = st.selectbox("Product", product_list)
+        customer_name = st.text_input("Customer Name", value="", max_chars=100)
+        product = st.selectbox("Product", product_list, index=0)
         quantity = st.number_input("Quantity", min_value=1, step=1)
         submit_button = st.form_submit_button(label="Register Order")
 
+    # Handle form submission
     if submit_button:
-        if customer_name and product and quantity > 0:
+        if customer_name.strip() and product.strip() and quantity > 0:
             query = """
             INSERT INTO public.tb_pedido ("Cliente", "Produto", "Quantidade", "Data")
             VALUES (%s, %s, %s, %s);
             """
             timestamp = datetime.now()
-            success = run_insert(query, (customer_name, product, quantity, timestamp))
+            success = run_insert(query, (customer_name.strip(), product.strip(), quantity, timestamp))
             if success:
                 st.success("Order registered successfully!")
                 refresh_data()
         else:
             st.warning("Please fill in all fields correctly.")
 
+    # Display all orders
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
         st.subheader("All Orders")
@@ -143,58 +147,28 @@ def orders_page():
     else:
         st.info("No orders found.")
 
-def products_page():
-    st.title("Products")
-
-    st.subheader("Add a new product")
-    with st.form(key='product_form'):
-        supplier = st.text_input("Supplier", max_chars=100)
-        product = st.text_input("Product", max_chars=100)
-        quantity = st.number_input("Quantity", min_value=1, step=1)
-        unit_value = st.number_input("Unit Value", min_value=0.0, step=0.01, format="%.2f")
-        creation_date = st.date_input("Creation Date")
-        submit_product = st.form_submit_button(label="Insert Product")
-
-    if submit_product:
-        if supplier and product and quantity > 0 and unit_value >= 0:
-            query = """
-            INSERT INTO public.tb_products (supplier, product, quantity, unit_value, total_value, creation_date)
-            VALUES (%s, %s, %s, %s, %s, %s);
-            """
-            total_value = quantity * unit_value
-            success = run_insert(query, (supplier, product, quantity, unit_value, total_value, creation_date))
-            if success:
-                st.success("Product added successfully!")
-                refresh_data()
-        else:
-            st.warning("Please fill in all fields correctly.")
-
-    products_data = st.session_state.data.get("products", [])
-    columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
-    if products_data:
-        st.subheader("All Products")
-        st.dataframe([dict(zip(columns, row)) for row in products_data])
-    else:
-        st.info("No products found.")
-
 def commands_page():
     st.title("Commands")
 
-    clients_data = [row[0] for row in st.session_state.data.get("clients", [])]
+    # Load client data
+    clients_data = [""] + [row[0] for row in st.session_state.data.get("clients", [])]
 
-    if clients_data:
-        selected_client = st.selectbox("Select a Client", clients_data)
-        if st.button("Open Command"):
-            orders_data = st.session_state.data.get("orders", [])
-            client_orders = [o for o in orders_data if o[0] == selected_client]
+    # Command form with empty default value
+    selected_client = st.selectbox("Select a Client", clients_data, index=0)
+    if st.button("Open Command") and selected_client.strip():
+        orders_data = st.session_state.data.get("orders", [])
+        client_orders = [o for o in orders_data if o[0] == selected_client]
 
-            columns = ["Client", "Product", "Quantity", "Date"]
-            if client_orders:
-                st.dataframe([dict(zip(columns, row)) for row in client_orders])
-            else:
-                st.info("No orders found for this client.")
-    else:
-        st.info("No clients found.")
+        # Display client orders below buttons
+        columns = ["Client", "Product", "Quantity", "Date"]
+        if client_orders:
+            st.write("---")
+            st.subheader("Client Orders")
+            st.dataframe([dict(zip(columns, row)) for row in client_orders])
+        else:
+            st.info("No orders found for this client.")
+    elif not selected_client.strip():
+        st.warning("Please select a client.")
 
 def stock_page():
     st.title("Stock")
