@@ -102,7 +102,19 @@ def sidebar_navigation():
             "Navigation", ["Home", "Orders", "Products", "Commands", "Stock", "Clients"],
             icons=["house", "file-text", "box", "list-task", "layers", "user"],
             menu_icon="cast",
-            default_index=0
+            default_index=0,
+            styles={
+                "container": {"background-color": "#1b4f72"},
+                "icon": {"color": "white", "font-size": "18px"},
+                "nav-link": {
+                    "font-size": "14px",
+                    "text-align": "left",
+                    "margin": "0px",
+                    "color": "white",
+                    "--hover-color": "#145a7c",
+                },
+                "nav-link-selected": {"background-color": "#145a7c", "color": "white"},
+            },
         )
     return selected
 
