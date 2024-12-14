@@ -97,7 +97,7 @@ def sidebar_navigation():
     Create a sidebar or horizontal menu for navigation using streamlit_option_menu.
     """
     with st.sidebar:
-        st.title("BBC Operational System")
+        st.title("")
         selected = option_menu(
             "Beach Menu", ["Home", "Orders", "Products", "Commands", "Stock", "Clients"],
             icons=["house", "file-text", "box", "list-task", "layers", "person"],
