@@ -198,66 +198,72 @@ def products_page():
 def commands_page():
     st.title("Commands")
 
-    # Obter lista de clientes
+    # Retrieve list of clients
     clients_data = [""] + [row[0] for row in st.session_state.data.get("clients", [])]
 
     if clients_data:
         selected_client = st.selectbox("Select a Client", clients_data)
 
-        # Exibir pedidos do cliente selecionado
-        query = """
-        SELECT "Cliente", "Produto", "Quantidade", "Data", status, unit_value, 
-               ("Quantidade" * unit_value) AS total
-        FROM vw_pedido_produto
-        WHERE "Cliente" = %s;
-        """
-        client_orders = run_query(query, (selected_client,))
+        if selected_client:
+            # Display orders for the selected client
+            query = """
+            SELECT "Cliente", "Produto", "Quantidade", "Data", status, unit_value, 
+                   ("Quantidade" * unit_value) AS total
+            FROM vw_pedido_produto
+            WHERE "Cliente" = %s;
+            """
+            client_orders = run_query(query, (selected_client,))
 
-        if client_orders:
-            import pandas as pd
+            if client_orders:
+                import pandas as pd
 
-            # Configurar colunas e exibir a tabela
-            columns = ["Client", "Product", "Quantity", "Date", "Status", "Unit Value", "Total"]
-            df = pd.DataFrame(client_orders, columns=columns)
-            st.divider()
-            st.dataframe(df, use_container_width=True)
+                # Configure columns and display the table
+                columns = ["Client", "Product", "Quantity", "Date", "Status", "Unit Value", "Total"]
+                df = pd.DataFrame(client_orders, columns=columns)
+                st.divider()
+                st.dataframe(df.style.set_table_styles(
+                    [{"selector": "table", "props": [("width", "100%")]}]
+                ), use_container_width=True)
 
-            # Calcular o valor total
-            total_sum = df["Total"].sum()
-            st.subheader(f"Total Amount: R$ {total_sum:,.2f}")
+                # Calculate total amount
+                total_sum = df["Total"].sum()
+                st.subheader(f"Total Amount: R$ {total_sum:,.2f}")
 
-            # Botões para atualização de status
-            col1, col2, col3 = st.columns([1, 1, 1])
-            payment_status = None
+                # Buttons for status update
+                col1, col2, col3 = st.columns([1, 1, 1])
+                payment_status = None
 
-            with col1:
-                if st.button("Debit"):
-                    payment_status = "Received - Debited"
-            with col2:
-                if st.button("Credit"):
-                    payment_status = "Received - Credit"
-            with col3:
-                if st.button("Pix"):
-                    payment_status = "Received - Pix"
+                with col1:
+                    if st.button("Debit"):
+                        payment_status = "Received - Debited"
+                with col2:
+                    if st.button("Credit"):
+                        payment_status = "Received - Credit"
+                with col3:
+                    if st.button("Pix"):
+                        payment_status = "Received - Pix"
 
-            # Atualizar o status no banco de dados
-            if payment_status:
-                update_query = """
-                UPDATE public.tb_pedido
-                SET status = %s, "Data" = CURRENT_TIMESTAMP
-                WHERE "Cliente" = %s AND status = 'em aberto';
-                """
-                success = run_insert(update_query, (payment_status, selected_client))
-                if success:
-                    st.success(f"OK - Amount Received via {payment_status.split(' - ')[1]}")
-                    # Recarregar dados após atualização
-                    refresh_data()
-                else:
-                    st.error("Failed to update order status.")
+                # Update status in the database
+                if payment_status:
+                    update_query = """
+                    UPDATE public.tb_pedido
+                    SET status = %s, "Data" = CURRENT_TIMESTAMP
+                    WHERE "Cliente" = %s AND status = 'em aberto';
+                    """
+                    success = run_insert(update_query, (payment_status, selected_client))
+                    if success:
+                        st.success(f"OK - Amount Received via {payment_status.split(' - ')[1]}")
+                        # Reload data after update
+                        refresh_data()
+                    else:
+                        st.error("Failed to update order status.")
+            else:
+                st.info("No orders found for this client.")
         else:
-            st.info("No orders found for this client.")
+            st.info("Please select a client.")
     else:
         st.info("No clients found.")
+
 
 def stock_page():
     st.title("Stock")
