@@ -23,14 +23,6 @@ def get_db_connection():
         st.error("Could not connect to the database. Please try again later.")
         return None
 
-
-def home_page():
-    st.title("Boituva Beach Club")
-    st.write("🎾 Bem-vindo ao sistema do Boituva Beach Club!")
-    st.write("📍 Endereço: Avenida do Trabalhador, 1879")
-    st.write("🏆 Próximo evento: 5º Open BBC")
-    st.button("Atualizar Dados", on_click=refresh_data)
-
 def run_query(query, values=None):
     conn = get_db_connection()
     if conn is None:
@@ -59,55 +51,6 @@ def run_insert(query, values):
             conn.rollback()
         st.error(f"Error executing insert: {e}")
         return False
-
-#####################
-# Data Loading
-#####################
-def load_all_data():
-    data = {}
-    try:
-        data["orders"] = run_query(
-            'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
-        )
-        data["products"] = run_query(
-            "SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products;"
-        )
-        data["clients"] = run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido;')
-        data["stock"] = run_query(
-            'SELECT "Produto", "Quantidade", "Valor", "Total", "Transação", "Data" FROM public.tb_estoque;'
-        )
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-    return data
-
-def refresh_data():
-    st.session_state.data = load_all_data()
-
-#####################
-# Menu Navigation
-#####################
-def sidebar_navigation():
-    with st.sidebar:
-        st.title("Boituva Beach Club")
-        selected = option_menu(
-            "Beach Menu", ["Home", "Orders", "Products", "Commands", "Stock", "Clients", "Nota Fiscal"],
-            icons=["house", "file-text", "box", "list-task", "layers", "person", "file-invoice"],
-            menu_icon="cast",
-            default_index=0,
-            styles={
-                "container": {"background-color": "#1b4f72"},
-                "icon": {"color": "white", "font-size": "18px"},
-                "nav-link": {
-                    "font-size": "14px",
-                    "text-align": "left",
-                    "margin": "0px",
-                    "color": "white",
-                    "--hover-color": "#145a7c",
-                },
-                "nav-link-selected": {"background-color": "#145a7c", "color": "white"},
-            },
-        )
-    return selected
 
 #####################
 # Nota Fiscal Page
@@ -182,15 +125,44 @@ def invoice_page():
             st.warning("Por favor, selecione um cliente.")
 
 #####################
-# Initialization
+# Menu Navigation
+#####################
+def sidebar_navigation():
+    with st.sidebar:
+        st.title("Boituva Beach Club")
+        selected = option_menu(
+            "Beach Menu", ["Home", "Orders", "Products", "Commands", "Stock", "Clients", "Nota Fiscal"],
+            icons=["house", "file-text", "box", "list-task", "layers", "person", "file-invoice"],
+            menu_icon="cast",
+            default_index=0,
+            styles={
+                "container": {"background-color": "#1b4f72"},
+                "icon": {"color": "white", "font-size": "18px"},
+                "nav-link": {
+                    "font-size": "14px",
+                    "text-align": "left",
+                    "margin": "0px",
+                    "color": "white",
+                    "--hover-color": "#145a7c",
+                },
+                "nav-link-selected": {"background-color": "#145a7c", "color": "white"},
+            },
+        )
+    return selected
+
+#####################
+# Page Routing
 #####################
 if 'data' not in st.session_state:
-    st.session_state.data = load_all_data()
+    st.session_state.data = {
+        "orders": [],
+        "products": [],
+        "clients": [],
+        "stock": []
+    }
 
-# Menu Navigation
 st.session_state.page = sidebar_navigation()
 
-# Page Routing
 if st.session_state.page == "Home":
     home_page()
 elif st.session_state.page == "Orders":
