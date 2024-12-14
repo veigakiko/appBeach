@@ -99,7 +99,7 @@ def sidebar_navigation():
     with st.sidebar:
         st.title("BBC Operational System")
         selected = option_menu(
-            "Beach Club Menu", ["Home", "Orders", "Products", "Commands", "Stock", "Clients"],
+            "Beach Menu", ["Home", "Orders", "Products", "Commands", "Stock", "Clients"],
             icons=["house", "file-text", "box", "list-task", "layers", "person"],
             menu_icon="cast",
             default_index=0,
