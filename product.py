@@ -23,6 +23,14 @@ def get_db_connection():
         st.error("Could not connect to the database. Please try again later.")
         return None
 
+
+def home_page():
+    st.title("Boituva Beach Club")
+    st.write("🎾 Bem-vindo ao sistema do Boituva Beach Club!")
+    st.write("📍 Endereço: Avenida do Trabalhador, 1879")
+    st.write("🏆 Próximo evento: 5º Open BBC")
+    st.button("Atualizar Dados", on_click=refresh_data)
+
 def run_query(query, values=None):
     conn = get_db_connection()
     if conn is None:
