@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_option_menu import option_menu
 import psycopg2
 from psycopg2 import OperationalError
 from datetime import datetime
@@ -69,7 +70,7 @@ def load_all_data():
     data = {}
     try:
         data["orders"] = run_query(
-            'SELECT "Cliente", "Produto", "Quantidade", "Data" FROM public.tb_pedido ORDER BY "Data" DESC;'
+            'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
         )
         data["products"] = run_query(
             "SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products;"
@@ -89,14 +90,21 @@ def refresh_data():
     st.session_state.data = load_all_data()
 
 #####################
-# Sidebar Navigation
+# Menu Navigation
 #####################
 def sidebar_navigation():
     """
-    Create a sidebar for navigation.
+    Create a sidebar or horizontal menu for navigation using streamlit_option_menu.
     """
-    st.sidebar.title("Menu")
-    st.sidebar.radio("Navigate to:", ["Home", "Orders", "Products", "Commands", "Stock", "Clients"], key="page")
+    with st.sidebar:
+        st.title("Boituva Beach Club")
+        selected = option_menu(
+            "Navigation", ["Home", "Orders", "Products", "Commands", "Stock", "Clients"],
+            icons=["house", "file-text", "box", "list-task", "layers", "user"],
+            menu_icon="cast",
+            default_index=0
+        )
+    return selected
 
 #####################
 # Page Functions
@@ -104,28 +112,26 @@ def sidebar_navigation():
 def home_page():
     st.title("Boituva Beach Club")
     st.write("🎾 BeachTennis📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
-    
     st.button("Refresh Data", on_click=refresh_data)
-
 
 def orders_page():
     st.title("Orders")
     st.subheader("Register a new order")
 
     product_data = st.session_state.data.get("products", [])
-    product_list = [row[1] for row in product_data] if product_data else ["No products available"]
+    product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
 
     with st.form(key='order_form'):
-        customer_name = st.text_input("Customer Name", max_chars=100)
-        product = st.selectbox("Product", product_list)
+        customer_name = st.selectbox("Customer Name", [""] + [row[0] for row in run_query('SELECT nome_completo FROM public.tb_clientes')], index=0)
+        product = st.selectbox("Product", product_list, index=0)
         quantity = st.number_input("Quantity", min_value=1, step=1)
         submit_button = st.form_submit_button(label="Register Order")
 
     if submit_button:
         if customer_name and product and quantity > 0:
             query = """
-            INSERT INTO public.tb_pedido ("Cliente", "Produto", "Quantidade", "Data")
-            VALUES (%s, %s, %s, %s);
+            INSERT INTO public.tb_pedido ("Cliente", "Produto", "Quantidade", "Data", "status")
+            VALUES (%s, %s, %s, %s, 'em aberto');
             """
             timestamp = datetime.now()
             success = run_insert(query, (customer_name, product, quantity, timestamp))
@@ -138,8 +144,8 @@ def orders_page():
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
         st.subheader("All Orders")
-        columns = ["Client", "Product", "Quantity", "Date"]
-        st.dataframe([dict(zip(columns, row)) for row in orders_data])
+        columns = ["Client", "Product", "Quantity", "Date", "Status"]
+        st.dataframe([dict(zip(columns, row)) for row in orders_data], use_container_width=True)
     else:
         st.info("No orders found.")
 
@@ -180,19 +186,63 @@ def products_page():
 def commands_page():
     st.title("Commands")
 
-    clients_data = [row[0] for row in st.session_state.data.get("clients", [])]
+    # Obter lista de clientes
+    clients_data = [""] + [row[0] for row in st.session_state.data.get("clients", [])]
 
     if clients_data:
         selected_client = st.selectbox("Select a Client", clients_data)
-        if st.button("Open Command"):
-            orders_data = st.session_state.data.get("orders", [])
-            client_orders = [o for o in orders_data if o[0] == selected_client]
 
-            columns = ["Client", "Product", "Quantity", "Date"]
-            if client_orders:
-                st.dataframe([dict(zip(columns, row)) for row in client_orders])
-            else:
-                st.info("No orders found for this client.")
+        # Exibir pedidos do cliente selecionado
+        query = """
+        SELECT "Cliente", "Produto", "Quantidade", "Data", status, unit_value, 
+               ("Quantidade" * unit_value) AS total
+        FROM vw_pedido_produto
+        WHERE "Cliente" = %s;
+        """
+        client_orders = run_query(query, (selected_client,))
+
+        if client_orders:
+            import pandas as pd
+
+            # Configurar colunas e exibir a tabela
+            columns = ["Client", "Product", "Quantity", "Date", "Status", "Unit Value", "Total"]
+            df = pd.DataFrame(client_orders, columns=columns)
+            st.dataframe(df, use_container_width=True)
+
+            # Calcular o valor total
+            total_sum = df["Total"].sum()
+            st.subheader(f"Total Amount: R$ {total_sum:,.2f}")
+
+            # Botões para atualização de status
+            col1, col2, col3 = st.columns(3)
+            payment_status = None
+
+            with col1:
+                if st.button("Debit"):
+                    payment_status = "Received - Debited"
+            with col2:
+                if st.button("Credit"):
+                    payment_status = "Received - Credit"
+            with col3:
+                if st.button("Pix"):
+                    payment_status = "Received - Pix"
+
+            # Atualizar o status no banco de dados
+            if payment_status:
+                update_query = """
+                UPDATE public.tb_pedido
+                SET status = %s, "Data" = CURRENT_TIMESTAMP
+                WHERE "Cliente" = %s AND status = 'em aberto';
+                """
+                success = run_insert(update_query, (payment_status, selected_client))
+                if success:
+                    st.success(f"OK - Amount Received via {payment_status.split(' - ')[1]}")
+                    # Recarregar dados após atualização
+                    refresh_data()
+                else:
+                    st.error("Failed to update order status.")
+        else:
+            st.info("No orders found for this client.")
     else:
         st.info("No clients found.")
 
@@ -237,7 +287,7 @@ def clients_page():
     with st.form(key='client_form'):
         nome_completo = st.text_input("Full Name", max_chars=100)
         data_nascimento = st.date_input("Date of Birth")
-        genero = st.text_input("Sex/Gender (optional)", max_chars=50)
+        genero = st.selectbox("Sex/Gender (optional)", ["Man", "Woman"], index=0)
         telefone = st.text_input("Phone", max_chars=15)
         email = st.text_input("Email", max_chars=100)
         endereco = st.text_area("Address")
@@ -262,8 +312,8 @@ def clients_page():
 if 'data' not in st.session_state:
     st.session_state.data = load_all_data()
 
-# Sidebar Navigation
-sidebar_navigation()
+# Menu Navigation
+st.session_state.page = sidebar_navigation()
 
 # Page Routing
 if st.session_state.page == "Home":
