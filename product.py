@@ -187,7 +187,7 @@ def commands_page():
     st.title("Commands")
 
     # Obter lista de clientes
-    clients_data = [row[0] for row in st.session_state.data.get("clients", [])]
+    clients_data = [""] + [row[0] for row in st.session_state.data.get("clients", [])]
 
     if clients_data:
         selected_client = st.selectbox("Select a Client", clients_data)
