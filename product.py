@@ -324,53 +324,51 @@ def invoice_page():
 
     selected_client = st.selectbox("Selecione um Cliente", [""] + client_list)
 
-    if st.button("Gerar Nota Fiscal"):
-        if selected_client:
-            invoice_query = (
-                'SELECT "Produto", "Quantidade", "total" '
-                'FROM public.vw_pedido_produto '
-                'WHERE "Cliente" = %s AND status = %s;'
-            )
-            invoice_data = run_query(invoice_query, (selected_client, 'em aberto'))
+    if selected_client:
+        invoice_query = (
+            'SELECT "Produto", "Quantidade", "total" '
+            'FROM public.vw_pedido_produto '
+            'WHERE "Cliente" = %s AND status = %s;'
+        )
+        invoice_data = run_query(invoice_query, (selected_client, 'em aberto'))
 
-            if invoice_data:
-                df = pd.DataFrame(invoice_data, columns=["Produto", "Quantidade", "total"])
-                generate_invoice_for_printer(df)
+        if invoice_data:
+            df = pd.DataFrame(invoice_data, columns=["Produto", "Quantidade", "total"])
+            generate_invoice_for_printer(df)
 
-                total_sum = df["total"].sum()
-                st.subheader(f"Total Geral: R$ {total_sum:,.2f}")
+            total_sum = df["total"].sum()
+            st.subheader(f"Total Geral: R$ {total_sum:,.2f}")
 
-                col1, col2, col3 = st.columns(3)
+            col1, col2, col3 = st.columns(3)
 
-                with col1:
-                    if st.button("Debit"):
-                        update_status(selected_client, "Received - Debited")
+            with col1:
+                if st.button("Debit", key="debit_button"):
+                    process_payment(selected_client, "Received - Debited")
 
-                with col2:
-                    if st.button("Credit"):
-                        update_status(selected_client, "Received - Credit")
+            with col2:
+                if st.button("Credit", key="credit_button"):
+                    process_payment(selected_client, "Received - Credit")
 
-                with col3:
-                    if st.button("Pix"):
-                        update_status(selected_client, "Received - Pix")
-            else:
-                st.info("Não há pedidos em aberto para o cliente selecionado.")
+            with col3:
+                if st.button("Pix", key="pix_button"):
+                    process_payment(selected_client, "Received - Pix")
         else:
-            st.warning("Por favor, selecione um cliente.")
+            st.info("Não há pedidos em aberto para o cliente selecionado.")
+    else:
+        st.warning("Por favor, selecione um cliente.")
 
-def update_status(client, status):
+def process_payment(client, payment_status):
     query = """
     UPDATE public.tb_pedido
     SET status = %s, "Data" = CURRENT_TIMESTAMP
     WHERE "Cliente" = %s AND status = 'em aberto';
     """
-    success = run_insert(query, (status, client))
+    success = run_insert(query, (payment_status, client))
     if success:
-        st.success(f"Status atualizado para: {status}")
+        st.success(f"Status atualizado para: {payment_status}")
         refresh_data()
     else:
         st.error("Erro ao atualizar o status.")
-
 
 def generate_invoice_for_printer(df):
     company = "Boituva Beach Club"
