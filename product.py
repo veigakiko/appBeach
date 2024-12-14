@@ -97,7 +97,7 @@ def sidebar_navigation():
     Create a sidebar or horizontal menu for navigation using streamlit_option_menu.
     """
     with st.sidebar:
-        st.title("")
+        st.title("Boituva Beach Club")
         selected = option_menu(
             "Beach Menu", ["Home", "Orders", "Products", "Commands", "Stock", "Clients"],
             icons=["house", "file-text", "box", "list-task", "layers", "person"],
@@ -219,6 +219,7 @@ def commands_page():
             # Configurar colunas e exibir a tabela
             columns = ["Client", "Product", "Quantity", "Date", "Status", "Unit Value", "Total"]
             df = pd.DataFrame(client_orders, columns=columns)
+            st.divider()
             st.dataframe(df, use_container_width=True)
 
             # Calcular o valor total
@@ -226,7 +227,7 @@ def commands_page():
             st.subheader(f"Total Amount: R$ {total_sum:,.2f}")
 
             # Botões para atualização de status
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3 = st.columns([1, 1, 1])
             payment_status = None
 
             with col1:
@@ -317,6 +318,8 @@ def clients_page():
                 refresh_data()
         else:
             st.warning("Please fill in all required fields.")
+
+
 
 #####################
 # Initialization
