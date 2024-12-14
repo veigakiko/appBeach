@@ -186,16 +186,13 @@ def products_page():
 def commands_page():
     st.title("Commands")
 
-    # Fetch client list
-    clients_data = [""] + [row[0] for row in st.session_state.data.get("clients", [])]
+    # Obter lista de clientes
+    clients_data = [row[0] for row in st.session_state.data.get("clients", [])]
 
-    # Form for selecting a client and opening their command
-    with st.form(key='commands_form'):
-        selected_client = st.selectbox("Select a Client", clients_data, index=0)
-        open_command = st.form_submit_button(label="Open Command")
+    if clients_data:
+        selected_client = st.selectbox("Select a Client", clients_data)
 
-    if open_command and selected_client:
-        # Query for fetching client orders
+        # Exibir pedidos do cliente selecionado
         query = """
         SELECT "Cliente", "Produto", "Quantidade", "Data", status, unit_value, 
                ("Quantidade" * unit_value) AS total
@@ -207,17 +204,16 @@ def commands_page():
         if client_orders:
             import pandas as pd
 
-            # Display client orders
+            # Configurar colunas e exibir a tabela
             columns = ["Client", "Product", "Quantity", "Date", "Status", "Unit Value", "Total"]
             df = pd.DataFrame(client_orders, columns=columns)
-            st.subheader("Client Orders")
             st.dataframe(df, use_container_width=True)
 
-            # Calculate and display total amount
+            # Calcular o valor total
             total_sum = df["Total"].sum()
             st.subheader(f"Total Amount: R$ {total_sum:,.2f}")
 
-            # Payment status buttons
+            # Botões para atualização de status
             col1, col2, col3 = st.columns(3)
             payment_status = None
 
@@ -231,7 +227,7 @@ def commands_page():
                 if st.button("Pix"):
                     payment_status = "Received - Pix"
 
-            # Update order status in database
+            # Atualizar o status no banco de dados
             if payment_status:
                 update_query = """
                 UPDATE public.tb_pedido
@@ -241,13 +237,14 @@ def commands_page():
                 success = run_insert(update_query, (payment_status, selected_client))
                 if success:
                     st.success(f"OK - Amount Received via {payment_status.split(' - ')[1]}")
+                    # Recarregar dados após atualização
                     refresh_data()
                 else:
                     st.error("Failed to update order status.")
         else:
             st.info("No orders found for this client.")
     else:
-        st.info("Select a client to view orders.")
+        st.info("No clients found.")
 
 def stock_page():
     st.title("Stock")
