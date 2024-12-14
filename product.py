@@ -408,6 +408,11 @@ def generate_invoice_for_printer(df):
 # Initialization
 ################
 
+
+#####################
+# Initialization
+################
+
 if 'data' not in st.session_state:
     st.session_state.data = load_all_data()
 
