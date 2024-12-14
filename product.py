@@ -337,16 +337,22 @@ def invoice_page():
                 df = pd.DataFrame(invoice_data, columns=["Produto", "Quantidade", "total"])
                 generate_invoice_for_printer(df)
 
+                total_sum = df["total"].sum()
+                st.subheader(f"Total Geral: R$ {total_sum:,.2f}")
+
                 col1, col2, col3 = st.columns(3)
 
-                if col1.button("Debit"):
-                    update_status(selected_client, "Received - Debited")
+                with col1:
+                    if st.button("Debit"):
+                        update_status(selected_client, "Received - Debited")
 
-                if col2.button("Credit"):
-                    update_status(selected_client, "Received - Credit")
+                with col2:
+                    if st.button("Credit"):
+                        update_status(selected_client, "Received - Credit")
 
-                if col3.button("Pix"):
-                    update_status(selected_client, "Received - Pix")
+                with col3:
+                    if st.button("Pix"):
+                        update_status(selected_client, "Received - Pix")
             else:
                 st.info("Não há pedidos em aberto para o cliente selecionado.")
         else:
@@ -364,6 +370,7 @@ def update_status(client, status):
         refresh_data()
     else:
         st.error("Erro ao atualizar o status.")
+
 
 def generate_invoice_for_printer(df):
     company = "Boituva Beach Club"
@@ -406,12 +413,7 @@ def generate_invoice_for_printer(df):
 
 #####################
 # Initialization
-################
-
-
 #####################
-# Initialization
-################
 
 if 'data' not in st.session_state:
     st.session_state.data = load_all_data()
