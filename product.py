@@ -1,17 +1,14 @@
 import streamlit as st
-from streamlit_option_menu import option_menu
 import psycopg2
 from psycopg2 import OperationalError
 from datetime import datetime
+from streamlit_option_menu import option_menu
 
 #####################
 # Database Utilities
 #####################
 @st.cache_resource
 def get_db_connection():
-    """
-    Return a persistent database connection using psycopg2.
-    """
     try:
         conn = psycopg2.connect(
             host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
@@ -26,9 +23,6 @@ def get_db_connection():
         return None
 
 def run_query(query, values=None):
-    """
-    Runs a read-only query (SELECT) and returns the fetched data.
-    """
     conn = get_db_connection()
     if conn is None:
         return []
@@ -43,9 +37,6 @@ def run_query(query, values=None):
         return []
 
 def run_insert(query, values):
-    """
-    Runs an insert or update query.
-    """
     conn = get_db_connection()
     if conn is None:
         return False
@@ -64,9 +55,6 @@ def run_insert(query, values):
 # Data Loading
 #####################
 def load_all_data():
-    """
-    Load all data used by the application and return it as a dictionary.
-    """
     data = {}
     try:
         data["orders"] = run_query(
@@ -84,18 +72,12 @@ def load_all_data():
     return data
 
 def refresh_data():
-    """
-    Reload all data and update the session state.
-    """
     st.session_state.data = load_all_data()
 
 #####################
 # Menu Navigation
 #####################
 def sidebar_navigation():
-    """
-    Create a sidebar or horizontal menu for navigation using streamlit_option_menu.
-    """
     with st.sidebar:
         st.title("Boituva Beach Club")
         selected = option_menu(
@@ -109,21 +91,16 @@ def sidebar_navigation():
 #####################
 # Page Functions
 #####################
-def home_page():
-    st.title("Boituva Beach Club")
-    st.write("🎾 BeachTennis📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
-    st.button("Refresh Data", on_click=refresh_data)
-
 def orders_page():
     st.title("Orders")
     st.subheader("Register a new order")
 
     product_data = st.session_state.data.get("products", [])
-    product_list = [row[1] for row in product_data] if product_data else ["No products available"]
+    product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
 
     with st.form(key='order_form'):
-        customer_name = st.selectbox("Customer Name", [row[0] for row in run_query('SELECT nome_completo FROM public.tb_clientes')])
-        product = st.selectbox("Product", product_list)
+        customer_name = st.selectbox("Customer Name", [""] + [row[0] for row in run_query('SELECT nome_completo FROM public.tb_clientes')], index=0)
+        product = st.selectbox("Product", product_list, index=0)
         quantity = st.number_input("Quantity", min_value=1, step=1)
         submit_button = st.form_submit_button(label="Register Order")
 
@@ -149,50 +126,13 @@ def orders_page():
     else:
         st.info("No orders found.")
 
-def products_page():
-    st.title("Products")
-
-    st.subheader("Add a new product")
-    with st.form(key='product_form'):
-        supplier = st.text_input("Supplier", max_chars=100)
-        product = st.text_input("Product", max_chars=100)
-        quantity = st.number_input("Quantity", min_value=1, step=1)
-        unit_value = st.number_input("Unit Value", min_value=0.0, step=0.01, format="%.2f")
-        creation_date = st.date_input("Creation Date")
-        submit_product = st.form_submit_button(label="Insert Product")
-
-    if submit_product:
-        if supplier and product and quantity > 0 and unit_value >= 0:
-            query = """
-            INSERT INTO public.tb_products (supplier, product, quantity, unit_value, total_value, creation_date)
-            VALUES (%s, %s, %s, %s, %s, %s);
-            """
-            total_value = quantity * unit_value
-            success = run_insert(query, (supplier, product, quantity, unit_value, total_value, creation_date))
-            if success:
-                st.success("Product added successfully!")
-                refresh_data()
-        else:
-            st.warning("Please fill in all fields correctly.")
-
-    products_data = st.session_state.data.get("products", [])
-    columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
-    if products_data:
-        st.subheader("All Products")
-        st.dataframe([dict(zip(columns, row)) for row in products_data])
-    else:
-        st.info("No products found.")
-
 def commands_page():
     st.title("Commands")
 
-    # Obter lista de clientes
-    clients_data = [row[0] for row in st.session_state.data.get("clients", [])]
+    clients_data = [""] + [row[0] for row in st.session_state.data.get("clients", [])]
 
-    if clients_data:
-        selected_client = st.selectbox("Select a Client", clients_data)
-
-        # Exibir pedidos do cliente selecionado
+    selected_client = st.selectbox("Select a Client", clients_data, index=0)
+    if selected_client:
         query = """
         SELECT "Cliente", "Produto", "Quantidade", "Data", status, unit_value, 
                ("Quantidade" * unit_value) AS total
@@ -204,16 +144,14 @@ def commands_page():
         if client_orders:
             import pandas as pd
 
-            # Configurar colunas e exibir a tabela
             columns = ["Client", "Product", "Quantity", "Date", "Status", "Unit Value", "Total"]
             df = pd.DataFrame(client_orders, columns=columns)
+            st.subheader("Client Orders")
             st.dataframe(df, use_container_width=True)
 
-            # Calcular o valor total
             total_sum = df["Total"].sum()
             st.subheader(f"Total Amount: R$ {total_sum:,.2f}")
 
-            # Botões para atualização de status
             col1, col2, col3 = st.columns(3)
             payment_status = None
 
@@ -227,7 +165,6 @@ def commands_page():
                 if st.button("Pix"):
                     payment_status = "Received - Pix"
 
-            # Atualizar o status no banco de dados
             if payment_status:
                 update_query = """
                 UPDATE public.tb_pedido
@@ -237,75 +174,13 @@ def commands_page():
                 success = run_insert(update_query, (payment_status, selected_client))
                 if success:
                     st.success(f"OK - Amount Received via {payment_status.split(' - ')[1]}")
-                    # Recarregar dados após atualização
                     refresh_data()
                 else:
                     st.error("Failed to update order status.")
         else:
             st.info("No orders found for this client.")
     else:
-        st.info("No clients found.")
-
-
-def stock_page():
-    st.title("Stock")
-
-    st.subheader("Add a new stock record")
-    with st.form(key='stock_form'):
-        product = st.text_input("Product", max_chars=100)
-        quantity = st.number_input("Quantity", min_value=1, step=1)
-        value = st.number_input("Value", min_value=0.0, step=0.01, format="%.2f")
-        transaction = "Entry"
-        current_date = datetime.now().date()
-        submit_stock = st.form_submit_button(label="Register")
-
-    if submit_stock:
-        if product and quantity > 0 and value >= 0:
-            query = """
-            INSERT INTO public.tb_estoque ("Produto", "Quantidade", "Valor", "Total", "Transação", "Data")
-            VALUES (%s, %s, %s, %s, %s, %s);
-            """
-            total = quantity * value
-            success = run_insert(query, (product, quantity, value, total, transaction, current_date))
-            if success:
-                st.success("Stock record added successfully!")
-                refresh_data()
-        else:
-            st.warning("Please fill in all fields correctly.")
-
-    stock_data = st.session_state.data.get("stock", [])
-    columns = ["Product", "Quantity", "Value", "Total", "Transaction", "Date"]
-    if stock_data:
-        st.subheader("All Stock Records")
-        st.dataframe([dict(zip(columns, row)) for row in stock_data])
-    else:
-        st.info("No stock records found.")
-
-def clients_page():
-    st.title("Clients")
-
-    st.subheader("Register a New Client")
-    with st.form(key='client_form'):
-        nome_completo = st.text_input("Full Name", max_chars=100)
-        data_nascimento = st.date_input("Date of Birth")
-        genero = st.selectbox("Sex/Gender (optional)", ["Man", "Woman"], index=0)
-        telefone = st.text_input("Phone", max_chars=15)
-        email = st.text_input("Email", max_chars=100)
-        endereco = st.text_area("Address")
-        submit_client = st.form_submit_button(label="Register New Client")
-
-    if submit_client:
-        if nome_completo and data_nascimento and telefone and email and endereco:
-            query = """
-            INSERT INTO public.tb_clientes (nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro)
-            VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP);
-            """
-            success = run_insert(query, (nome_completo, data_nascimento, genero, telefone, email, endereco))
-            if success:
-                st.success("Client registered successfully!")
-                refresh_data()
-        else:
-            st.warning("Please fill in all required fields.")
+        st.info("Select a client to view orders.")
 
 #####################
 # Initialization
@@ -313,19 +188,9 @@ def clients_page():
 if 'data' not in st.session_state:
     st.session_state.data = load_all_data()
 
-# Menu Navigation
 st.session_state.page = sidebar_navigation()
 
-# Page Routing
-if st.session_state.page == "Home":
-    home_page()
-elif st.session_state.page == "Orders":
+if st.session_state.page == "Orders":
     orders_page()
-elif st.session_state.page == "Products":
-    products_page()
 elif st.session_state.page == "Commands":
     commands_page()
-elif st.session_state.page == "Stock":
-    stock_page()
-elif st.session_state.page == "Clients":
-    clients_page()
