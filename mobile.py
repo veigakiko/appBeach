@@ -22,14 +22,11 @@ def get_db_connection():
             port=5432
         )
         return conn
-    except OperationalError as e:
+    except OperationalError:
         st.error("Could not connect to the database. Please try again later.")
         return None
 
 def run_query(query, values=None):
-    """
-    Runs a read-only query (SELECT) and returns the fetched data.
-    """
     conn = get_db_connection()
     if conn is None:
         return []
@@ -44,9 +41,6 @@ def run_query(query, values=None):
         return []
 
 def run_insert(query, values):
-    """
-    Runs an insert or update query.
-    """
     conn = get_db_connection()
     if conn is None:
         return False
@@ -65,13 +59,11 @@ def run_insert(query, values):
 # Data Loading
 #####################
 def load_all_data():
-    """
-    Load all data used by the application and return it as a dictionary.
-    """
     data = {}
     try:
+        # Seleciona sem id, conforme pedido
         data["orders"] = run_query(
-            'SELECT id, "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
+            'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
         )
         data["products"] = run_query(
             "SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products;"
@@ -85,18 +77,12 @@ def load_all_data():
     return data
 
 def refresh_data():
-    """
-    Reload all data and update the session state.
-    """
     st.session_state.data = load_all_data()
 
 #####################
 # Menu Navigation
 #####################
 def sidebar_navigation():
-    """
-    Create a sidebar menu for navigation.
-    """
     with st.sidebar:
         st.title("Boituva Beach Club")
         selected = option_menu(
@@ -157,41 +143,47 @@ def orders_page():
         else:
             st.warning("Please fill in all fields correctly.")
 
-    # List all orders
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
-        columns = ["ID", "Client", "Product", "Quantity", "Date", "Status"]
-        df_orders = pd.DataFrame(orders_data, columns=columns)
-
         st.subheader("All Orders")
+        columns = ["Client", "Product", "Quantity", "Date", "Status"]
+        df_orders = pd.DataFrame(orders_data, columns=columns)
         st.dataframe(df_orders, use_container_width=True)
 
-        # Select an order to edit
-        order_ids = [str(row[0]) for row in orders_data]
-        selected_order_id = st.selectbox("Select an Order to Edit", [""] + order_ids)
+        # Gerar uma lista de chaves únicas
+        # Vamos usar "Cliente | Produto | Data" como chave
+        order_keys = [f"{o[0]} | {o[1]} | {o[3]}" for o in orders_data]
 
-        if selected_order_id:
-            # Load the selected order details
-            order_id_int = int(selected_order_id)
-            selected_order = [o for o in orders_data if o[0] == order_id_int]
+        selected_order_key = st.selectbox("Select an Order to Edit", [""] + order_keys)
+        if selected_order_key:
+            # Obter o registro correspondente
+            # Quebrar a chave: "Cliente | Produto | Data"
+            parts = selected_order_key.split("|")
+            selected_cliente = parts[0].strip()
+            selected_produto = parts[1].strip()
+            selected_data_str = parts[2].strip()
+
+            # Encontrar o pedido nos dados carregados
+            selected_order = [o for o in orders_data if o[0] == selected_cliente and o[1] == selected_produto and str(o[3]) == selected_data_str]
             if selected_order:
-                # Extract order details
-                _, current_client, current_product, current_quantity, _, _ = selected_order[0]
+                # Detalhes do pedido selecionado
+                current_cliente, current_produto, current_quantidade, current_data, current_status = selected_order[0]
 
                 st.subheader("Edit Selected Order")
                 with st.form(key='edit_order_form'):
-                    new_client = st.text_input("Client", value=current_client)
-                    new_product = st.text_input("Product", value=current_product)
-                    new_quantity = st.number_input("Quantity", min_value=1, step=1, value=current_quantity)
+                    new_client = st.text_input("Client", value=current_cliente)
+                    new_product = st.text_input("Product", value=current_produto)
+                    new_quantity = st.number_input("Quantity", min_value=1, step=1, value=current_quantidade)
                     update_button = st.form_submit_button("Update Order")
 
                 if update_button:
                     update_query = """
                     UPDATE public.tb_pedido
                     SET "Cliente" = %s, "Produto" = %s, "Quantidade" = %s
-                    WHERE id = %s;
+                    WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
                     """
-                    success = run_insert(update_query, (new_client, new_product, new_quantity, order_id_int))
+                    # Usamos os valores originais (current_cliente, current_produto, current_data) no WHERE
+                    success = run_insert(update_query, (new_client, new_product, new_quantity, current_cliente, current_produto, current_data))
                     if success:
                         st.success("Order updated successfully!")
                         refresh_data()
@@ -418,15 +410,8 @@ def generate_invoice_for_printer(df):
 if 'data' not in st.session_state:
     st.session_state.data = load_all_data()
 
-# Limpa estado de edição se mudar de página
-if 'page' in st.session_state:
-    if st.session_state.page != "Orders":
-        if 'edit_order_id' in st.session_state:
-            st.session_state.edit_order_id = None
-
 st.session_state.page = sidebar_navigation()
 
-# Page Routing
 if st.session_state.page == "Home":
     home_page()
 elif st.session_state.page == "Orders":
