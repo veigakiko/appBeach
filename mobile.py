@@ -145,26 +145,45 @@ def sidebar_navigation():
 # Page Functions
 #####################
 def home_page():
+    import altair as alt  # Ensure Altair is imported here, if not already at the top
+
     st.title("Boituva Beach Club")
     st.write("🎾 BeachTennis📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
 
     st.subheader("Today's Highlights")
 
-    # Total orders today
-    total_orders_today = run_query("""
+    # Queries for today's metrics
+    total_orders_today_res = run_query("""
         SELECT COUNT(*) 
         FROM public.tb_pedido 
         WHERE DATE("Data") = CURRENT_DATE;
     """)
-    total_orders = total_orders_today[0][0] if total_orders_today else 0
+    total_orders = total_orders_today_res[0][0] if total_orders_today_res else 0
 
-    # Total revenue today
-    total_revenue_today = run_query("""
+    total_revenue_today_res = run_query("""
         SELECT SUM("Quantidade" * unit_value) AS total_revenue
         FROM vw_pedido_produto
         WHERE DATE("Data") = CURRENT_DATE;
     """)
-    total_revenue = total_revenue_today[0][0] if total_revenue_today and total_revenue_today[0][0] is not None else 0.0
+    total_revenue = total_revenue_today_res[0][0] if total_revenue_today_res and total_revenue_today_res[0][0] is not None else 0.0
+
+    # Queries for yesterday's metrics (for delta calculations)
+    total_orders_yesterday_res = run_query("""
+        SELECT COUNT(*) 
+        FROM public.tb_pedido 
+        WHERE DATE("Data") = CURRENT_DATE - 1;
+    """)
+    total_orders_yesterday = total_orders_yesterday_res[0][0] if total_orders_yesterday_res else 0
+
+    total_revenue_yesterday_res = run_query("""
+        SELECT SUM("Quantidade" * unit_value) AS total_revenue
+        FROM vw_pedido_produto
+        WHERE DATE("Data") = CURRENT_DATE - 1;
+    """)
+    total_revenue_yesterday = total_revenue_yesterday_res[0][0] if total_revenue_yesterday_res and total_revenue_yesterday_res[0][0] is not None else 0.0
+
+    # Average Order Value (AOV) today
+    aov = (total_revenue / total_orders) if total_orders > 0 else 0.0
 
     # Unique clients today
     unique_clients_today = run_query("""
@@ -182,7 +201,25 @@ def home_page():
     """)
     total_distinct_products = distinct_products_today[0][0] if distinct_products_today else 0
 
-    # Top 5 products by quantity sold today
+    # Calculate deltas for today's metrics vs yesterday
+    orders_delta = total_orders - total_orders_yesterday
+    revenue_delta = total_revenue - total_revenue_yesterday
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+    with col1:
+        st.metric("Total Orders", total_orders, delta=orders_delta)
+    with col2:
+        st.metric("Total Revenue", f"R$ {total_revenue:,.2f}", delta=f"R$ {revenue_delta:,.2f}")
+    with col3:
+        st.metric("Unique Clients", total_unique_clients)
+    with col4:
+        st.metric("Distinct Products", total_distinct_products)
+    with col5:
+        st.metric("AOV", f"R$ {aov:,.2f}")
+
+    st.divider()
+
+    # Top products and clients
     top_products_today = run_query("""
         SELECT "Produto", SUM("Quantidade") AS total_q
         FROM public.tb_pedido
@@ -192,27 +229,67 @@ def home_page():
         LIMIT 5;
     """)
 
-    # Display main metrics
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Orders Today", total_orders)
-    with col2:
-        st.metric("Total Revenue Today", f"R$ {total_revenue:,.2f}")
-    with col3:
-        st.metric("Unique Clients Today", total_unique_clients)
-    with col4:
-        st.metric("Distinct Products Sold Today", total_distinct_products)
+    top_products_revenue_today = run_query("""
+        SELECT "Produto", SUM("Quantidade" * unit_value) AS total_revenue
+        FROM vw_pedido_produto
+        WHERE DATE("Data") = CURRENT_DATE
+        GROUP BY "Produto"
+        ORDER BY total_revenue DESC
+        LIMIT 5;
+    """)
 
-    # Top products today chart (bar chart)
-    st.write("**Top Products Today (by Quantity Sold)**:")
+    top_clients_today = run_query("""
+        SELECT "Cliente", SUM("Quantidade" * unit_value) AS client_revenue
+        FROM vw_pedido_produto
+        WHERE DATE("Data") = CURRENT_DATE
+        GROUP BY "Cliente"
+        ORDER BY client_revenue DESC
+        LIMIT 5;
+    """)
+
+    st.subheader("Top Products by Quantity Sold (Today)")
     if top_products_today:
-        df_top_products = pd.DataFrame(top_products_today, columns=["Product", "Quantity"])
-        st.bar_chart(df_top_products.set_index("Product"))
+        df_top_products_qty = pd.DataFrame(top_products_today, columns=["Product", "Quantity"])
+        st.bar_chart(df_top_products_qty.set_index("Product"))
     else:
         st.write("No products sold today.")
+    st.write("These are the products leading in terms of sheer quantity sold today.")
 
-    # Line chart for last 7 days orders
-    # Query total orders over the last 7 days (including today)
+    st.divider()
+
+    st.subheader("Top Products by Revenue (Today)")
+    if top_products_revenue_today:
+        df_top_products_rev = pd.DataFrame(top_products_revenue_today, columns=["Product", "Revenue"])
+        df_top_products_rev.set_index("Product", inplace=True)
+        chart_data = df_top_products_rev.reset_index()
+        pie_chart = (
+            alt.Chart(chart_data)
+            .mark_arc(innerRadius=50)
+            .encode(
+                theta='Revenue:Q',
+                color='Product:N',
+                tooltip=['Product:N', alt.Tooltip('Revenue:Q', format=',.2f')]
+            )
+        )
+        st.altair_chart(pie_chart, use_container_width=True)
+    else:
+        st.write("No revenue data available for products today.")
+    st.write("This chart shows which products are generating the most revenue, giving insights into profitability.")
+
+    st.divider()
+
+    st.subheader("Top Clients by Revenue (Today)")
+    if top_clients_today:
+        df_top_clients = pd.DataFrame(top_clients_today, columns=["Client", "Revenue"])
+        df_top_clients.set_index("Client", inplace=True)
+        st.bar_chart(df_top_clients)
+    else:
+        st.write("No clients with orders today.")
+    st.write("Identify your most valuable customers of the day and consider offering loyalty benefits or targeted offers.")
+
+    st.divider()
+
+    # Last 7 days trends
     last_7_days_orders = run_query("""
         SELECT DATE("Data") as order_date, COUNT(*) as total_orders
         FROM public.tb_pedido
@@ -221,13 +298,52 @@ def home_page():
         ORDER BY DATE("Data");
     """)
 
-    if last_7_days_orders:
-        st.subheader("Orders in the Last 7 Days")
-        df_7days = pd.DataFrame(last_7_days_orders, columns=["Date", "Total Orders"])
-        df_7days.set_index("Date", inplace=True)
-        st.line_chart(df_7days)
+    last_7_days_revenue = run_query("""
+        SELECT DATE("Data") as order_date, SUM("Quantidade" * unit_value) as daily_revenue
+        FROM vw_pedido_produto
+        WHERE "Data" >= CURRENT_DATE - INTERVAL '6 days'
+        GROUP BY DATE("Data")
+        ORDER BY DATE("Data");
+    """)
+
+    st.subheader("7-Day Trends")
+
+    # Combine orders and revenue data into a single DataFrame for a dual-axis chart
+    if last_7_days_orders and last_7_days_revenue:
+        df_orders_7 = pd.DataFrame(last_7_days_orders, columns=["Date", "Total Orders"])
+        df_rev_7 = pd.DataFrame(last_7_days_revenue, columns=["Date", "Revenue"])
+        df_combined = pd.merge(df_orders_7, df_rev_7, on="Date", how="outer").fillna(0)
+        
+        # Convert Date to string for Altair (if needed) or ensure it's a datetime
+        df_combined["Date"] = pd.to_datetime(df_combined["Date"])
+        
+        # Create two-layered chart: one line for orders, one line for revenue with different axes
+        base = alt.Chart(df_combined).encode(
+            x=alt.X('Date:T', title='Date')
+        )
+
+        line_orders = base.mark_line(color='blue').encode(
+            y=alt.Y('Total Orders:Q', title='Total Orders')
+        )
+
+        line_revenue = base.mark_line(color='green').encode(
+            y=alt.Y('Revenue:Q', title='Revenue', axis=alt.Axis(format='$.2f')),
+            tooltip=[alt.Tooltip('Date:T'), alt.Tooltip('Revenue:Q', title='Revenue', format=',.2f')]
+        )
+
+        layered_chart = alt.layer(line_orders, line_revenue).resolve_scale(
+            y='independent'
+        ).interactive()
+
+        st.altair_chart(layered_chart, use_container_width=True)
+        st.write("This chart presents a combined view of daily orders and revenue for the past 7 days, allowing you to assess both sales volume and value trends simultaneously.")
     else:
-        st.info("No orders found for the last 7 days.")
+        if not last_7_days_orders:
+            st.info("No orders found for the last 7 days.")
+        if not last_7_days_revenue:
+            st.info("No revenue data for the last 7 days.")
+
+    st.divider()
 
     st.button("Refresh Data", on_click=refresh_data)
 
