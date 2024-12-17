@@ -148,10 +148,9 @@ def home_page():
     st.title("Boituva Beach Club")
     st.write("🎾 BeachTennis📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
 
-    # Add today's reports
     st.subheader("Today's Highlights")
 
-    # Query total orders today
+    # Total orders today
     total_orders_today = run_query("""
         SELECT COUNT(*) 
         FROM public.tb_pedido 
@@ -159,7 +158,7 @@ def home_page():
     """)
     total_orders = total_orders_today[0][0] if total_orders_today else 0
 
-    # Query total revenue today from the view (assuming unit_value is available in vw_pedido_produto)
+    # Total revenue today
     total_revenue_today = run_query("""
         SELECT SUM("Quantidade" * unit_value) AS total_revenue
         FROM vw_pedido_produto
@@ -167,29 +166,68 @@ def home_page():
     """)
     total_revenue = total_revenue_today[0][0] if total_revenue_today and total_revenue_today[0][0] is not None else 0.0
 
-    # Query top 3 products by quantity sold today
+    # Unique clients today
+    unique_clients_today = run_query("""
+        SELECT COUNT(DISTINCT "Cliente")
+        FROM public.tb_pedido
+        WHERE DATE("Data") = CURRENT_DATE;
+    """)
+    total_unique_clients = unique_clients_today[0][0] if unique_clients_today else 0
+
+    # Distinct products sold today
+    distinct_products_today = run_query("""
+        SELECT COUNT(DISTINCT "Produto")
+        FROM public.tb_pedido
+        WHERE DATE("Data") = CURRENT_DATE;
+    """)
+    total_distinct_products = distinct_products_today[0][0] if distinct_products_today else 0
+
+    # Top 5 products by quantity sold today
     top_products_today = run_query("""
         SELECT "Produto", SUM("Quantidade") AS total_q
         FROM public.tb_pedido
         WHERE DATE("Data") = CURRENT_DATE
         GROUP BY "Produto"
         ORDER BY total_q DESC
-        LIMIT 3;
+        LIMIT 5;
     """)
 
-    col1, col2 = st.columns(2)
+    # Display main metrics
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Total Orders Today", total_orders)
     with col2:
         st.metric("Total Revenue Today", f"R$ {total_revenue:,.2f}")
+    with col3:
+        st.metric("Unique Clients Today", total_unique_clients)
+    with col4:
+        st.metric("Distinct Products Sold Today", total_distinct_products)
 
-    st.write("**Top Products Today**:")
+    # Top products today chart (bar chart)
+    st.write("**Top Products Today (by Quantity Sold)**:")
     if top_products_today:
-        for i, row in enumerate(top_products_today, start=1):
-            product, qty = row
-            st.write(f"{i}. {product}: {qty} units")
+        df_top_products = pd.DataFrame(top_products_today, columns=["Product", "Quantity"])
+        st.bar_chart(df_top_products.set_index("Product"))
     else:
         st.write("No products sold today.")
+
+    # Line chart for last 7 days orders
+    # Query total orders over the last 7 days (including today)
+    last_7_days_orders = run_query("""
+        SELECT DATE("Data") as order_date, COUNT(*) as total_orders
+        FROM public.tb_pedido
+        WHERE "Data" >= CURRENT_DATE - INTERVAL '6 days'
+        GROUP BY DATE("Data")
+        ORDER BY DATE("Data");
+    """)
+
+    if last_7_days_orders:
+        st.subheader("Orders in the Last 7 Days")
+        df_7days = pd.DataFrame(last_7_days_orders, columns=["Date", "Total Orders"])
+        df_7days.set_index("Date", inplace=True)
+        st.line_chart(df_7days)
+    else:
+        st.info("No orders found for the last 7 days.")
 
     st.button("Refresh Data", on_click=refresh_data)
 
