@@ -147,7 +147,52 @@ def sidebar_navigation():
 def home_page():
     st.title("Boituva Beach Club")
     st.write("🎾 BeachTennis📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
+
+    # Add today's reports
+    st.subheader("Today's Highlights")
+
+    # Query total orders today
+    total_orders_today = run_query("""
+        SELECT COUNT(*) 
+        FROM public.tb_pedido 
+        WHERE DATE("Data") = CURRENT_DATE;
+    """)
+    total_orders = total_orders_today[0][0] if total_orders_today else 0
+
+    # Query total revenue today from the view (assuming unit_value is available in vw_pedido_produto)
+    total_revenue_today = run_query("""
+        SELECT SUM("Quantidade" * unit_value) AS total_revenue
+        FROM vw_pedido_produto
+        WHERE DATE("Data") = CURRENT_DATE;
+    """)
+    total_revenue = total_revenue_today[0][0] if total_revenue_today and total_revenue_today[0][0] is not None else 0.0
+
+    # Query top 3 products by quantity sold today
+    top_products_today = run_query("""
+        SELECT "Produto", SUM("Quantidade") AS total_q
+        FROM public.tb_pedido
+        WHERE DATE("Data") = CURRENT_DATE
+        GROUP BY "Produto"
+        ORDER BY total_q DESC
+        LIMIT 3;
+    """)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Total Orders Today", total_orders)
+    with col2:
+        st.metric("Total Revenue Today", f"R$ {total_revenue:,.2f}")
+
+    st.write("**Top Products Today**:")
+    if top_products_today:
+        for i, row in enumerate(top_products_today, start=1):
+            product, qty = row
+            st.write(f"{i}. {product}: {qty} units")
+    else:
+        st.write("No products sold today.")
+
     st.button("Refresh Data", on_click=refresh_data)
+
 
 def orders_page():
     st.title("Orders")
