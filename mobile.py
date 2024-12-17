@@ -70,7 +70,6 @@ def load_all_data():
     """
     data = {}
     try:
-        # Incluímos a coluna id para permitir edição
         data["orders"] = run_query(
             'SELECT id, "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
         )
@@ -96,7 +95,7 @@ def refresh_data():
 #####################
 def sidebar_navigation():
     """
-    Create a sidebar menu for navigation using streamlit_option_menu.
+    Create a sidebar menu for navigation.
     """
     with st.sidebar:
         st.title("Boituva Beach Club")
@@ -136,7 +135,6 @@ def orders_page():
     product_data = st.session_state.data.get("products", [])
     product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
 
-    # New order form
     with st.form(key='order_form'):
         customer_names = run_query('SELECT nome_completo FROM public.tb_clientes')
         customer_list = [""] + [row[0] for row in customer_names] if customer_names else [""]
@@ -159,45 +157,44 @@ def orders_page():
         else:
             st.warning("Please fill in all fields correctly.")
 
-    # Display existing orders with edit functionality
+    # List all orders
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
-        st.subheader("All Orders")
         columns = ["ID", "Client", "Product", "Quantity", "Date", "Status"]
         df_orders = pd.DataFrame(orders_data, columns=columns)
 
+        st.subheader("All Orders")
         st.dataframe(df_orders, use_container_width=True)
 
-        # Add edit buttons for each order
-        for idx, row in df_orders.iterrows():
-            edit_col, _ = st.columns([0.2, 0.8])
-            if edit_col.button("Edit", key=f"edit_{row['ID']}"):
-                st.session_state.edit_order_id = row["ID"]
-                st.session_state.edit_cliente = row["Client"]
-                st.session_state.edit_produto = row["Product"]
-                st.session_state.edit_quantidade = row["Quantity"]
+        # Select an order to edit
+        order_ids = [str(row[0]) for row in orders_data]
+        selected_order_id = st.selectbox("Select an Order to Edit", [""] + order_ids)
 
-        # If an order is selected for editing, show edit form
-        if "edit_order_id" in st.session_state and st.session_state.edit_order_id is not None:
-            st.subheader("Edit Selected Order")
-            with st.form(key='edit_order_form'):
-                new_client = st.text_input("Client", value=st.session_state.edit_cliente)
-                new_product = st.text_input("Product", value=st.session_state.edit_produto)
-                new_quantity = st.number_input("Quantity", min_value=1, step=1, value=st.session_state.edit_quantidade)
-                update_button = st.form_submit_button("Update Order")
+        if selected_order_id:
+            # Load the selected order details
+            order_id_int = int(selected_order_id)
+            selected_order = [o for o in orders_data if o[0] == order_id_int]
+            if selected_order:
+                # Extract order details
+                _, current_client, current_product, current_quantity, _, _ = selected_order[0]
 
-            if update_button:
-                update_query = """
-                UPDATE public.tb_pedido
-                SET "Cliente" = %s, "Produto" = %s, "Quantidade" = %s
-                WHERE id = %s;
-                """
-                success = run_insert(update_query, (new_client, new_product, new_quantity, st.session_state.edit_order_id))
-                if success:
-                    st.success("Order updated successfully!")
-                    # Clear editing state
-                    st.session_state.edit_order_id = None
-                    refresh_data()
+                st.subheader("Edit Selected Order")
+                with st.form(key='edit_order_form'):
+                    new_client = st.text_input("Client", value=current_client)
+                    new_product = st.text_input("Product", value=current_product)
+                    new_quantity = st.number_input("Quantity", min_value=1, step=1, value=current_quantity)
+                    update_button = st.form_submit_button("Update Order")
+
+                if update_button:
+                    update_query = """
+                    UPDATE public.tb_pedido
+                    SET "Cliente" = %s, "Produto" = %s, "Quantidade" = %s
+                    WHERE id = %s;
+                    """
+                    success = run_insert(update_query, (new_client, new_product, new_quantity, order_id_int))
+                    if success:
+                        st.success("Order updated successfully!")
+                        refresh_data()
     else:
         st.info("No orders found.")
 
@@ -421,12 +418,12 @@ def generate_invoice_for_printer(df):
 if 'data' not in st.session_state:
     st.session_state.data = load_all_data()
 
-# Clear edit order state if the page changes
+# Limpa estado de edição se mudar de página
 if 'page' in st.session_state:
     if st.session_state.page != "Orders":
-        st.session_state.edit_order_id = None
+        if 'edit_order_id' in st.session_state:
+            st.session_state.edit_order_id = None
 
-# Menu Navigation
 st.session_state.page = sidebar_navigation()
 
 # Page Routing
