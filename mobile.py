@@ -22,11 +22,14 @@ def get_db_connection():
             port=5432
         )
         return conn
-    except OperationalError:
+    except OperationalError as e:
         st.error("Could not connect to the database. Please try again later.")
-        return None
+
 
 def run_query(query, values=None):
+    """
+    Run a SELECT query and return the fetched results.
+    """
     conn = get_db_connection()
     if conn is None:
         return []
@@ -41,6 +44,10 @@ def run_query(query, values=None):
         return []
 
 def run_insert(query, values):
+    """
+    Run an INSERT/UPDATE/DELETE query and commit changes.
+    Return True if successful, False otherwise.
+    """
     conn = get_db_connection()
     if conn is None:
         return False
@@ -59,14 +66,17 @@ def run_insert(query, values):
 # Data Loading
 #####################
 def load_all_data():
+    """
+    Load all initial data from the database and return as a dictionary.
+    """
     data = {}
     try:
-        # Seleciona sem id, conforme pedido
+        # Load orders including an ID for editing
         data["orders"] = run_query(
-            'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
+            'SELECT id, "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
         )
         data["products"] = run_query(
-            "SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products;"
+            "SELECT id, supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products;"
         )
         data["clients"] = run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido;')
         data["stock"] = run_query(
@@ -77,12 +87,37 @@ def load_all_data():
     return data
 
 def refresh_data():
+    """
+    Reload all data into session state.
+    """
     st.session_state.data = load_all_data()
+
+#####################
+# Utility Functions
+#####################
+def process_payment(client, payment_status):
+    """
+    Update orders for a given client to a payment status and refresh data.
+    """
+    query = """
+    UPDATE public.tb_pedido
+    SET status = %s, "Data" = CURRENT_TIMESTAMP
+    WHERE "Cliente" = %s AND status = 'em aberto';
+    """
+    success = run_insert(query, (payment_status, client))
+    if success:
+        st.success(f"Status updated to: {payment_status}")
+        refresh_data()
+    else:
+        st.error("Error updating the status.")
 
 #####################
 # Menu Navigation
 #####################
 def sidebar_navigation():
+    """
+    Create the sidebar navigation menu.
+    """
     with st.sidebar:
         st.title("Boituva Beach Club")
         selected = option_menu(
@@ -119,11 +154,13 @@ def orders_page():
     st.subheader("Register a new order")
 
     product_data = st.session_state.data.get("products", [])
-    product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
+    product_list = [""] + [row[2] for row in product_data] if product_data else ["No products available"]
+
+    # Fetch clients from tb_clientes table
+    customer_names = run_query('SELECT nome_completo FROM public.tb_clientes')
+    customer_list = [""] + [row[0] for row in customer_names] if customer_names else [""]
 
     with st.form(key='order_form'):
-        customer_names = run_query('SELECT nome_completo FROM public.tb_clientes')
-        customer_list = [""] + [row[0] for row in customer_names] if customer_names else [""]
         customer_name = st.selectbox("Customer Name", customer_list, index=0)
         product = st.selectbox("Product", product_list, index=0)
         quantity = st.number_input("Quantity", min_value=1, step=1)
@@ -146,28 +183,19 @@ def orders_page():
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
         st.subheader("All Orders")
-        columns = ["Client", "Product", "Quantity", "Date", "Status"]
+        columns = ["ID", "Client", "Product", "Quantity", "Date", "Status"]
         df_orders = pd.DataFrame(orders_data, columns=columns)
         st.dataframe(df_orders, use_container_width=True)
 
-        # Gerar uma lista de chaves únicas
-        # Vamos usar "Cliente | Produto | Data" como chave
-        order_keys = [f"{o[0]} | {o[1]} | {o[3]}" for o in orders_data]
-
-        selected_order_key = st.selectbox("Select an Order to Edit", [""] + order_keys)
-        if selected_order_key:
-            # Obter o registro correspondente
-            # Quebrar a chave: "Cliente | Produto | Data"
-            parts = selected_order_key.split("|")
-            selected_cliente = parts[0].strip()
-            selected_produto = parts[1].strip()
-            selected_data_str = parts[2].strip()
-
-            # Encontrar o pedido nos dados carregados
-            selected_order = [o for o in orders_data if o[0] == selected_cliente and o[1] == selected_produto and str(o[3]) == selected_data_str]
+        # Select an order by its ID to edit
+        order_ids = [str(o[0]) for o in orders_data]
+        selected_order_id = st.selectbox("Select an Order ID to Edit", [""] + order_ids)
+        if selected_order_id:
+            selected_order_id = int(selected_order_id)
+            selected_order = [o for o in orders_data if o[0] == selected_order_id]
             if selected_order:
-                # Detalhes do pedido selecionado
-                current_cliente, current_produto, current_quantidade, current_data, current_status = selected_order[0]
+                # Current order details
+                _, current_cliente, current_produto, current_quantidade, current_data, current_status = selected_order[0]
 
                 st.subheader("Edit Selected Order")
                 with st.form(key='edit_order_form'):
@@ -180,10 +208,9 @@ def orders_page():
                     update_query = """
                     UPDATE public.tb_pedido
                     SET "Cliente" = %s, "Produto" = %s, "Quantidade" = %s
-                    WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
+                    WHERE id = %s;
                     """
-                    # Usamos os valores originais (current_cliente, current_produto, current_data) no WHERE
-                    success = run_insert(update_query, (new_client, new_product, new_quantity, current_cliente, current_produto, current_data))
+                    success = run_insert(update_query, (new_client, new_product, new_quantity, selected_order_id))
                     if success:
                         st.success("Order updated successfully!")
                         refresh_data()
@@ -230,17 +257,7 @@ def commands_page():
                         payment_status = "Received - Pix"
 
                 if payment_status:
-                    update_query = """
-                    UPDATE public.tb_pedido
-                    SET status = %s, "Data" = CURRENT_TIMESTAMP
-                    WHERE "Cliente" = %s AND status = 'em aberto';
-                    """
-                    success = run_insert(update_query, (payment_status, selected_client))
-                    if success:
-                        st.success(f"OK - Amount Received via {payment_status.split(' - ')[1]}")
-                        refresh_data()
-                    else:
-                        st.error("Failed to update order status.")
+                    process_payment(selected_client, payment_status)
             else:
                 st.info("No orders found for this client.")
         else:
@@ -278,7 +295,8 @@ def stock_page():
     columns = ["Product", "Quantity", "Value", "Total", "Transaction", "Date"]
     if stock_data:
         st.subheader("All Stock Records")
-        st.dataframe([dict(zip(columns, row)) for row in stock_data])
+        df_stock = pd.DataFrame(stock_data, columns=columns)
+        st.dataframe(df_stock, use_container_width=True)
     else:
         st.info("No stock records found.")
 
@@ -315,7 +333,6 @@ def invoice_page():
     open_clients = run_query(open_clients_query, ('em aberto',))
 
     client_list = [row[0] for row in open_clients] if open_clients else []
-
     selected_client = st.selectbox("Select a Client", [""] + client_list)
 
     if selected_client:
@@ -351,20 +368,10 @@ def invoice_page():
     else:
         st.warning("Please select a client.")
 
-def process_payment(client, payment_status):
-    query = """
-    UPDATE public.tb_pedido
-    SET status = %s, "Data" = CURRENT_TIMESTAMP
-    WHERE "Cliente" = %s AND status = 'em aberto';
-    """
-    success = run_insert(query, (payment_status, client))
-    if success:
-        st.success(f"Status updated to: {payment_status}")
-        refresh_data()
-    else:
-        st.error("Error updating the status.")
-
 def generate_invoice_for_printer(df):
+    """
+    Generate a textual invoice representation for printing.
+    """
     company = "Boituva Beach Club"
     address = "Avenida do Trabalhador 1879"
     city = "Boituva - SP 18552-100"
@@ -406,7 +413,6 @@ def generate_invoice_for_printer(df):
 #####################
 # Initialization
 #####################
-
 if 'data' not in st.session_state:
     st.session_state.data = load_all_data()
 
