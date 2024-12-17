@@ -147,12 +147,29 @@ def sidebar_navigation():
 def home_page():
     import altair as alt
 
-    st.title("Boituva Beach Club")
-    st.write("🎾 BeachTennis📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
+    # Sidebar Filters
+    st.sidebar.header("Filters")
+    start_date = st.sidebar.date_input("Start Date", value=pd.to_datetime("today") - pd.Timedelta(days=6))
+    end_date = st.sidebar.date_input("End Date", value=pd.to_datetime("today"))
+    if start_date > end_date:
+        st.sidebar.error("Start Date must be before or equal to End Date.")
+    
+    # Convert to strings for queries
+    start_str = start_date.strftime("%Y-%m-%d")
+    end_str = end_date.strftime("%Y-%m-%d")
 
-    st.subheader("Today's Highlights")
+    # Page Title and Intro
+    st.title("Boituva Beach Club Dashboard")
+    st.write(
+        "🎾 **BeachTennis** @ Av. Do Trabalhador, 1879\n"
+        "🏆 5° Open BBC\n\n"
+        "Welcome to the Boituva Beach Club operational dashboard. Here, you can track daily performance, "
+        "examine trends over time, and gain insights into product and client behaviors."
+    )
 
-    # Total orders today
+    st.subheader("Today's Highlights (Automatic Daily KPIs)")
+
+    # Today's metrics
     total_orders_today = run_query("""
         SELECT COUNT(*) 
         FROM public.tb_pedido 
@@ -160,18 +177,14 @@ def home_page():
     """)
     total_orders = total_orders_today[0][0] if total_orders_today else 0
 
-    # Total revenue today
     total_revenue_today = run_query("""
         SELECT SUM("Quantidade" * unit_value) AS total_revenue
         FROM vw_pedido_produto
         WHERE DATE("Data") = CURRENT_DATE;
     """)
     total_revenue = total_revenue_today[0][0] if total_revenue_today and total_revenue_today[0][0] is not None else 0.0
-
-    # Average Order Value (AOV) today
     aov = (total_revenue / total_orders) if total_orders > 0 else 0.0
 
-    # Unique clients today
     unique_clients_today = run_query("""
         SELECT COUNT(DISTINCT "Cliente")
         FROM public.tb_pedido
@@ -179,7 +192,6 @@ def home_page():
     """)
     total_unique_clients = unique_clients_today[0][0] if unique_clients_today else 0
 
-    # Distinct products sold today
     distinct_products_today = run_query("""
         SELECT COUNT(DISTINCT "Produto")
         FROM public.tb_pedido
@@ -187,22 +199,20 @@ def home_page():
     """)
     total_distinct_products = distinct_products_today[0][0] if distinct_products_today else 0
 
-    # Display metrics in a compact layout
+    # KPI Row
     col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.metric("Total Orders", total_orders)
-    with col2:
-        st.metric("Total Revenue", f"R$ {total_revenue:,.2f}")
-    with col3:
-        st.metric("Unique Clients", total_unique_clients)
-    with col4:
-        st.metric("Distinct Products", total_distinct_products)
-    with col5:
-        st.metric("AOV", f"R$ {aov:,.2f}")
+    col1.metric("Total Orders", total_orders)
+    col2.metric("Total Revenue", f"R$ {total_revenue:,.2f}")
+    col3.metric("Unique Clients", total_unique_clients)
+    col4.metric("Distinct Products", total_distinct_products)
+    col5.metric("AOV", f"R$ {aov:,.2f}")
 
     st.divider()
 
-    # Top products by quantity sold today
+    # Top products and clients (Today)
+    st.subheader("Today's Product and Client Performance")
+
+    # Queries for Today
     top_products_today = run_query("""
         SELECT "Produto", SUM("Quantidade") AS total_q
         FROM public.tb_pedido
@@ -212,7 +222,6 @@ def home_page():
         LIMIT 5;
     """)
 
-    # Top products by revenue today
     top_products_revenue_today = run_query("""
         SELECT "Produto", SUM("Quantidade" * unit_value) AS total_revenue
         FROM vw_pedido_produto
@@ -222,7 +231,6 @@ def home_page():
         LIMIT 5;
     """)
 
-    # Top clients by revenue today
     top_clients_today = run_query("""
         SELECT "Cliente", SUM("Quantidade" * unit_value) AS client_revenue
         FROM vw_pedido_produto
@@ -232,20 +240,18 @@ def home_page():
         LIMIT 5;
     """)
 
-    # Section: Top Products and Clients
-    st.subheader("Performance Breakdown (Today)")
-    st.write("**Top Products by Quantity Sold**")
+    # Top Products by Quantity (bar chart)
+    st.write("**Top 5 Products by Quantity Sold Today**")
     if top_products_today:
         df_top_products_qty = pd.DataFrame(top_products_today, columns=["Product", "Quantity"])
         st.bar_chart(df_top_products_qty.set_index("Product"))
     else:
         st.write("No products sold today.")
 
-    st.write("**Top Products by Revenue**")
+    st.write("**Top 5 Products by Revenue Today**")
     if top_products_revenue_today:
         df_top_products_rev = pd.DataFrame(top_products_revenue_today, columns=["Product", "Revenue"])
         df_top_products_rev.set_index("Product", inplace=True)
-        # Pie chart using Altair
         chart_data = df_top_products_rev.reset_index()
         pie_chart = (
             alt.Chart(chart_data)
@@ -253,14 +259,17 @@ def home_page():
             .encode(
                 theta='Revenue:Q',
                 color='Product:N',
-                tooltip=['Product:N', alt.Tooltip('Revenue:Q', format=',.2f')]
+                tooltip=[
+                    alt.Tooltip('Product:N', title='Product'),
+                    alt.Tooltip('Revenue:Q', title='Revenue', format=',.2f')
+                ]
             )
         )
         st.altair_chart(pie_chart, use_container_width=True)
     else:
         st.write("No revenue data available for products today.")
 
-    st.write("**Top Clients by Revenue**")
+    st.write("**Top 5 Clients by Revenue Today**")
     if top_clients_today:
         df_top_clients = pd.DataFrame(top_clients_today, columns=["Client", "Revenue"])
         df_top_clients.set_index("Client", inplace=True)
@@ -271,17 +280,17 @@ def home_page():
     st.divider()
 
     # Scatter plot: Quantity vs Revenue for today's top products by revenue
-    # This gives a quick correlation view if some products are both high-volume and high-revenue
-    st.subheader("Product Quantity vs Revenue (Today)")
+    st.subheader("Correlation Insight: Product Quantity vs. Revenue (Today)")
     if top_products_revenue_today:
-        # We already have top_products_revenue_today
-        # Let's also get their quantities for correlation
         product_names = tuple([p[0] for p in top_products_revenue_today])
+        # Handle single product tuple formatting for SQL
+        if len(product_names) == 1:
+            product_names = f"('{product_names[0]}')"
         product_details = run_query(f"""
             SELECT "Produto", SUM("Quantidade") as q, SUM("Quantidade"*unit_value) as rev
             FROM vw_pedido_produto
             WHERE DATE("Data")=CURRENT_DATE 
-              AND "Produto" IN {product_names if len(product_names) > 1 else '(' + product_names[0] + ')'}
+              AND "Produto" IN {product_names}
             GROUP BY "Produto";
         """)
         if product_details:
@@ -293,7 +302,7 @@ def home_page():
                     x=alt.X('Quantity:Q', title='Quantity Sold'),
                     y=alt.Y('Revenue:Q', title='Revenue'),
                     color='Product:N',
-                    tooltip=['Product', 'Quantity', 'Revenue']
+                    tooltip=['Product', alt.Tooltip('Quantity:Q', format=',.0f'), alt.Tooltip('Revenue:Q', format=',.2f')]
                 )
                 .interactive()
             )
@@ -301,88 +310,55 @@ def home_page():
         else:
             st.write("Not enough product data for correlation analysis.")
     else:
-        st.write("No top products data for correlation.")
+        st.write("No product revenue data for correlation today.")
 
     st.divider()
 
-    # Last 7 days trends
-    st.subheader("Last 7 Days Trends")
+    # Time-series trends based on selected date range
+    st.subheader("Time-Series Trends")
+    st.write(f"Analyzing orders and revenue from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}.")
 
-    # Orders in the last 7 days
-    last_7_days_orders = run_query("""
+    # Last X days orders
+    date_filtered_orders = run_query(f"""
         SELECT DATE("Data") as order_date, COUNT(*) as total_orders
         FROM public.tb_pedido
-        WHERE "Data" >= CURRENT_DATE - INTERVAL '6 days'
+        WHERE DATE("Data") >= '{start_str}' AND DATE("Data") <= '{end_str}'
         GROUP BY DATE("Data")
         ORDER BY DATE("Data");
     """)
 
-    # Revenue in the last 7 days
-    last_7_days_revenue = run_query("""
+    # Last X days revenue
+    date_filtered_revenue = run_query(f"""
         SELECT DATE("Data") as order_date, SUM("Quantidade" * unit_value) as daily_revenue
         FROM vw_pedido_produto
-        WHERE "Data" >= CURRENT_DATE - INTERVAL '6 days'
+        WHERE DATE("Data") >= '{start_str}' AND DATE("Data") <= '{end_str}'
         GROUP BY DATE("Data")
         ORDER BY DATE("Data");
     """)
 
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.write("**Orders (Last 7 Days)**")
-        if last_7_days_orders:
-            df_7days_orders = pd.DataFrame(last_7_days_orders, columns=["Date", "Total Orders"]).set_index("Date")
-            st.line_chart(df_7days_orders)
+    col_t1, col_t2 = st.columns(2)
+    with col_t1:
+        st.write("**Orders Over Selected Period**")
+        if date_filtered_orders:
+            df_orders_period = pd.DataFrame(date_filtered_orders, columns=["Date", "Total Orders"]).set_index("Date")
+            st.line_chart(df_orders_period)
         else:
-            st.info("No orders found for the last 7 days.")
+            st.info("No orders found for the selected period.")
 
-    with col_b:
-        st.write("**Revenue (Last 7 Days)**")
-        if last_7_days_revenue:
-            df_7days_revenue = pd.DataFrame(last_7_days_revenue, columns=["Date", "Revenue"]).set_index("Date")
-            st.line_chart(df_7days_revenue)
+    with col_t2:
+        st.write("**Revenue Over Selected Period**")
+        if date_filtered_revenue:
+            df_revenue_period = pd.DataFrame(date_filtered_revenue, columns=["Date", "Revenue"]).set_index("Date")
+            st.line_chart(df_revenue_period)
         else:
-            st.info("No revenue data for the last 7 days.")
+            st.info("No revenue data for the selected period.")
 
-    st.divider()
-
-    # Monthly Overview (Last 30 days)
-    st.subheader("Monthly Overview (Last 30 Days)")
-
-    monthly_orders = run_query("""
-        SELECT DATE("Data") as order_date, COUNT(*) as total_orders
-        FROM public.tb_pedido
-        WHERE "Data" >= CURRENT_DATE - INTERVAL '29 days'
-        GROUP BY DATE("Data")
-        ORDER BY DATE("Data");
-    """)
-
-    monthly_revenue = run_query("""
-        SELECT DATE("Data") as order_date, SUM("Quantidade" * unit_value) as daily_revenue
-        FROM vw_pedido_produto
-        WHERE "Data" >= CURRENT_DATE - INTERVAL '29 days'
-        GROUP BY DATE("Data")
-        ORDER BY DATE("Data");
-    """)
-
-    col_m1, col_m2 = st.columns(2)
-    with col_m1:
-        st.write("**Orders (Last 30 Days)**")
-        if monthly_orders:
-            df_30days_orders = pd.DataFrame(monthly_orders, columns=["Date", "Total Orders"]).set_index("Date")
-            st.line_chart(df_30days_orders)
-        else:
-            st.info("No orders in the last 30 days.")
-
-    with col_m2:
-        st.write("**Revenue (Last 30 Days)**")
-        if monthly_revenue:
-            df_30days_revenue = pd.DataFrame(monthly_revenue, columns=["Date", "Revenue"]).set_index("Date")
-            st.line_chart(df_30days_revenue)
-        else:
-            st.info("No revenue data in the last 30 days.")
+    st.write(
+        "Use the filters on the left sidebar to adjust the date range and see how performance changes "
+        "over different time horizons."
+    )
 
     st.button("Refresh Data", on_click=refresh_data)
-
 
 def orders_page():
     st.title("Orders")
