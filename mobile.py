@@ -70,7 +70,7 @@ def load_all_data():
     """
     data = {}
     try:
-        # Include id in the orders query so we can edit specific orders
+        # Incluímos a coluna id para permitir edição
         data["orders"] = run_query(
             'SELECT id, "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
         )
@@ -96,12 +96,12 @@ def refresh_data():
 #####################
 def sidebar_navigation():
     """
-    Create a sidebar or horizontal menu for navigation using streamlit_option_menu.
+    Create a sidebar menu for navigation using streamlit_option_menu.
     """
     with st.sidebar:
         st.title("Boituva Beach Club")
         selected = option_menu(
-            "Beach Menu", 
+            "Beach Menu",
             ["Home", "Orders", "Invoice", "Stock", "Clients", "Commands"],
             icons=["house", "file-text", "file-invoice", "layers", "person", "list-task"],
             menu_icon="cast",
@@ -166,14 +166,12 @@ def orders_page():
         columns = ["ID", "Client", "Product", "Quantity", "Date", "Status"]
         df_orders = pd.DataFrame(orders_data, columns=columns)
 
-        # Show the table of orders
         st.dataframe(df_orders, use_container_width=True)
 
         # Add edit buttons for each order
-        # We'll store the selected order ID in session state when Edit is clicked
         for idx, row in df_orders.iterrows():
-            col_edit, _ = st.columns([0.2, 0.8])
-            if col_edit.button("Edit", key=f"edit_{row['ID']}"):
+            edit_col, _ = st.columns([0.2, 0.8])
+            if edit_col.button("Edit", key=f"edit_{row['ID']}"):
                 st.session_state.edit_order_id = row["ID"]
                 st.session_state.edit_cliente = row["Client"]
                 st.session_state.edit_produto = row["Product"]
