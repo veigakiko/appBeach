@@ -68,15 +68,15 @@ def run_insert(query, values):
 def load_all_data():
     """
     Load all initial data from the database and return as a dictionary.
+    Using the original SELECT queries without any id columns.
     """
     data = {}
     try:
-        # Load orders including an ID for editing
         data["orders"] = run_query(
-            'SELECT id, "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
+            'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
         )
         data["products"] = run_query(
-            "SELECT id, supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products;"
+            "SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products;"
         )
         data["clients"] = run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido;')
         data["stock"] = run_query(
@@ -154,7 +154,7 @@ def orders_page():
     st.subheader("Register a new order")
 
     product_data = st.session_state.data.get("products", [])
-    product_list = [""] + [row[2] for row in product_data] if product_data else ["No products available"]
+    product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
 
     # Fetch clients from tb_clientes table
     customer_names = run_query('SELECT nome_completo FROM public.tb_clientes')
@@ -168,12 +168,12 @@ def orders_page():
 
     if submit_button:
         if customer_name and product and quantity > 0:
-            query = """
+            insert_query = """
             INSERT INTO public.tb_pedido ("Cliente", "Produto", "Quantidade", "Data", "status")
             VALUES (%s, %s, %s, %s, 'em aberto');
             """
             timestamp = datetime.now()
-            success = run_insert(query, (customer_name, product, quantity, timestamp))
+            success = run_insert(insert_query, (customer_name, product, quantity, timestamp))
             if success:
                 st.success("Order registered successfully!")
                 refresh_data()
@@ -183,19 +183,25 @@ def orders_page():
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
         st.subheader("All Orders")
-        columns = ["ID", "Client", "Product", "Quantity", "Date", "Status"]
+        columns = ["Client", "Product", "Quantity", "Date", "Status"]
         df_orders = pd.DataFrame(orders_data, columns=columns)
         st.dataframe(df_orders, use_container_width=True)
 
-        # Select an order by its ID to edit
-        order_ids = [str(o[0]) for o in orders_data]
-        selected_order_id = st.selectbox("Select an Order ID to Edit", [""] + order_ids)
-        if selected_order_id:
-            selected_order_id = int(selected_order_id)
-            selected_order = [o for o in orders_data if o[0] == selected_order_id]
+        # Generate a list of unique keys for selecting an order to edit
+        # We'll use "Cliente | Produto | Data" as a unique key
+        order_keys = [f"{o[0]} | {o[1]} | {o[3]}" for o in orders_data]
+        selected_order_key = st.selectbox("Select an Order to Edit", [""] + order_keys)
+        if selected_order_key:
+            # Parse the selected key
+            parts = selected_order_key.split("|")
+            selected_cliente = parts[0].strip()
+            selected_produto = parts[1].strip()
+            selected_data_str = parts[2].strip()
+
+            # Find the matching order
+            selected_order = [o for o in orders_data if o[0] == selected_cliente and o[1] == selected_produto and str(o[3]) == selected_data_str]
             if selected_order:
-                # Current order details
-                _, current_cliente, current_produto, current_quantidade, current_data, current_status = selected_order[0]
+                current_cliente, current_produto, current_quantidade, current_data, current_status = selected_order[0]
 
                 st.subheader("Edit Selected Order")
                 with st.form(key='edit_order_form'):
@@ -208,9 +214,9 @@ def orders_page():
                     update_query = """
                     UPDATE public.tb_pedido
                     SET "Cliente" = %s, "Produto" = %s, "Quantidade" = %s
-                    WHERE id = %s;
+                    WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
                     """
-                    success = run_insert(update_query, (new_client, new_product, new_quantity, selected_order_id))
+                    success = run_insert(update_query, (new_client, new_product, new_quantity, current_cliente, current_produto, current_data))
                     if success:
                         st.success("Order updated successfully!")
                         refresh_data()
