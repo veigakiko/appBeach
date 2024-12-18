@@ -16,11 +16,11 @@ def get_db_connection():
     """
     try:
         conn = psycopg2.connect(
-            host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
-            database="beachtennis",
-            user="kiko",
-            password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
-            port=5432
+            host=st.secrets["DB_HOST"],       # Utilize st.secrets para segurança
+            database=st.secrets["DB_NAME"],
+            user=st.secrets["DB_USER"],
+            password=st.secrets["DB_PASSWORD"],
+            port=st.secrets["DB_PORT"]
         )
         return conn
     except OperationalError as e:
@@ -29,7 +29,7 @@ def get_db_connection():
 
 def run_query(query, values=None):
     """
-    Runs a read-only query (SELECT) and returns the fetched data.
+    Executes a read-only query (SELECT) and returns the fetched data.
     """
     conn = get_db_connection()
     if conn is None:
@@ -38,17 +38,16 @@ def run_query(query, values=None):
         with conn.cursor() as cursor:
             cursor.execute(query, values or ())
             return cursor.fetchall()
-    except Exception as e:
-        if conn:
-            conn.rollback()
+    except (Exception, psycopg2.DatabaseError) as e:
         st.error(f"Erro ao executar a consulta: {e}")
         return []
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def run_insert(query, values):
     """
-    Runs an insert or update query.
+    Executes an insert or update query.
     """
     conn = get_db_connection()
     if conn is None:
@@ -58,13 +57,14 @@ def run_insert(query, values):
             cursor.execute(query, values)
         conn.commit()
         return True
-    except Exception as e:
+    except (Exception, psycopg2.DatabaseError) as e:
         if conn:
             conn.rollback()
         st.error(f"Erro ao executar a operação: {e}")
         return False
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 #####################
 # Data Loading
@@ -116,7 +116,7 @@ def login():
         submit = st.form_submit_button("Entrar")
     
     if submit:
-        if username == "admin" and password == "admin":
+        if username == "admin" and password == "admin":  # Substitua por um método de autenticação mais robusto
             st.session_state.logged_in = True
             st.success("Login realizado com sucesso!")
             refresh_data()
@@ -614,7 +614,7 @@ def process_payment(invoice_keys, payment_status):
     for key in invoice_keys:
         try:
             cliente, produto, data = key.split('|')
-            # Converter 'data' de string para datetime se necessário
+            # Converter 'data' para datetime se necessário
             if isinstance(data, str):
                 # Dependendo do formato da data, ajuste aqui. Exemplo assume ISO format.
                 data = datetime.fromisoformat(data)
