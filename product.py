@@ -416,6 +416,7 @@ def clients_page():
 
     if submit_client:
         # Preenchendo os demais campos automaticamente
+        # Ajuste conforme sua necessidade
         data_nascimento = datetime(2000, 1, 1).date()  # Exemplo: data fixa
         genero = "Man"  # Valor padrão
         telefone = "0000-0000"  # Valor padrão
@@ -433,6 +434,7 @@ def clients_page():
                 refresh_data()
         else:
             st.warning("Please fill in the Full Name field.")
+
 
 
 def invoice_page():
