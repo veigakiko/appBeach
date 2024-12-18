@@ -152,11 +152,14 @@ def home_page():
         # Remover o índice
         df_open_orders = df_open_orders.reset_index(drop=True)
         
+        # Selecionar apenas as colunas desejadas
+        df_open_orders = df_open_orders[["Client", "Date", "Total"]]
+        
         # Exibir a tabela sem índice e com estilos compactos
         st.dataframe(df_open_orders.style.set_properties(**{
             'text-align': 'left',
             'font-size': '12px'
-        }).hide_index(), use_container_width=True)
+        }), use_container_width=True)
     else:
         st.info("Nenhum pedido em aberto encontrado.")
     
@@ -185,11 +188,14 @@ def home_page():
         # Remover o índice
         df_closed_orders = df_closed_orders.reset_index(drop=True)
         
+        # Selecionar apenas as colunas desejadas
+        df_closed_orders = df_closed_orders[["Client", "Date", "Total"]]
+        
         # Exibir a tabela sem índice e com estilos compactos
         st.dataframe(df_closed_orders.style.set_properties(**{
             'text-align': 'left',
             'font-size': '12px'
-        }).hide_index(), use_container_width=True)
+        }), use_container_width=True)
     else:
         st.info("Nenhum pedido fechado encontrado.")
 
@@ -354,11 +360,14 @@ def products_page():
         # Remover o índice
         df_products = df_products.reset_index(drop=True)
         
+        # Selecionar apenas as colunas desejadas
+        df_products = df_products[["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]]
+        
         # Exibir a tabela sem índice e com estilos compactos
         st.dataframe(df_products.style.set_properties(**{
             'text-align': 'left',
             'font-size': '12px'
-        }).hide_index(), use_container_width=True)
+        }), use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Product")
         # Criar uma chave única para identificar cada produto
@@ -478,11 +487,14 @@ def stock_page():
         # Remover o índice
         df_stock = df_stock.reset_index(drop=True)
         
+        # Selecionar apenas as colunas desejadas
+        df_stock = df_stock[["Product", "Quantity", "Transaction", "Date"]]
+        
         # Exibir a tabela sem índice e com estilos compactos
         st.dataframe(df_stock.style.set_properties(**{
             'text-align': 'left',
             'font-size': '12px'
-        }).hide_index(), use_container_width=True)
+        }), use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Stock Record")
         # Criar uma chave única para identificar cada registro de estoque
@@ -607,11 +619,13 @@ def clients_page():
         df_clients = pd.DataFrame(clients_data, columns=columns)
         # Remover o índice
         df_clients = df_clients.reset_index(drop=True)
+        # Selecionar apenas as colunas desejadas
+        df_clients = df_clients[["Full Name", "Birth Date", "Gender", "Phone", "Email", "Address", "Register Date"]]
         # Exibir a tabela sem índice e com estilos compactos
         st.dataframe(df_clients.style.set_properties(**{
             'text-align': 'left',
             'font-size': '12px'
-        }).hide_index(), use_container_width=True)
+        }), use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Client")
         # Selecionar um cliente para edição
@@ -684,6 +698,8 @@ def invoice_page():
 
             total_sum = df["total"].sum()
             st.subheader(f"Total Geral: R$ {total_sum:,.2f}")
+            # Formatar total_sum para moeda brasileira
+            st.subheader(f"Total Geral: R$ {total_sum:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
 
             col1, col2, col3 = st.columns(3)
 
