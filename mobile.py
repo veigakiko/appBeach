@@ -5,82 +5,51 @@ from psycopg2 import OperationalError
 from datetime import datetime
 import pandas as pd
 
-#####################
+# ----------------------------------------
 # Authentication Configuration
-#####################
+# ----------------------------------------
 USERNAME = "admin"
 PASSWORD = "admin"
 
-#####################
+# ----------------------------------------
 # Database Utilities
-#####################
+# ----------------------------------------
 @st.cache_resource
 def get_db_connection():
     """
-    Return a persistent database connection using psycopg2.
+    Establish a persistent database connection.
     """
     try:
-        conn = psycopg2.connect(
+        return psycopg2.connect(
             host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
             database="beachtennis",
             user="kiko",
             password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
             port=5432
         )
-        return conn
     except OperationalError as e:
-        st.error("Could not connect to the database.")
-        return None
+        st.error("Failed to connect to the database.")
+        st.stop()
 
-def run_query(query, values=None):
+def run_query(query, values=None, fetch=True):
     """
-    Executes SELECT queries and returns fetched results.
+    Run SELECT or INSERT/UPDATE queries safely.
     """
-    conn = get_db_connection()
-    if conn:
-        try:
-            with conn.cursor() as cursor:
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            try:
                 cursor.execute(query, values or ())
-                return cursor.fetchall()
-        except Exception as e:
-            st.error(f"Query error: {e}")
-            return []
+                if fetch:
+                    return cursor.fetchall()
+                conn.commit()
+                return True
+            except Exception as e:
+                st.error(f"Database error: {e}")
+                return [] if fetch else False
 
-def run_insert(query, values):
-    """
-    Executes INSERT/UPDATE queries.
-    """
-    conn = get_db_connection()
-    if conn:
-        try:
-            with conn.cursor() as cursor:
-                cursor.execute(query, values)
-            conn.commit()
-            return True
-        except Exception as e:
-            st.error(f"Insert error: {e}")
-            return False
-
-#####################
-# Data Loading
-#####################
-def load_all_data():
-    """
-    Loads all data used by the app into a dictionary.
-    """
-    data = {}
-    try:
-        data["orders"] = run_query('SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido;')
-        data["products"] = run_query("SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products;")
-        data["clients"] = run_query('SELECT nome_completo FROM public.tb_clientes;')
-        data["stock"] = run_query('SELECT "Produto", "Quantidade", "Valor", "Total", "Transação", "Data" FROM public.tb_estoque;')
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-    return data
-
-#####################
-# Login Page
-#####################
+# ----------------------------------------
+# Authentication Page
+# ----------------------------------------
 def login_page():
     st.title("Boituva Beach Club - Login")
     username = st.text_input("Username")
@@ -92,122 +61,100 @@ def login_page():
         else:
             st.error("Invalid credentials.")
 
-#####################
-# Navigation Menu
-#####################
+# ----------------------------------------
+# Sidebar Navigation
+# ----------------------------------------
 def sidebar_navigation():
     with st.sidebar:
         st.title("Boituva Beach Club")
-        selected = option_menu(
+        return option_menu(
             "Menu", ["Home", "Orders", "Products", "Commands", "Stock", "Clients", "Nota Fiscal"],
             icons=["house", "file-text", "box", "list-task", "layers", "person", "file-invoice"],
             default_index=0
         )
-    return selected
 
-#####################
+# ----------------------------------------
+# Helper Function for Data Display
+# ----------------------------------------
+def display_data(title, query, columns):
+    st.subheader(title)
+    data = run_query(query)
+    if data:
+        st.dataframe(pd.DataFrame(data, columns=columns))
+    else:
+        st.info("No data found.")
+
+# ----------------------------------------
 # Page Functions
-#####################
+# ----------------------------------------
 def home_page():
-    st.title("Home Page")
+    st.title("🏠 Home Page")
     st.write("🎾 Welcome to Boituva Beach Club 🎾")
 
 def orders_page():
-    st.title("Orders Management")
-    st.subheader("Register a New Order")
+    st.title("📦 Orders Management")
     clients = [row[0] for row in run_query('SELECT nome_completo FROM public.tb_clientes')]
     products = [row[1] for row in run_query("SELECT product FROM public.tb_products")]
+
     with st.form("order_form"):
         client = st.selectbox("Select Client", clients)
         product = st.selectbox("Select Product", products)
         quantity = st.number_input("Quantity", min_value=1)
-        submitted = st.form_submit_button("Submit")
-        if submitted:
-            if client and product and quantity > 0:
-                query = """
+        if st.form_submit_button("Submit Order"):
+            if run_query("""
                 INSERT INTO public.tb_pedido ("Cliente", "Produto", "Quantidade", "Data", "status")
                 VALUES (%s, %s, %s, %s, %s);
-                """
-                success = run_insert(query, (client, product, quantity, datetime.now(), "em aberto"))
-                if success:
-                    st.success("Order registered successfully!")
+            """, (client, product, quantity, datetime.now(), "em aberto"), fetch=False):
+                st.success("Order registered successfully!")
 
-    st.subheader("Orders List")
-    orders = run_query('SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido;')
-    if orders:
-        st.dataframe(pd.DataFrame(orders, columns=["Client", "Product", "Quantity", "Date", "Status"]))
+    display_data("Orders List", 
+                 'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido;', 
+                 ["Client", "Product", "Quantity", "Date", "Status"])
 
 def products_page():
-    st.title("Products Management")
-    st.subheader("Add a New Product")
+    st.title("🛒 Products Management")
     with st.form("product_form"):
         supplier = st.text_input("Supplier")
         product = st.text_input("Product Name")
         quantity = st.number_input("Quantity", min_value=1)
         unit_value = st.number_input("Unit Value", min_value=0.0)
-        submitted = st.form_submit_button("Add Product")
-        if submitted:
+        if st.form_submit_button("Add Product"):
             total_value = quantity * unit_value
-            query = """
-            INSERT INTO public.tb_products (supplier, product, quantity, unit_value, total_value, creation_date)
-            VALUES (%s, %s, %s, %s, %s, %s);
-            """
-            success = run_insert(query, (supplier, product, quantity, unit_value, total_value, datetime.now()))
-            if success:
+            if run_query("""
+                INSERT INTO public.tb_products (supplier, product, quantity, unit_value, total_value, creation_date)
+                VALUES (%s, %s, %s, %s, %s, %s);
+            """, (supplier, product, quantity, unit_value, total_value, datetime.now()), fetch=False):
                 st.success("Product added successfully!")
 
-    st.subheader("Products List")
-    products = run_query("SELECT supplier, product, quantity, unit_value, total_value FROM public.tb_products;")
-    if products:
-        st.dataframe(pd.DataFrame(products, columns=["Supplier", "Product", "Quantity", "Unit Value", "Total Value"]))
-
-def commands_page():
-    st.title("Client Commands")
-    clients = [row[0] for row in run_query('SELECT nome_completo FROM public.tb_clientes;')]
-    selected_client = st.selectbox("Select Client", clients)
-    if selected_client:
-        query = """
-        SELECT "Produto", "Quantidade", "Data", status
-        FROM public.tb_pedido
-        WHERE "Cliente" = %s;
-        """
-        results = run_query(query, (selected_client,))
-        if results:
-            st.dataframe(pd.DataFrame(results, columns=["Product", "Quantity", "Date", "Status"]))
-        else:
-            st.info("No orders found for this client.")
-
-def stock_page():
-    st.title("Stock Management")
-    st.subheader("Stock Records")
-    stock = run_query('SELECT "Produto", "Quantidade", "Valor", "Total", "Data" FROM public.tb_estoque;')
-    if stock:
-        st.dataframe(pd.DataFrame(stock, columns=["Product", "Quantity", "Value", "Total", "Date"]))
+    display_data("Products List", 
+                 "SELECT supplier, product, quantity, unit_value, total_value FROM public.tb_products;", 
+                 ["Supplier", "Product", "Quantity", "Unit Value", "Total Value"])
 
 def clients_page():
-    st.title("Clients Management")
-    st.subheader("Register a New Client")
+    st.title("👤 Clients Management")
     with st.form("client_form"):
         name = st.text_input("Full Name")
         phone = st.text_input("Phone")
         email = st.text_input("Email")
-        submitted = st.form_submit_button("Register Client")
-        if submitted:
-            query = """
-            INSERT INTO public.tb_clientes (nome_completo, telefone, email, data_cadastro)
-            VALUES (%s, %s, %s, %s);
-            """
-            success = run_insert(query, (name, phone, email, datetime.now()))
-            if success:
+        if st.form_submit_button("Register Client"):
+            if run_query("""
+                INSERT INTO public.tb_clientes (nome_completo, telefone, email, data_cadastro)
+                VALUES (%s, %s, %s, %s);
+            """, (name, phone, email, datetime.now()), fetch=False):
                 st.success("Client registered successfully!")
 
-    st.subheader("Clients List")
-    clients = run_query("SELECT nome_completo, telefone, email FROM public.tb_clientes;")
-    if clients:
-        st.dataframe(pd.DataFrame(clients, columns=["Name", "Phone", "Email"]))
+    display_data("Clients List", 
+                 "SELECT nome_completo, telefone, email FROM public.tb_clientes;", 
+                 ["Name", "Phone", "Email"])
+
+def stock_page():
+    st.title("📊 Stock Management")
+    display_data("Stock Records", 
+                 'SELECT "Produto", "Quantidade", "Valor", "Total", "Data" FROM public.tb_estoque;', 
+                 ["Product", "Quantity", "Value", "Total", "Date"])
 
 def invoice_page():
-    st.title("Generate Nota Fiscal")
+    st.title("🧾 Generate Nota Fiscal")
     clients = [row[0] for row in run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido;')]
     selected_client = st.selectbox("Select Client", clients)
     if selected_client:
@@ -221,27 +168,22 @@ def invoice_page():
             st.dataframe(pd.DataFrame(data, columns=["Product", "Quantity"]))
             st.success("Invoice generated successfully!")
 
-#####################
+# ----------------------------------------
 # Application Logic
-#####################
+# ----------------------------------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
 if not st.session_state.logged_in:
     login_page()
 else:
-    selected = sidebar_navigation()
-    if selected == "Home":
-        home_page()
-    elif selected == "Orders":
-        orders_page()
-    elif selected == "Products":
-        products_page()
-    elif selected == "Commands":
-        commands_page()
-    elif selected == "Stock":
-        stock_page()
-    elif selected == "Clients":
-        clients_page()
-    elif selected == "Nota Fiscal":
-        invoice_page()
+    pages = {
+        "Home": home_page,
+        "Orders": orders_page,
+        "Products": products_page,
+        "Clients": clients_page,
+        "Stock": stock_page,
+        "Nota Fiscal": invoice_page
+    }
+    selected_page = sidebar_navigation()
+    pages.get(selected_page, lambda: st.error("Page not found!"))()
