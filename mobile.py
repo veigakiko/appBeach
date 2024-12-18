@@ -10,7 +10,7 @@ import pandas as pd
 #####################
 def get_db_connection():
     """
-    Establishes and returns a new database connection using psycopg2.
+    Estabelece e retorna uma nova conexão com o banco de dados usando psycopg2.
     """
     try:
         conn = psycopg2.connect(
@@ -22,12 +22,12 @@ def get_db_connection():
         )
         return conn
     except OperationalError as e:
-        st.error("Could not connect to the database. Please try again later.")
+        st.error("Não foi possível conectar ao banco de dados. Por favor, tente novamente mais tarde.")
         return None
 
 def run_query(query, values=None):
     """
-    Executes a SELECT query and returns the fetched data.
+    Executa uma consulta SELECT e retorna os dados obtidos.
     """
     conn = get_db_connection()
     if conn is None:
@@ -37,14 +37,14 @@ def run_query(query, values=None):
             cursor.execute(query, values or ())
             return cursor.fetchall()
     except Exception as e:
-        st.error(f"Error executing query: {e}")
+        st.error(f"Erro ao executar a consulta: {e}")
         return []
     finally:
         conn.close()
 
 def run_insert(query, values):
     """
-    Executes an INSERT, UPDATE, or DELETE query.
+    Executa uma consulta INSERT, UPDATE ou DELETE.
     """
     conn = get_db_connection()
     if conn is None:
@@ -56,7 +56,7 @@ def run_insert(query, values):
         return True
     except Exception as e:
         conn.rollback()
-        st.error(f"Error executing insert/update/delete: {e}")
+        st.error(f"Erro ao executar a operação: {e}")
         return False
     finally:
         conn.close()
@@ -67,7 +67,7 @@ def run_insert(query, values):
 @st.cache_data(ttl=600)
 def load_all_data():
     """
-    Loads all necessary data from the database and returns it as a dictionary.
+    Carrega todos os dados necessários do banco de dados e retorna um dicionário.
     """
     data = {}
     try:
@@ -82,12 +82,12 @@ def load_all_data():
             'SELECT "Produto", "Quantidade", "Transação", "Data" FROM public.tb_estoque ORDER BY "Data" DESC;'
         )
     except Exception as e:
-        st.error(f"Error loading data: {e}")
+        st.error(f"Erro ao carregar os dados: {e}")
     return data
 
 def refresh_data():
     """
-    Reloads all data and updates the session state.
+    Recarrega todos os dados e atualiza o estado da sessão.
     """
     st.session_state.data = load_all_data()
 
@@ -96,33 +96,33 @@ def refresh_data():
 #####################
 def login():
     """
-    Displays a login form and handles authentication.
+    Exibe um formulário de login e trata a autenticação.
     """
     st.title("Login")
     with st.form(key='login_form'):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submit = st.form_submit_button("Login")
+        username = st.text_input("Nome de Usuário")
+        password = st.text_input("Senha", type="password")
+        submit = st.form_submit_button("Entrar")
     
     if submit:
         if username == "admin" and password == "admin":
             st.session_state.logged_in = True
-            st.success("Logged in successfully!")
+            st.success("Login realizado com sucesso!")
             refresh_data()
         else:
-            st.error("Invalid username or password.")
+            st.error("Nome de usuário ou senha inválidos.")
 
 #####################
 # Menu Navigation
 #####################
 def sidebar_navigation():
     """
-    Creates a sidebar menu for navigation using streamlit_option_menu.
+    Cria um menu lateral para navegação usando streamlit_option_menu.
     """
     with st.sidebar:
         st.title("Boituva Beach Club")
         selected = option_menu(
-            "Beach Menu", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal", "Logout"],
+            "Menu Principal", ["Home", "Pedidos", "Produtos", "Estoque", "Clientes", "Nota Fiscal", "Sair"],
             icons=["house", "file-text", "box", "list-task", "people", "file-invoice", "box-arrow-right"],
             menu_icon="cast",
             default_index=0,
@@ -147,26 +147,26 @@ def sidebar_navigation():
 def home_page():
     st.title("Boituva Beach Club")
     st.write("🎾 Beach Tennis 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
-    if st.button("Refresh Data"):
+    if st.button("Atualizar Dados"):
         refresh_data()
 
 def orders_page():
-    st.title("Orders")
-    st.subheader("Register a New Order")
+    st.title("Pedidos")
+    st.subheader("Registrar um Novo Pedido")
 
     product_data = st.session_state.data.get("products", [])
-    product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
+    product_list = [""] + [row[1] for row in product_data] if product_data else ["Nenhum produto disponível"]
 
-    # Form to insert new order
+    # Formulário para inserir novo pedido
     with st.form(key='order_form'):
-        # Loading list of clients for the new order
+        # Carregando lista de clientes para o novo pedido
         clientes = run_query('SELECT nome_completo FROM public.tb_clientes ORDER BY nome_completo;')
-        customer_list = [""] + [row[0] for row in clientes] if clientes else ["No clients available"]
+        customer_list = [""] + [row[0] for row in clientes] if clientes else ["Nenhum cliente disponível"]
 
-        customer_name = st.selectbox("Customer Name", customer_list, index=0)
-        product = st.selectbox("Product", product_list, index=0)
-        quantity = st.number_input("Quantity", min_value=1, step=1)
-        submit_button = st.form_submit_button(label="Register Order")
+        customer_name = st.selectbox("Nome do Cliente", customer_list, index=0)
+        product = st.selectbox("Produto", product_list, index=0)
+        quantity = st.number_input("Quantidade", min_value=1, step=1)
+        submit_button = st.form_submit_button(label="Registrar Pedido")
 
     if submit_button:
         if customer_name and product and quantity > 0:
@@ -177,50 +177,50 @@ def orders_page():
             timestamp = datetime.now()
             success = run_insert(query, (customer_name, product, quantity, timestamp))
             if success:
-                st.success("Order registered successfully!")
+                st.success("Pedido registrado com sucesso!")
                 refresh_data()
             else:
-                st.error("Failed to register order.")
+                st.error("Falha ao registrar o pedido.")
         else:
-            st.warning("Please fill in all fields correctly.")
+            st.warning("Por favor, preencha todos os campos corretamente.")
 
-    # Display all orders
+    # Exibir todos os pedidos
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
-        st.subheader("All Orders")
-        columns = ["Client", "Product", "Quantity", "Date", "Status"]
+        st.subheader("Todos os Pedidos")
+        columns = ["Cliente", "Produto", "Quantidade", "Data", "Status"]
         df_orders = pd.DataFrame(orders_data, columns=columns)
         st.dataframe(df_orders, use_container_width=True)
 
-        # Create unique identifiers based on Client, Product, and Date
-        df_orders["unique_key"] = df_orders.apply(lambda row: f"{row['Client']}|{row['Product']}|{row['Date']}", axis=1)
+        # Criar identificadores únicos com base em Cliente, Produto e Data
+        df_orders["unique_key"] = df_orders.apply(lambda row: f"{row['Cliente']}|{row['Produto']}|{row['Data']}", axis=1)
 
-        st.subheader("Edit or Delete an Existing Order")
+        st.subheader("Editar ou Excluir um Pedido Existente")
         unique_keys = df_orders["unique_key"].unique().tolist()
-        selected_key = st.selectbox("Select an order to edit or delete:", [""] + unique_keys)
+        selected_key = st.selectbox("Selecione um pedido para editar ou excluir:", [""] + unique_keys)
 
         if selected_key:
-            # Extract original order values
+            # Extrair valores originais do pedido selecionado
             selected_row = df_orders[df_orders["unique_key"] == selected_key].iloc[0]
 
-            original_client = selected_row["Client"]
-            original_product = selected_row["Product"]
-            original_date = selected_row["Date"]  # datetime
-            original_quantity = selected_row["Quantity"]
+            original_client = selected_row["Cliente"]
+            original_product = selected_row["Produto"]
+            original_date = selected_row["Data"]  # datetime
+            original_quantity = selected_row["Quantidade"]
             original_status = selected_row["Status"]
 
-            # Prepare the edit form
+            # Preparar o formulário de edição
             product_index = product_list.index(original_product) if original_product in product_list else 0
 
-            st.markdown("### Edit Order Details")
+            st.markdown("### Editar Detalhes do Pedido")
             with st.form(key='edit_order_form'):
-                edit_product = st.selectbox("Product", product_list, index=product_index)
-                edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
+                edit_product = st.selectbox("Produto", product_list, index=product_index)
+                edit_quantity = st.number_input("Quantidade", min_value=1, step=1, value=int(original_quantity))
                 edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix", "Received - Cash"]
                 edit_status_index = edit_status_list.index(original_status) if original_status in edit_status_list else 0
                 edit_status = st.selectbox("Status", edit_status_list, index=edit_status_index)
 
-                update_button = st.form_submit_button(label="Update Order")
+                update_button = st.form_submit_button(label="Atualizar Pedido")
 
             if update_button:
                 if edit_product and edit_quantity > 0 and edit_status:
@@ -232,17 +232,17 @@ def orders_page():
                     new_timestamp = datetime.now()
                     success = run_insert(update_query, (edit_product, edit_quantity, edit_status, new_timestamp, original_client, original_product, original_date))
                     if success:
-                        st.success("Order updated successfully!")
+                        st.success("Pedido atualizado com sucesso!")
                         refresh_data()
                     else:
-                        st.error("Failed to update the order.")
+                        st.error("Falha ao atualizar o pedido.")
                 else:
-                    st.warning("Please fill in all fields correctly.")
+                    st.warning("Por favor, preencha todos os campos corretamente.")
 
-            st.markdown("### Delete Order")
+            st.markdown("### Excluir Pedido")
             with st.form(key='delete_order_form'):
-                st.warning("Are you sure you want to delete this order?")
-                delete_button = st.form_submit_button(label="Delete Order")
+                st.warning("Tem certeza de que deseja excluir este pedido?")
+                delete_button = st.form_submit_button(label="Excluir Pedido")
 
             if delete_button:
                 delete_query = """
@@ -251,24 +251,24 @@ def orders_page():
                 """
                 success = run_insert(delete_query, (original_client, original_product, original_date))
                 if success:
-                    st.success("Order deleted successfully!")
+                    st.success("Pedido excluído com sucesso!")
                     refresh_data()
                 else:
-                    st.error("Failed to delete the order.")
+                    st.error("Falha ao excluir o pedido.")
     else:
-        st.info("No orders found.")
+        st.info("Nenhum pedido encontrado.")
 
 def products_page():
-    st.title("Products")
+    st.title("Produtos")
 
-    st.subheader("Add a New Product")
+    st.subheader("Adicionar um Novo Produto")
     with st.form(key='product_form'):
-        supplier = st.text_input("Supplier", max_chars=100)
-        product = st.text_input("Product", max_chars=100)
-        quantity = st.number_input("Quantity", min_value=1, step=1)
-        unit_value = st.number_input("Unit Value", min_value=0.0, step=0.01, format="%.2f")
-        creation_date = st.date_input("Creation Date", value=datetime.today())
-        submit_product = st.form_submit_button(label="Insert Product")
+        supplier = st.text_input("Fornecedor", max_chars=100)
+        product = st.text_input("Produto", max_chars=100)
+        quantity = st.number_input("Quantidade", min_value=1, step=1)
+        unit_value = st.number_input("Valor Unitário", min_value=0.0, step=0.01, format="%.2f")
+        creation_date = st.date_input("Data de Criação", value=datetime.today())
+        submit_product = st.form_submit_button(label="Inserir Produto")
 
     if submit_product:
         if supplier and product and quantity > 0 and unit_value >= 0:
@@ -279,50 +279,50 @@ def products_page():
             total_value = quantity * unit_value
             success = run_insert(query, (supplier, product, quantity, unit_value, total_value, creation_date))
             if success:
-                st.success("Product added successfully!")
+                st.success("Produto adicionado com sucesso!")
                 refresh_data()
             else:
-                st.error("Failed to add product.")
+                st.error("Falha ao adicionar o produto.")
         else:
-            st.warning("Please fill in all fields correctly.")
+            st.warning("Por favor, preencha todos os campos corretamente.")
 
-    # Display all products
+    # Exibir todos os produtos
     products_data = st.session_state.data.get("products", [])
-    columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
+    columns = ["Fornecedor", "Produto", "Quantidade", "Valor Unitário", "Valor Total", "Data de Criação"]
     if products_data:
-        st.subheader("All Products")
+        st.subheader("Todos os Produtos")
         df_products = pd.DataFrame(products_data, columns=columns)
         st.dataframe(df_products, use_container_width=True)
 
-        # Create a unique key from Supplier, Product, Creation Date
+        # Criar uma chave única a partir de Fornecedor, Produto e Data de Criação
         df_products["unique_key"] = df_products.apply(
-            lambda row: f"{row['Supplier']}|{row['Product']}|{row['Creation Date']}", axis=1
+            lambda row: f"{row['Fornecedor']}|{row['Produto']}|{row['Data de Criação']}", axis=1
         )
 
-        st.subheader("Edit or Delete an Existing Product")
+        st.subheader("Editar ou Excluir um Produto Existente")
         unique_keys = df_products["unique_key"].unique().tolist()
-        selected_key = st.selectbox("Select a product to edit or delete:", [""] + unique_keys)
+        selected_key = st.selectbox("Selecione um produto para editar ou excluir:", [""] + unique_keys)
 
         if selected_key:
             selected_row = df_products[df_products["unique_key"] == selected_key].iloc[0]
 
-            original_supplier = selected_row["Supplier"]
-            original_product = selected_row["Product"]
-            original_quantity = selected_row["Quantity"]
-            original_unit_value = selected_row["Unit Value"]
-            original_total_value = selected_row["Total Value"]
-            original_creation_date = selected_row["Creation Date"]
+            original_supplier = selected_row["Fornecedor"]
+            original_product = selected_row["Produto"]
+            original_quantity = selected_row["Quantidade"]
+            original_unit_value = selected_row["Valor Unitário"]
+            original_total_value = selected_row["Valor Total"]
+            original_creation_date = selected_row["Data de Criação"]
 
-            # Form to edit the product
-            st.markdown("### Edit Product Details")
+            # Formulário para editar o produto
+            st.markdown("### Editar Detalhes do Produto")
             with st.form(key='edit_product_form'):
-                edit_supplier = st.text_input("Supplier", value=original_supplier, max_chars=100)
-                edit_product = st.text_input("Product", value=original_product, max_chars=100)
-                edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
-                edit_unit_value = st.number_input("Unit Value", min_value=0.0, step=0.01, format="%.2f", value=float(original_unit_value))
-                edit_creation_date = st.date_input("Creation Date", value=original_creation_date)
+                edit_supplier = st.text_input("Fornecedor", value=original_supplier, max_chars=100)
+                edit_product = st.text_input("Produto", value=original_product, max_chars=100)
+                edit_quantity = st.number_input("Quantidade", min_value=1, step=1, value=int(original_quantity))
+                edit_unit_value = st.number_input("Valor Unitário", min_value=0.0, step=0.01, format="%.2f", value=float(original_unit_value))
+                edit_creation_date = st.date_input("Data de Criação", value=original_creation_date)
 
-                update_button = st.form_submit_button(label="Update Product")
+                update_button = st.form_submit_button(label="Atualizar Produto")
 
             if update_button:
                 if edit_supplier and edit_product and edit_quantity > 0 and edit_unit_value >= 0:
@@ -342,17 +342,17 @@ def products_page():
                         original_supplier, original_product, original_creation_date
                     ))
                     if success:
-                        st.success("Product updated successfully!")
+                        st.success("Produto atualizado com sucesso!")
                         refresh_data()
                     else:
-                        st.error("Failed to update the product.")
+                        st.error("Falha ao atualizar o produto.")
                 else:
-                    st.warning("Please fill in all fields correctly.")
+                    st.warning("Por favor, preencha todos os campos corretamente.")
 
-            st.markdown("### Delete Product")
+            st.markdown("### Excluir Produto")
             with st.form(key='delete_product_form'):
-                st.warning("Are you sure you want to delete this product?")
-                delete_button = st.form_submit_button(label="Delete Product")
+                st.warning("Tem certeza de que deseja excluir este produto?")
+                delete_button = st.form_submit_button(label="Excluir Produto")
 
             if delete_button:
                 delete_query = """
@@ -361,27 +361,27 @@ def products_page():
                 """
                 success = run_insert(delete_query, (original_supplier, original_product, original_creation_date))
                 if success:
-                    st.success("Product deleted successfully!")
+                    st.success("Produto excluído com sucesso!")
                     refresh_data()
                 else:
-                    st.error("Failed to delete the product.")
+                    st.error("Falha ao excluir o produto.")
     else:
-        st.info("No products found.")
+        st.info("Nenhum produto encontrado.")
 
 def stock_page():
-    st.title("Stock")
+    st.title("Estoque")
 
-    st.subheader("Add a New Stock Record")
+    st.subheader("Adicionar um Novo Registro de Estoque")
 
-    # Load the list of products from the tb_products table
+    # Carregar a lista de produtos da tabela tb_products
     product_data = run_query("SELECT product FROM public.tb_products ORDER BY product;")
-    product_list = [row[0] for row in product_data] if product_data else ["No products available"]
+    product_list = [row[0] for row in product_data] if product_data else ["Nenhum produto disponível"]
 
     with st.form(key='stock_form'):
-        product = st.selectbox("Product", product_list)
-        quantity = st.number_input("Quantity", min_value=1, step=1)
-        transaction_type = st.selectbox("Transaction Type", ["Entrada", "Saída"])
-        submit_stock = st.form_submit_button(label="Register")
+        product = st.selectbox("Produto", product_list)
+        quantity = st.number_input("Quantidade", min_value=1, step=1)
+        transaction_type = st.selectbox("Tipo de Transação", ["Entrada", "Saída"])
+        submit_stock = st.form_submit_button(label="Registrar")
 
     if submit_stock:
         if product and quantity > 0:
@@ -394,50 +394,50 @@ def stock_page():
             """
             success = run_insert(query, (product, quantity, transaction, current_date))
             if success:
-                st.success("Stock record added successfully!")
+                st.success("Registro de estoque adicionado com sucesso!")
                 refresh_data()
             else:
-                st.error("Failed to add stock record.")
+                st.error("Falha ao adicionar o registro de estoque.")
         else:
-            st.warning("Please select a product and enter a quantity greater than 0.")
+            st.warning("Por favor, selecione um produto e insira uma quantidade maior que 0.")
 
-    # Load the updated stock records
+    # Carregar os registros de estoque atualizados
     stock_data = st.session_state.data.get("stock", [])
-    columns = ["Product", "Quantity", "Transaction", "Date"]
+    columns = ["Produto", "Quantidade", "Transação", "Data"]
 
     if stock_data:
-        st.subheader("All Stock Records")
+        st.subheader("Todos os Registros de Estoque")
         try:
             df_stock = pd.DataFrame(stock_data, columns=columns)
             st.dataframe(df_stock, use_container_width=True)
         except ValueError as ve:
-            st.error(f"DataFrame creation failed: {ve}")
-            st.write("Columns Expected:", columns)
-            st.write("Number of elements per row:", [len(row) for row in stock_data])
-            st.write("Example Row:", stock_data[0] if stock_data else "No data")
+            st.error(f"Falha na criação do DataFrame: {ve}")
+            st.write("Colunas Esperadas:", columns)
+            st.write("Número de elementos por linha:", [len(row) for row in stock_data])
+            st.write("Exemplo de Linha:", stock_data[0] if stock_data else "Sem dados")
     else:
-        st.info("No stock records found.")
+        st.info("Nenhum registro de estoque encontrado.")
 
 def clients_page():
-    st.title("Clients")
+    st.title("Clientes")
 
-    st.subheader("Register a New Client")
+    st.subheader("Registrar um Novo Cliente")
 
-    # Form with only the Full Name field
+    # Formulário com apenas o campo Nome Completo
     with st.form(key='client_form'):
-        nome_completo = st.text_input("Full Name", max_chars=100)
-        submit_client = st.form_submit_button(label="Register New Client")
+        nome_completo = st.text_input("Nome Completo", max_chars=100)
+        submit_client = st.form_submit_button(label="Registrar Novo Cliente")
 
     if submit_client:
         if nome_completo:
-            # Other default values
+            # Outros valores padrões
             data_nascimento = datetime(2000, 1, 1).date()
-            genero = "Man"
+            genero = "Masculino"
             telefone = "0000-0000"
             
-            # Generate a unique email to avoid unique key conflict
+            # Gera um email único para evitar conflito de chave única
             unique_id = datetime.now().strftime("%Y%m%d%H%M%S")
-            email = f"{nome_completo.replace(' ', '_').lower()}_{unique_id}@example.com"
+            email = f"{nome_completo.replace(' ', '_').lower()}_{unique_id}@exemplo.com"
 
             endereco = "Endereço padrão"
 
@@ -447,37 +447,37 @@ def clients_page():
             """
             success = run_insert(query, (nome_completo, data_nascimento, genero, telefone, email, endereco))
             if success:
-                st.success("Client registered successfully!")
+                st.success("Cliente registrado com sucesso!")
                 refresh_data()
             else:
-                st.error("Failed to register client.")
+                st.error("Falha ao registrar o cliente.")
         else:
-            st.warning("Please fill in the Full Name field.")
+            st.warning("Por favor, preencha o campo Nome Completo.")
 
-    # Show the table of registered clients
+    # Mostrar a tabela de clientes cadastrados
     clients_data = run_query("SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro FROM public.tb_clientes ORDER BY data_cadastro DESC;")
 
     if clients_data:
-        st.subheader("All Clients")
-        columns = ["Full Name", "Birth Date", "Gender", "Phone", "Email", "Address", "Register Date"]
+        st.subheader("Todos os Clientes")
+        columns = ["Nome Completo", "Data de Nascimento", "Gênero", "Telefone", "Email", "Endereço", "Data de Cadastro"]
         df_clients = pd.DataFrame(clients_data, columns=columns)
         st.dataframe(df_clients, use_container_width=True)
 
-        # Select a client for editing or deletion
-        st.subheader("Edit or Delete an Existing Client")
+        # Selecionar um cliente para edição ou exclusão
+        st.subheader("Editar ou Excluir um Cliente Existente")
         client_emails = df_clients["Email"].unique().tolist()
-        selected_email = st.selectbox("Select a client by Email:", [""] + client_emails)
+        selected_email = st.selectbox("Selecione um cliente pelo Email:", [""] + client_emails)
 
         if selected_email:
-            # Get the selected client's data
+            # Obter dados do cliente selecionado
             selected_client_row = df_clients[df_clients["Email"] == selected_email].iloc[0]
-            original_name = selected_client_row["Full Name"]
+            original_name = selected_client_row["Nome Completo"]
 
-            # Form to edit the client's name
-            st.markdown("### Edit Client Details")
+            # Formulário para editar o nome
+            st.markdown("### Editar Detalhes do Cliente")
             with st.form(key='edit_client_form'):
-                edit_name = st.text_input("Full Name", value=original_name, max_chars=100)
-                update_button = st.form_submit_button(label="Update Client")
+                edit_name = st.text_input("Nome Completo", value=original_name, max_chars=100)
+                update_button = st.form_submit_button(label="Atualizar Cliente")
 
             if update_button:
                 if edit_name:
@@ -488,34 +488,34 @@ def clients_page():
                     """
                     success = run_insert(update_query, (edit_name, selected_email))
                     if success:
-                        st.success("Client updated successfully!")
+                        st.success("Cliente atualizado com sucesso!")
                         refresh_data()
                     else:
-                        st.error("Failed to update the client.")
+                        st.error("Falha ao atualizar o cliente.")
                 else:
-                    st.warning("Please fill in the Full Name field.")
+                    st.warning("Por favor, preencha o campo Nome Completo.")
 
-            # Separate form for deleting the client
-            st.markdown("### Delete Client")
+            # Formulário separado para excluir o cliente
+            st.markdown("### Excluir Cliente")
             with st.form(key='delete_client_form'):
-                st.warning("Are you sure you want to delete this client?")
-                delete_button = st.form_submit_button(label="Delete Client")
+                st.warning("Tem certeza de que deseja excluir este cliente?")
+                delete_button = st.form_submit_button(label="Excluir Cliente")
 
             if delete_button:
                 delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
                 success = run_insert(delete_query, (selected_email,))
                 if success:
-                    st.success("Client deleted successfully!")
+                    st.success("Cliente excluído com sucesso!")
                     refresh_data()
                 else:
-                    st.error("Failed to delete the client.")
+                    st.error("Falha ao excluir o cliente.")
     else:
-        st.info("No clients found.")
+        st.info("Nenhum cliente encontrado.")
 
 def invoice_page():
     st.title("Nota Fiscal")
 
-    open_clients_query = 'SELECT DISTINCT "Cliente" FROM public.vw_pedido_produto WHERE status = %s ORDER BY "Cliente";'
+    open_clients_query = 'SELECT DISTINCT "Cliente" FROM public.tb_pedido WHERE status = %s ORDER BY "Cliente";'
     open_clients = run_query(open_clients_query, ('em aberto',))
 
     client_list = [row[0] for row in open_clients] if open_clients else []
@@ -537,19 +537,20 @@ def invoice_page():
             total_sum = df["total"].sum()
             st.subheader(f"Total Geral: R$ {total_sum:,.2f}")
 
+            st.markdown("### Escolha o Método de Pagamento")
             col1, col2, col3, col4 = st.columns(4)
 
             with col1:
-                if st.button("Debit", key="debit_button"):
+                if st.button("Débito"):
                     process_payment(selected_client, "Received - Debited")
             with col2:
-                if st.button("Credit", key="credit_button"):
+                if st.button("Crédito"):
                     process_payment(selected_client, "Received - Credit")
             with col3:
-                if st.button("Pix", key="pix_button"):
+                if st.button("Pix"):
                     process_payment(selected_client, "Received - Pix")
             with col4:
-                if st.button("Cash", key="cash_button"):
+                if st.button("Dinheiro"):
                     process_payment(selected_client, "Received - Cash")
         else:
             st.info("Não há pedidos em aberto para o cliente selecionado.")
@@ -557,6 +558,9 @@ def invoice_page():
         st.warning("Por favor, selecione um cliente.")
 
 def process_payment(client, payment_status):
+    """
+    Atualiza o status dos pedidos do cliente para o status de pagamento selecionado.
+    """
     query = """
     UPDATE public.tb_pedido
     SET status = %s, "Data" = CURRENT_TIMESTAMP
@@ -570,6 +574,9 @@ def process_payment(client, payment_status):
         st.error("Erro ao atualizar o status.")
 
 def generate_invoice_for_printer(df):
+    """
+    Gera uma nota fiscal formatada para impressão.
+    """
     company = "Boituva Beach Club"
     address = "Avenida do Trabalhador 1879"
     city = "Boituva - SP 18552-100"
@@ -613,46 +620,46 @@ def generate_invoice_for_printer(df):
 #####################
 def logout():
     """
-    Handles user logout.
+    Lida com o logout do usuário.
     """
     st.session_state.logged_in = False
     st.session_state.page = "Home"
-    st.success("Logged out successfully!")
+    st.success("Logout realizado com sucesso!")
 
 #####################
 # Initialization
 #####################
 
-# Initialize session state variables
+# Inicializar variáveis de estado da sessão
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
 if 'data' not in st.session_state and st.session_state.get('logged_in', False):
     st.session_state.data = load_all_data()
 
-# Authentication Check
+# Verificação de Autenticação
 if not st.session_state.logged_in:
     login()
     st.stop()
 
-# Menu Navigation
+# Menu de Navegação
 selected_page = sidebar_navigation()
 
-# Handle Logout
-if selected_page == "Logout":
+# Tratar Logout
+if selected_page == "Sair":
     logout()
     st.stop()
 
-# Page Routing
+# Roteamento das Páginas
 if selected_page == "Home":
     home_page()
-elif selected_page == "Orders":
+elif selected_page == "Pedidos":
     orders_page()
-elif selected_page == "Products":
+elif selected_page == "Produtos":
     products_page()
-elif selected_page == "Stock":
+elif selected_page == "Estoque":
     stock_page()
-elif selected_page == "Clients":
+elif selected_page == "Clientes":
     clients_page()
 elif selected_page == "Nota Fiscal":
     invoice_page()
