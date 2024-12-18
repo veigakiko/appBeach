@@ -64,7 +64,6 @@ def run_insert(query, values):
 #####################
 # Data Loading
 #####################
-@st.cache_data(ttl=60)  # Atualiza os dados a cada 60 segundos
 def load_all_data():
     """
     Load all data used by the application and return it as a dictionary.
@@ -127,7 +126,7 @@ def home_page():
     st.title("Boituva Beach Club")
     st.write("🎾 BeachTennis📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
     # Removido o botão de "Refresh Data" para simplificar com a atualização automática
-    st.info("Os dados são atualizados automaticamente a cada 60 segundos.")
+    st.info("Os dados são atualizados automaticamente ao navegar entre as páginas.")
 
 def orders_page():
     st.title("Orders")
@@ -575,20 +574,29 @@ if not st.session_state.logged_in:
     login_page()
 else:
     # Menu Navigation
-    st.session_state.page = sidebar_navigation()
+    selected_page = sidebar_navigation()
+
+    # Detectar mudança de página e atualizar os dados se necessário
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = selected_page
+        # Inicialmente, os dados já estão carregados
+    elif selected_page != st.session_state.current_page:
+        # Página mudou, recarregar os dados
+        refresh_data()
+        st.session_state.current_page = selected_page
 
     # Page Routing
-    if st.session_state.page == "Home":
+    if selected_page == "Home":
         home_page()
-    elif st.session_state.page == "Orders":
+    elif selected_page == "Orders":
         orders_page()
-    elif st.session_state.page == "Products":
+    elif selected_page == "Products":
         products_page()
-    elif st.session_state.page == "Stock":
+    elif selected_page == "Stock":
         stock_page()
-    elif st.session_state.page == "Clients":
+    elif selected_page == "Clients":
         clients_page()
-    elif st.session_state.page == "Nota Fiscal":
+    elif selected_page == "Nota Fiscal":
         invoice_page()
 
     # Adicionar opção de logout no sidebar
