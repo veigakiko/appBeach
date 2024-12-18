@@ -134,8 +134,13 @@ def orders_page():
     product_data = st.session_state.data.get("products", [])
     product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
 
+    # Formulário para inserir novo pedido
     with st.form(key='order_form'):
-        customer_name = st.selectbox("Customer Name", [""] + [row[0] for row in run_query('SELECT nome_completo FROM public.tb_clientes')], index=0)
+        # Carregando lista de clientes para o novo pedido
+        clientes = run_query('SELECT nome_completo FROM public.tb_clientes')
+        customer_list = [""] + [row[0] for row in clientes]
+
+        customer_name = st.selectbox("Customer Name", customer_list, index=0)
         product = st.selectbox("Product", product_list, index=0)
         quantity = st.number_input("Quantity", min_value=1, step=1)
         submit_button = st.form_submit_button(label="Register Order")
@@ -154,13 +159,69 @@ def orders_page():
         else:
             st.warning("Please fill in all fields correctly.")
 
+    # Exibir todos os pedidos
+    # Ajuste a função load_all_data() para incluir todas as colunas necessárias.
+    # Ex: data["orders"] = run_query(
+    #     'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
+    # )
+
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
         st.subheader("All Orders")
         columns = ["Client", "Product", "Quantity", "Date", "Status"]
-        st.dataframe([dict(zip(columns, row)) for row in orders_data], use_container_width=True)
+        df_orders = pd.DataFrame(orders_data, columns=columns)
+        st.dataframe(df_orders, use_container_width=True)
+
+        # Cria identificadores únicos temporários com base em Cliente, Produto e Data
+        # Convertendo Data para string, caso esteja em datetime, para exibição
+        df_orders["unique_key"] = df_orders.apply(lambda row: f"{row['Client']}|{row['Product']}|{row['Date']}", axis=1)
+        
+        st.subheader("Edit an existing order")
+        # Selecionar um pedido pelo identificador único
+        unique_keys = df_orders["unique_key"].unique().tolist()
+        selected_key = st.selectbox("Select an order to edit:", [""] + unique_keys)
+
+        if selected_key:
+            # Extrair valores originais do pedido selecionado
+            selected_row = df_orders[df_orders["unique_key"] == selected_key].iloc[0]
+            
+            original_client = selected_row["Client"]
+            original_product = selected_row["Product"]
+            original_date = selected_row["Date"]  # provavelmente datetime
+            original_quantity = selected_row["Quantity"]
+            original_status = selected_row["Status"]
+
+            # Prepara o formulário de edição
+            # Para o produto, reutiliza a mesma lista product_list, ajustando o índice se possível.
+            product_index = product_list.index(original_product) if original_product in product_list else 0
+
+            with st.form(key='edit_order_form'):
+                edit_product = st.selectbox("Product", product_list, index=product_index)
+                edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
+                edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix"]
+                edit_status_index = edit_status_list.index(original_status) if original_status in edit_status_list else 0
+                edit_status = st.selectbox("Status", edit_status_list, index=edit_status_index)
+                
+                update_button = st.form_submit_button(label="Update Order")
+
+            if update_button:
+                # Atualiza o pedido no banco
+                # Usa (Cliente, Produto, Data) originais no WHERE, pois são únicos.
+                # Caso queira permitir alterar também o cliente, adicione um campo e ajuste o WHERE.
+                update_query = """
+                UPDATE public.tb_pedido
+                SET "Produto" = %s, "Quantidade" = %s, status = %s
+                WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
+                """
+                success = run_insert(update_query, (edit_product, edit_quantity, edit_status, original_client, original_product, original_date))
+                if success:
+                    st.success("Order updated successfully!")
+                    refresh_data()
+                else:
+                    st.error("Failed to update the order.")
     else:
         st.info("No orders found.")
+
 
 def products_page():
     st.title("Products")
