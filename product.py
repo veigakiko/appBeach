@@ -376,36 +376,37 @@ def stock_page():
 
     st.subheader("Add a new stock record")
 
-    # Carrega a lista de produtos existentes no banco
+    # Carregar a lista de produtos da tabela tb_products
     product_data = run_query("SELECT product FROM public.tb_products;")
     product_list = [row[0] for row in product_data]
 
     with st.form(key='stock_form'):
         product = st.selectbox("Product", product_list)
         quantity = st.number_input("Quantity", min_value=1, step=1)
-        value = st.number_input("Value", min_value=0.0, step=0.01, format="%.2f")
-        transaction = "Entry"
-        current_date = datetime.now().date()
         submit_stock = st.form_submit_button(label="Register")
 
     if submit_stock:
-        if product and quantity > 0 and value >= 0:
+        if product and quantity > 0:
+            transaction = "Entry"
+            current_date = datetime.now()
+
             query = """
-            INSERT INTO public.tb_estoque ("Produto", "Quantidade", "Valor", "Total", "Transação", "Data")
-            VALUES (%s, %s, %s, %s, %s, %s);
+            INSERT INTO public.tb_estoque ("Produto", "Quantidade", "Transação", "Data")
+            VALUES (%s, %s, %s, %s);
             """
-            total = quantity * value
-            success = run_insert(query, (product, quantity, value, total, transaction, current_date))
+            success = run_insert(query, (product, quantity, transaction, current_date))
             if success:
                 st.success("Stock record added successfully!")
                 refresh_data()
         else:
-            st.warning("Please fill in all fields correctly.")
+            st.warning("Please select a product and enter a quantity greater than 0.")
 
+    # Carregar os registros do estoque atualizados
     stock_data = st.session_state.data.get("stock", [])
-    columns = ["Product", "Quantity", "Value", "Total", "Transaction", "Date"]
+    columns = ["Product", "Quantity", "Transaction", "Date"]
     if stock_data:
         st.subheader("All Stock Records")
+        # O retorno do banco já é no formato ("Produto", "Quantidade", "Transação", "Data")
         st.dataframe([dict(zip(columns, row)) for row in stock_data])
     else:
         st.info("No stock records found.")
