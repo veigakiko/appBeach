@@ -11,7 +11,7 @@ import pandas as pd
 @st.cache_resource
 def get_db_connection():
     """
-    Return a persistent database connection using psycopg2.
+    Retorna uma conexão persistente com o banco de dados usando psycopg2.
     """
     try:
         conn = psycopg2.connect(
@@ -28,7 +28,7 @@ def get_db_connection():
 
 def run_query(query, values=None):
     """
-    Executes a read-only query (SELECT) and returns the fetched data.
+    Executa uma consulta de leitura (SELECT) e retorna os dados obtidos.
     """
     conn = get_db_connection()
     if conn is None:
@@ -45,7 +45,7 @@ def run_query(query, values=None):
 
 def run_insert(query, values):
     """
-    Executes an insert, update, or delete query.
+    Executa uma consulta de inserção, atualização ou exclusão.
     """
     conn = get_db_connection()
     if conn is None:
@@ -66,7 +66,7 @@ def run_insert(query, values):
 #####################
 def load_all_data():
     """
-    Load all data used by the application and return it as a dictionary.
+    Carrega todos os dados utilizados pelo aplicativo e retorna como um dicionário.
     """
     data = {}
     try:
@@ -86,7 +86,7 @@ def load_all_data():
 
 def refresh_data():
     """
-    Reload all data and update the session state.
+    Recarrega todos os dados e atualiza o estado da sessão.
     """
     st.session_state.data = load_all_data()
 
@@ -95,7 +95,7 @@ def refresh_data():
 #####################
 def sidebar_navigation():
     """
-    Create a sidebar or horizontal menu for navigation using streamlit_option_menu.
+    Cria um menu lateral para navegação usando streamlit_option_menu.
     """
     with st.sidebar:
         st.title("Boituva Beach Club")
