@@ -45,7 +45,7 @@ def run_query(query, values=None):
 
 def run_insert(query, values):
     """
-    Runs an insert or update query.
+    Runs an insert or update/delete query.
     """
     conn = get_db_connection()
     if conn is None:
@@ -58,7 +58,7 @@ def run_insert(query, values):
     except Exception as e:
         if conn:
             conn.rollback()
-        st.error(f"Error executing insert: {e}")
+        st.error(f"Error executing query: {e}")
         return False
 
 #####################
@@ -124,8 +124,7 @@ def sidebar_navigation():
 #####################
 def home_page():
     st.title("Boituva Beach Club")
-    st.write("🎾 BeachTennis📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
-    # Removido o botão de "Refresh Data" para simplificar com a atualização automática
+    st.write("🎾 BeachTennis 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     st.info("Os dados são atualizados automaticamente ao navegar entre as páginas.")
 
 def orders_page():
@@ -168,53 +167,64 @@ def orders_page():
         df_orders = pd.DataFrame(orders_data, columns=columns)
         st.dataframe(df_orders, use_container_width=True)
 
-        # Cria identificadores únicos temporários com base em Cliente, Produto e Data
-        # Convertendo Data para string, caso esteja em datetime, para exibição
-        df_orders["unique_key"] = df_orders.apply(lambda row: f"{row['Client']}|{row['Product']}|{row['Date']}", axis=1)
-
-        st.subheader("Edit an existing order")
-        # Selecionar um pedido pelo identificador único
+        st.subheader("Edit or Delete an Existing Order")
+        # Criar uma chave única para identificar cada pedido
+        df_orders["unique_key"] = df_orders.apply(lambda row: f"{row['Cliente']}|{row['Produto']}|{row['Data']}", axis=1)
         unique_keys = df_orders["unique_key"].unique().tolist()
-        selected_key = st.selectbox("Select an order to edit:", [""] + unique_keys)
+        selected_key = st.selectbox("Select an order to edit/delete:", [""] + unique_keys)
 
         if selected_key:
-            # Extrair valores originais do pedido selecionado
-            selected_row = df_orders[df_orders["unique_key"] == selected_key].iloc[0]
+            # Verificar quantos registros correspondem à chave única
+            matching_rows = df_orders[df_orders["unique_key"] == selected_key]
+            if len(matching_rows) > 1:
+                st.warning("Multiple orders found with the same key. Please refine your selection.")
+            else:
+                selected_row = matching_rows.iloc[0]
+                original_client = selected_row["Client"]
+                original_product = selected_row["Product"]
+                original_quantity = selected_row["Quantity"]
+                original_date = selected_row["Date"]
+                original_status = selected_row["Status"]
 
-            original_client = selected_row["Client"]
-            original_product = selected_row["Product"]
-            original_date = selected_row["Date"]  # provavelmente datetime
-            original_quantity = selected_row["Quantity"]
-            original_status = selected_row["Status"]
+                # Formulário para editar o pedido
+                with st.form(key='edit_order_form'):
+                    edit_product = st.selectbox("Product", product_list, index=product_list.index(original_product) if original_product in product_list else 0)
+                    edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
+                    edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix"]
+                    edit_status_index = edit_status_list.index(original_status) if original_status in edit_status_list else 0
+                    edit_status = st.selectbox("Status", edit_status_list, index=edit_status_index)
 
-            # Prepara o formulário de edição
-            # Para o produto, reutiliza a mesma lista product_list, ajustando o índice se possível.
-            product_index = product_list.index(original_product) if original_product in product_list else 0
+                    update_button = st.form_submit_button(label="Update Order")
+                    delete_button = st.form_submit_button(label="Delete Order")
 
-            with st.form(key='edit_order_form'):
-                edit_product = st.selectbox("Product", product_list, index=product_index)
-                edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
-                edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix"]
-                edit_status_index = edit_status_list.index(original_status) if original_status in edit_status_list else 0
-                edit_status = st.selectbox("Status", edit_status_list, index=edit_status_index)
+                if update_button:
+                    # Atualiza o pedido no banco usando a combinação de campos como filtro
+                    update_query = """
+                    UPDATE public.tb_pedido
+                    SET "Produto" = %s, "Quantidade" = %s, status = %s
+                    WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
+                    """
+                    success = run_insert(update_query, (edit_product, edit_quantity, edit_status, original_client, original_product, original_date))
+                    if success:
+                        st.success("Order updated successfully!")
+                        refresh_data()
+                    else:
+                        st.error("Failed to update the order.")
 
-                update_button = st.form_submit_button(label="Update Order")
-
-            if update_button:
-                # Atualiza o pedido no banco
-                # Usa (Cliente, Produto, Data) originais no WHERE, pois são únicos.
-                # Caso queira permitir alterar também o cliente, adicione um campo e ajuste o WHERE.
-                update_query = """
-                UPDATE public.tb_pedido
-                SET "Produto" = %s, "Quantidade" = %s, status = %s
-                WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
-                """
-                success = run_insert(update_query, (edit_product, edit_quantity, edit_status, original_client, original_product, original_date))
-                if success:
-                    st.success("Order updated successfully!")
-                    refresh_data()
-                else:
-                    st.error("Failed to update the order.")
+                if delete_button:
+                    # Confirmação antes de deletar
+                    confirm = st.checkbox("Are you sure you want to delete this order?")
+                    if confirm:
+                        delete_query = """
+                        DELETE FROM public.tb_pedido
+                        WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
+                        """
+                        success = run_insert(delete_query, (original_client, original_product, original_date))
+                        if success:
+                            st.success("Order deleted successfully!")
+                            refresh_data()
+                        else:
+                            st.error("Failed to delete the order.")
     else:
         st.info("No orders found.")
 
@@ -244,66 +254,82 @@ def products_page():
         else:
             st.warning("Please fill in all fields correctly.")
 
+    # Exibir todos os produtos
     products_data = st.session_state.data.get("products", [])
-    columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
     if products_data:
         st.subheader("All Products")
+        columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
         df_products = pd.DataFrame(products_data, columns=columns)
         st.dataframe(df_products, use_container_width=True)
 
-        # Criando uma chave única a partir de (Supplier, Product, Creation Date)
-        # Supondo que cada combinação dessas colunas é única.
-        df_products["unique_key"] = df_products.apply(
-            lambda row: f"{row['Supplier']}|{row['Product']}|{row['Creation Date']}", axis=1
-        )
-
-        st.subheader("Edit an existing product")
-
+        st.subheader("Edit or Delete an Existing Product")
+        # Criar uma chave única para identificar cada produto
+        df_products["unique_key"] = df_products.apply(lambda row: f"{row['supplier']}|{row['product']}|{row['creation_date']}", axis=1)
         unique_keys = df_products["unique_key"].unique().tolist()
-        selected_key = st.selectbox("Select a product to edit:", [""] + unique_keys)
+        selected_key = st.selectbox("Select a product to edit/delete:", [""] + unique_keys)
 
         if selected_key:
-            selected_row = df_products[df_products["unique_key"] == selected_key].iloc[0]
+            # Verificar quantos registros correspondem à chave única
+            matching_rows = df_products[df_products["unique_key"] == selected_key]
+            if len(matching_rows) > 1:
+                st.warning("Multiple products found with the same key. Please refine your selection.")
+            else:
+                selected_row = matching_rows.iloc[0]
+                original_supplier = selected_row["Supplier"]
+                original_product = selected_row["Product"]
+                original_quantity = selected_row["Quantity"]
+                original_unit_value = selected_row["Unit Value"]
+                original_total_value = selected_row["Total Value"]
+                original_creation_date = selected_row["Creation Date"]
 
-            original_supplier = selected_row["Supplier"]
-            original_product = selected_row["Product"]
-            original_quantity = selected_row["Quantity"]
-            original_unit_value = selected_row["Unit Value"]
-            original_total_value = selected_row["Total Value"]
-            original_creation_date = selected_row["Creation Date"]
+                # Formulário para editar o produto
+                with st.form(key='edit_product_form'):
+                    edit_supplier = st.text_input("Supplier", value=original_supplier, max_chars=100)
+                    edit_product = st.text_input("Product", value=original_product, max_chars=100)
+                    edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
+                    edit_unit_value = st.number_input("Unit Value", min_value=0.0, step=0.01, format="%.2f", value=float(original_unit_value))
+                    edit_creation_date = st.date_input("Creation Date", value=original_creation_date)
 
-            # Formulário de edição
-            with st.form(key='edit_product_form'):
-                edit_supplier = st.text_input("Supplier", value=original_supplier, max_chars=100)
-                edit_product = st.text_input("Product", value=original_product, max_chars=100)
-                edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
-                edit_unit_value = st.number_input("Unit Value", min_value=0.0, step=0.01, format="%.2f", value=float(original_unit_value))
-                edit_creation_date = st.date_input("Creation Date", value=original_creation_date)
+                    update_button = st.form_submit_button(label="Update Product")
+                    delete_button = st.form_submit_button(label="Delete Product")
 
-                update_button = st.form_submit_button(label="Update Product")
+                if update_button:
+                    # Recalcular total_value se quantity ou unit_value foram alterados
+                    edit_total_value = edit_quantity * edit_unit_value
 
-            if update_button:
-                # Recalcular total_value se quantity ou unit_value foram alterados
-                edit_total_value = edit_quantity * edit_unit_value
+                    # Atualiza o produto no banco usando a combinação de campos como filtro
+                    update_query = """
+                    UPDATE public.tb_products
+                    SET supplier = %s,
+                        product = %s,
+                        quantity = %s,
+                        unit_value = %s,
+                        total_value = %s,
+                        creation_date = %s
+                    WHERE supplier = %s AND product = %s AND creation_date = %s;
+                    """
+                    success = run_insert(update_query, (edit_supplier, edit_product, edit_quantity, edit_unit_value, edit_total_value, edit_creation_date,
+                                                         original_supplier, original_product, original_creation_date))
+                    if success:
+                        st.success("Product updated successfully!")
+                        refresh_data()
+                    else:
+                        st.error("Failed to update the product.")
 
-                # Atualiza o produto no banco
-                update_query = """
-                UPDATE public.tb_products
-                SET supplier = %s,
-                    product = %s,
-                    quantity = %s,
-                    unit_value = %s,
-                    total_value = %s,
-                    creation_date = %s
-                WHERE supplier = %s AND product = %s AND creation_date = %s;
-                """
-                success = run_insert(update_query, (edit_supplier, edit_product, edit_quantity, edit_unit_value, edit_total_value, edit_creation_date, 
-                                                     original_supplier, original_product, original_creation_date))
-                if success:
-                    st.success("Product updated successfully!")
-                    refresh_data()
-                else:
-                    st.error("Failed to update the product.")
+                if delete_button:
+                    # Confirmação antes de deletar
+                    confirm = st.checkbox("Are you sure you want to delete this product?")
+                    if confirm:
+                        delete_query = """
+                        DELETE FROM public.tb_products
+                        WHERE supplier = %s AND product = %s AND creation_date = %s;
+                        """
+                        success = run_insert(delete_query, (original_supplier, original_product, original_creation_date))
+                        if success:
+                            st.success("Product deleted successfully!")
+                            refresh_data()
+                        else:
+                            st.error("Failed to delete the product.")
     else:
         st.info("No products found.")
 
@@ -319,18 +345,19 @@ def stock_page():
     with st.form(key='stock_form'):
         product = st.selectbox("Product", product_list)
         quantity = st.number_input("Quantity", min_value=1, step=1)
+        transaction = st.selectbox("Transaction Type", ["Entrada", "Saída"])
+        date = st.date_input("Date", value=datetime.now().date())
         submit_stock = st.form_submit_button(label="Register")
 
     if submit_stock:
         if product and quantity > 0:
-            transaction = "Entrada"
-            current_date = datetime.now()
+            current_datetime = datetime.combine(date, datetime.min.time())
 
             query = """
             INSERT INTO public.tb_estoque ("Produto", "Quantidade", "Transação", "Data")
             VALUES (%s, %s, %s, %s);
             """
-            success = run_insert(query, (product, quantity, transaction, current_date))
+            success = run_insert(query, (product, quantity, transaction, current_datetime))
             if success:
                 st.success("Stock record added successfully!")
                 refresh_data()
@@ -339,21 +366,73 @@ def stock_page():
         else:
             st.warning("Please select a product and enter a quantity greater than 0.")
 
-    # Carregar os registros do estoque atualizados
+    # Exibir todos os registros de estoque
     stock_data = st.session_state.data.get("stock", [])
-    columns = ["Product", "Quantity", "Transaction", "Date"]
-
     if stock_data:
         st.subheader("All Stock Records")
-        try:
-            # Convertendo tuplas para dicionário para exibir no DataFrame
-            df_stock = pd.DataFrame(stock_data, columns=columns)
-            st.dataframe(df_stock, use_container_width=True)
-        except ValueError as ve:
-            st.error(f"DataFrame creation failed: {ve}")
-            st.write("Columns Expected:", columns)
-            st.write("Number of elements per row:", [len(row) for row in stock_data])
-            st.write("Example Row:", stock_data[0] if stock_data else "No data")
+        columns = ["Produto", "Quantidade", "Transação", "Data"]
+        df_stock = pd.DataFrame(stock_data, columns=columns)
+        st.dataframe(df_stock, use_container_width=True)
+
+        st.subheader("Edit or Delete an Existing Stock Record")
+        # Criar uma chave única para identificar cada registro de estoque
+        df_stock["unique_key"] = df_stock.apply(lambda row: f"{row['Produto']}|{row['Transação']}|{row['Data']}", axis=1)
+        unique_keys = df_stock["unique_key"].unique().tolist()
+        selected_key = st.selectbox("Select a stock record to edit/delete:", [""] + unique_keys)
+
+        if selected_key:
+            # Verificar quantos registros correspondem à chave única
+            matching_rows = df_stock[df_stock["unique_key"] == selected_key]
+            if len(matching_rows) > 1:
+                st.warning("Multiple stock records found with the same key. Please refine your selection.")
+            else:
+                selected_row = matching_rows.iloc[0]
+                original_product = selected_row["Produto"]
+                original_quantity = selected_row["Quantidade"]
+                original_transaction = selected_row["Transação"]
+                original_date = selected_row["Data"]
+
+                # Formulário para editar o registro de estoque
+                with st.form(key='edit_stock_form'):
+                    edit_product = st.selectbox("Product", product_list, index=product_list.index(original_product) if original_product in product_list else 0)
+                    edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
+                    edit_transaction = st.selectbox("Transaction Type", ["Entrada", "Saída"], index=["Entrada", "Saída"].index(original_transaction) if original_transaction in ["Entrada", "Saída"] else 0)
+                    edit_date = st.date_input("Date", value=original_date.date())
+
+                    update_button = st.form_submit_button(label="Update Stock Record")
+                    delete_button = st.form_submit_button(label="Delete Stock Record")
+
+                if update_button:
+                    edit_datetime = datetime.combine(edit_date, datetime.min.time())
+
+                    # Atualiza o registro de estoque no banco usando a combinação de campos como filtro
+                    update_query = """
+                    UPDATE public.tb_estoque
+                    SET "Produto" = %s, "Quantidade" = %s, "Transação" = %s, "Data" = %s
+                    WHERE "Produto" = %s AND "Transação" = %s AND "Data" = %s;
+                    """
+                    success = run_insert(update_query, (edit_product, edit_quantity, edit_transaction, edit_datetime,
+                                                        original_product, original_transaction, original_date))
+                    if success:
+                        st.success("Stock record updated successfully!")
+                        refresh_data()
+                    else:
+                        st.error("Failed to update the stock record.")
+
+                if delete_button:
+                    # Confirmação antes de deletar
+                    confirm = st.checkbox("Are you sure you want to delete this stock record?")
+                    if confirm:
+                        delete_query = """
+                        DELETE FROM public.tb_estoque
+                        WHERE "Produto" = %s AND "Transação" = %s AND "Data" = %s;
+                        """
+                        success = run_insert(delete_query, (original_product, original_transaction, original_date))
+                        if success:
+                            st.success("Stock record deleted successfully!")
+                            refresh_data()
+                        else:
+                            st.error("Failed to delete the stock record.")
     else:
         st.info("No stock records found.")
 
@@ -400,8 +479,8 @@ def clients_page():
         df_clients = pd.DataFrame(clients_data, columns=columns)
         st.dataframe(df_clients, use_container_width=True)
 
+        st.subheader("Edit or Delete an Existing Client")
         # Selecionar um cliente para edição
-        st.subheader("Edit or Delete an existing client")
         client_emails = df_clients["Email"].unique().tolist()
         selected_email = st.selectbox("Select a client by Email:", [""] + client_emails)
 
@@ -436,13 +515,16 @@ def clients_page():
                     st.warning("Please fill in the Full Name field.")
 
             if delete_button:
-                delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
-                success = run_insert(delete_query, (selected_email,))
-                if success:
-                    st.success("Client deleted successfully!")
-                    refresh_data()
-                else:
-                    st.error("Failed to delete the client.")
+                # Confirmação antes de deletar
+                confirm = st.checkbox("Are you sure you want to delete this client?")
+                if confirm:
+                    delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
+                    success = run_insert(delete_query, (selected_email,))
+                    if success:
+                        st.success("Client deleted successfully!")
+                        refresh_data()
+                    else:
+                        st.error("Failed to delete the client.")
     else:
         st.info("No clients found.")
 
