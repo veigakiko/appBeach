@@ -124,7 +124,9 @@ def home_page():
     st.write("🎾 BeachTennis 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     st.info("Os dados são atualizados automaticamente ao navegar entre as páginas.")
     
+    ############################
     # Open Orders Summary
+    ############################
     st.subheader("Open Orders Summary")
     
     # Consulta para obter pedidos em aberto agrupados por Cliente e Data (somente dia) com a soma total
@@ -176,7 +178,9 @@ def home_page():
     
     st.markdown("---")  # Separador visual
     
+    ############################
     # Closed Orders Summary
+    ############################
     st.subheader("Closed Orders Summary")
     
     # Consulta para obter pedidos fechados agrupados por Cliente e Data (somente dia) com a soma total
@@ -228,7 +232,9 @@ def home_page():
     
     st.markdown("---")  # Separador visual
     
+    ############################
     # Status Summary
+    ############################
     st.subheader("Status Summary")
     
     # Consulta para obter soma total agrupada por Status
@@ -270,7 +276,9 @@ def home_page():
     
     st.markdown("---")  # Separador visual
     
+    ############################
     # Product Summary
+    ############################
     st.subheader("Product Summary")
     
     # Consulta para obter soma total agrupada por Produto
@@ -314,6 +322,84 @@ def home_page():
         )
     else:
         st.info("Nenhum pedido encontrado para resumo por produto.")
+    
+    st.markdown("---")  # Separador visual
+    
+    ############################
+    # Combined Product and Stock Summary
+    ############################
+    st.subheader("Combined Product and Stock Summary")
+    
+    # Consulta para obter soma total agrupada por Produto (Product Summary)
+    combined_product_query = """
+    SELECT "Produto", SUM("Quantidade") as Summary_Quantity, SUM("total") as Summary_Total
+    FROM public.vw_pedido_produto
+    GROUP BY "Produto"
+    ORDER BY "Produto";
+    """
+    combined_product_data = run_query(combined_product_query)
+    
+    # Consulta para obter soma total agrupada por Produto (All Stock Records)
+    stock_records_query = """
+    SELECT "Produto", SUM("Quantidade") as Stock_Quantity
+    FROM public.tb_estoque
+    GROUP BY "Produto"
+    ORDER BY "Produto";
+    """
+    stock_records_data = run_query(stock_records_query)
+    
+    if combined_product_data and stock_records_data:
+        # Criar DataFrames
+        df_product_summary_combined = pd.DataFrame(combined_product_data, columns=["Product", "Summary_Quantity", "Summary_Total"])
+        df_stock_records = pd.DataFrame(stock_records_data, columns=["Product", "Stock_Quantity"])
+        
+        # Realizar merge dos DataFrames com base na coluna 'Product'
+        df_combined = pd.merge(df_product_summary_combined, df_stock_records, on="Product", how="left")
+        
+        # Preencher valores NaN em 'Stock_Quantity' com 0
+        df_combined["Stock_Quantity"] = df_combined["Stock_Quantity"].fillna(0).astype(int)
+        
+        # Formatar as colunas 'Summary_Total' para moeda brasileira
+        df_combined["Summary_Total"] = df_combined["Summary_Total"].apply(
+            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+        
+        # Formatar a coluna 'Summary_Quantity' para número inteiro com separadores de milhares
+        df_combined["Summary_Quantity"] = df_combined["Summary_Quantity"].apply(
+            lambda x: f"{int(x):,}".replace(",", ".")
+        )
+        
+        # Formatar a coluna 'Stock_Quantity' para número inteiro com separadores de milhares
+        df_combined["Stock_Quantity"] = df_combined["Stock_Quantity"].apply(
+            lambda x: f"{int(x):,}".replace(",", ".")
+        )
+        
+        # Remover o índice e selecionar apenas as colunas desejadas
+        df_combined = df_combined.reset_index(drop=True)[["Product", "Summary_Quantity", "Summary_Total", "Stock_Quantity"]]
+        
+        # Renomear as colunas para maior clareza
+        df_combined = df_combined.rename(columns={
+            "Summary_Quantity": "Quantity (Product Summary)",
+            "Summary_Total": "Total (Product Summary)",
+            "Stock_Quantity": "Quantity (All Stock Records)"
+        })
+        
+        # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
+        styled_combined = df_combined.style.set_properties(**{
+            'text-align': 'left',
+            'font-size': '12px',
+            'white-space': 'pre-wrap',
+            'word-wrap': 'break-word'
+        })
+        
+        # Exibir a tabela combinada
+        st.dataframe(
+            styled_combined,
+            use_container_width=True
+        )
+    else:
+        st.info("Dados insuficientes para criar o resumo combinado de Produto e Estoque.")
+
 
 
 def orders_page():
