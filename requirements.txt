@@ -9,3 +9,7 @@ streamlit
 streamlit-option-menu
 psycopg2-binary
 altair==5.5.0
+streamlit
+streamlit-option-menu
+psycopg2
+pandas
