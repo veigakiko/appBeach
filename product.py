@@ -78,7 +78,7 @@ def load_all_data():
         )
         data["clients"] = run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido;')
         data["stock"] = run_query(
-            'SELECT "Produto", "Quantidade", "Valor", "Total", "Transação", "Data" FROM public.tb_estoque;'
+            'SELECT "Produto", "Quantidade", "Transação", "Data" FROM public.tb_estoque;'
         )
     except Exception as e:
         st.error(f"Error loading data: {e}")
@@ -160,11 +160,6 @@ def orders_page():
             st.warning("Please fill in all fields correctly.")
 
     # Exibir todos os pedidos
-    # Ajuste a função load_all_data() para incluir todas as colunas necessárias.
-    # Ex: data["orders"] = run_query(
-    #     'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
-    # )
-
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
         st.subheader("All Orders")
@@ -175,7 +170,7 @@ def orders_page():
         # Cria identificadores únicos temporários com base em Cliente, Produto e Data
         # Convertendo Data para string, caso esteja em datetime, para exibição
         df_orders["unique_key"] = df_orders.apply(lambda row: f"{row['Client']}|{row['Product']}|{row['Date']}", axis=1)
-        
+
         st.subheader("Edit an existing order")
         # Selecionar um pedido pelo identificador único
         unique_keys = df_orders["unique_key"].unique().tolist()
@@ -184,7 +179,7 @@ def orders_page():
         if selected_key:
             # Extrair valores originais do pedido selecionado
             selected_row = df_orders[df_orders["unique_key"] == selected_key].iloc[0]
-            
+
             original_client = selected_row["Client"]
             original_product = selected_row["Product"]
             original_date = selected_row["Date"]  # provavelmente datetime
@@ -201,7 +196,7 @@ def orders_page():
                 edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix"]
                 edit_status_index = edit_status_list.index(original_status) if original_status in edit_status_list else 0
                 edit_status = st.selectbox("Status", edit_status_list, index=edit_status_index)
-                
+
                 update_button = st.form_submit_button(label="Update Order")
 
             if update_button:
@@ -221,7 +216,6 @@ def orders_page():
                     st.error("Failed to update the order.")
     else:
         st.info("No orders found.")
-
 
 def products_page():
     st.title("Products")
@@ -312,7 +306,6 @@ def products_page():
     else:
         st.info("No products found.")
 
-
 def commands_page():
     st.title("Commands")
 
@@ -378,7 +371,7 @@ def stock_page():
 
     # Carregar a lista de produtos da tabela tb_products
     product_data = run_query("SELECT product FROM public.tb_products;")
-    product_list = [row[0] for row in product_data] if product_data else []
+    product_list = [row[0] for row in product_data] if product_data else ["No products available"]
 
     with st.form(key='stock_form'):
         product = st.selectbox("Product", product_list)
@@ -398,6 +391,8 @@ def stock_page():
             if success:
                 st.success("Stock record added successfully!")
                 refresh_data()
+            else:
+                st.error("Failed to add stock record.")
         else:
             st.warning("Please select a product and enter a quantity greater than 0.")
 
@@ -407,11 +402,10 @@ def stock_page():
     if stock_data:
         st.subheader("All Stock Records")
         # Convertendo tuplas para dicionário para exibir no DataFrame
-        st.dataframe([dict(zip(columns, row)) for row in stock_data], use_container_width=True)
+        df_stock = pd.DataFrame(stock_data, columns=columns)
+        st.dataframe(df_stock, use_container_width=True)
     else:
         st.info("No stock records found.")
-
-
 
 def clients_page():
     st.title("Clients")
@@ -501,9 +495,6 @@ def clients_page():
                     st.error("Failed to delete the client.")
     else:
         st.info("No clients found.")
-
-
-
 
 def invoice_page():
     st.title("Nota Fiscal")
