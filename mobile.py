@@ -591,9 +591,16 @@ def process_payment(invoice_keys, payment_status):
     conditions = []
     params = []
     for key in invoice_keys:
-        cliente, produto, data = key.split('|')
-        conditions.append('( "Cliente" = %s AND "Produto" = %s AND "Data" = %s )')
-        params.extend([cliente, produto, data])
+        try:
+            cliente, produto, data = key.split('|')
+            # Converter 'data' de string para datetime se necessário
+            if isinstance(data, str):
+                data = datetime.fromisoformat(data)
+            conditions.append('( "Cliente" = %s AND "Produto" = %s AND "Data" = %s )')
+            params.extend([cliente, produto, data])
+        except ValueError:
+            st.error(f"Identificador único inválido: {key}")
+            return
 
     where_clause = " OR ".join(conditions)
     query = f"""
@@ -652,3 +659,52 @@ def generate_invoice_for_printer(df):
     invoice_note.append("==================================================")
 
     st.text("\n".join(invoice_note))
+
+#####################
+# Logout Functionality
+#####################
+def logout():
+    """
+    Lida com o logout do usuário.
+    """
+    st.session_state.logged_in = False
+    st.session_state.page = "Home"
+    st.success("Logout realizado com sucesso!")
+
+#####################
+# Initialization
+#####################
+
+# Inicializar variáveis de estado da sessão
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+
+if 'data' not in st.session_state and st.session_state.get('logged_in', False):
+    st.session_state.data = load_all_data()
+
+# Verificação de Autenticação
+if not st.session_state.logged_in:
+    login()
+    st.stop()
+
+# Menu de Navegação
+selected_page = sidebar_navigation()
+
+# Tratar Logout
+if selected_page == "Sair":
+    logout()
+    st.stop()
+
+# Roteamento das Páginas
+if selected_page == "Home":
+    home_page()
+elif selected_page == "Pedidos":
+    orders_page()
+elif selected_page == "Produtos":
+    products_page()
+elif selected_page == "Estoque":
+    stock_page()
+elif selected_page == "Clientes":
+    clients_page()
+elif selected_page == "Nota Fiscal":
+    invoice_page()
