@@ -23,12 +23,12 @@ def get_db_connection():
         )
         return conn
     except OperationalError as e:
-        st.error("Could not connect to the database. Please try again later.")
+        st.error("Não foi possível conectar ao banco de dados. Por favor, tente novamente mais tarde.")
         return None
 
 def run_query(query, values=None):
     """
-    Runs a read-only query (SELECT) and returns the fetched data.
+    Executes a read-only query (SELECT) and returns the fetched data.
     """
     conn = get_db_connection()
     if conn is None:
@@ -40,12 +40,12 @@ def run_query(query, values=None):
     except Exception as e:
         if conn:
             conn.rollback()
-        st.error(f"Error executing query: {e}")
+        st.error(f"Erro ao executar a consulta: {e}")
         return []
 
 def run_insert(query, values):
     """
-    Runs an insert, update, or delete query.
+    Executes an insert, update, or delete query.
     """
     conn = get_db_connection()
     if conn is None:
@@ -58,7 +58,7 @@ def run_insert(query, values):
     except Exception as e:
         if conn:
             conn.rollback()
-        st.error(f"Error executing query: {e}")
+        st.error(f"Erro ao executar a operação: {e}")
         return False
 
 #####################
@@ -81,7 +81,7 @@ def load_all_data():
             'SELECT "Produto", "Quantidade", "Transação", "Data" FROM public.tb_estoque ORDER BY "Data" DESC;'
         )
     except Exception as e:
-        st.error(f"Error loading data: {e}")
+        st.error(f"Erro ao carregar os dados: {e}")
     return data
 
 def refresh_data():
@@ -100,7 +100,7 @@ def sidebar_navigation():
     with st.sidebar:
         st.title("Boituva Beach Club")
         selected = option_menu(
-            "Beach Menu", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
+            "Menu Principal", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
             icons=["house", "file-text", "box", "list-task", "layers", "person", "file-invoice"],
             menu_icon="cast",
             default_index=0,
@@ -193,7 +193,7 @@ def orders_page():
                 original_client = selected_row["Client"]
                 original_product = selected_row["Product"]
                 original_quantity = selected_row["Quantity"]
-                original_date = selected_row["Date"]  # Isso é um objeto datetime
+                original_date = selected_row["Date"]
                 original_status = selected_row["Status"]
 
                 # Formulário para editar o pedido
@@ -216,6 +216,24 @@ def orders_page():
                     update_button = st.form_submit_button(label="Update Order")
                     delete_button = st.form_submit_button(label="Delete Order")
 
+                # Botão de Deletar Ordem só aparece se delete_button for clicado
+                if delete_button:
+                    # Utilizamos uma abordagem de duas etapas para confirmação
+                    confirm = st.checkbox("Are you sure you want to delete this order?")
+                    if confirm:
+                        delete_query = """
+                        DELETE FROM public.tb_pedido
+                        WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
+                        """
+                        success = run_insert(delete_query, (
+                            original_client, original_product, original_date
+                        ))
+                        if success:
+                            st.success("Order deleted successfully!")
+                            refresh_data()
+                        else:
+                            st.error("Failed to delete the order.")
+
                 if update_button:
                     # Atualiza o pedido no banco usando a combinação de campos como filtro
                     update_query = """
@@ -232,23 +250,6 @@ def orders_page():
                         refresh_data()
                     else:
                         st.error("Failed to update the order.")
-
-                if delete_button:
-                    # Confirmação antes de deletar
-                    confirm = st.checkbox("Are you sure you want to delete this order?")
-                    if confirm:
-                        delete_query = """
-                        DELETE FROM public.tb_pedido
-                        WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
-                        """
-                        success = run_insert(delete_query, (
-                            original_client, original_product, original_date
-                        ))
-                        if success:
-                            st.success("Order deleted successfully!")
-                            refresh_data()
-                        else:
-                            st.error("Failed to delete the order.")
     else:
         st.info("No orders found.")
 
@@ -321,9 +322,27 @@ def products_page():
                     edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
                     edit_unit_value = st.number_input("Unit Value", min_value=0.0, step=0.01, format="%.2f", value=float(original_unit_value))
                     edit_creation_date = st.date_input("Creation Date", value=original_creation_date)
-
+                    
                     update_button = st.form_submit_button(label="Update Product")
                     delete_button = st.form_submit_button(label="Delete Product")
+
+                # Botão de Deletar Produto só aparece se delete_button for clicado
+                if delete_button:
+                    # Utilizamos uma abordagem de duas etapas para confirmação
+                    confirm = st.checkbox("Are you sure you want to delete this product?")
+                    if confirm:
+                        delete_query = """
+                        DELETE FROM public.tb_products
+                        WHERE supplier = %s AND product = %s AND creation_date = %s;
+                        """
+                        success = run_insert(delete_query, (
+                            original_supplier, original_product, original_creation_date
+                        ))
+                        if success:
+                            st.success("Product deleted successfully!")
+                            refresh_data()
+                        else:
+                            st.error("Failed to delete the product.")
 
                 if update_button:
                     # Recalcular total_value se quantity ou unit_value foram alterados
@@ -349,21 +368,6 @@ def products_page():
                         refresh_data()
                     else:
                         st.error("Failed to update the product.")
-
-                if delete_button:
-                    # Confirmação antes de deletar
-                    confirm = st.checkbox("Are you sure you want to delete this product?")
-                    if confirm:
-                        delete_query = """
-                        DELETE FROM public.tb_products
-                        WHERE supplier = %s AND product = %s AND creation_date = %s;
-                        """
-                        success = run_insert(delete_query, (original_supplier, original_product, original_creation_date))
-                        if success:
-                            st.success("Product deleted successfully!")
-                            refresh_data()
-                        else:
-                            st.error("Failed to delete the product.")
     else:
         st.info("No products found.")
 
@@ -431,7 +435,7 @@ def stock_page():
                 original_product = selected_row["Product"]
                 original_quantity = selected_row["Quantity"]
                 original_transaction = selected_row["Transaction"]
-                original_date = selected_row["Date"]  # Isso é um objeto datetime
+                original_date = selected_row["Date"]
 
                 # Formulário para editar o registro de estoque
                 with st.form(key='edit_stock_form'):
@@ -456,6 +460,24 @@ def stock_page():
                     update_button = st.form_submit_button(label="Update Stock Record")
                     delete_button = st.form_submit_button(label="Delete Stock Record")
 
+                # Botão de Deletar Registro de Estoque só aparece se delete_button for clicado
+                if delete_button:
+                    # Utilizamos uma abordagem de duas etapas para confirmação
+                    confirm = st.checkbox("Are you sure you want to delete this stock record?")
+                    if confirm:
+                        delete_query = """
+                        DELETE FROM public.tb_estoque
+                        WHERE "Produto" = %s AND "Transação" = %s AND "Data" = %s;
+                        """
+                        success = run_insert(delete_query, (
+                            original_product, original_transaction, original_date
+                        ))
+                        if success:
+                            st.success("Stock record deleted successfully!")
+                            refresh_data()
+                        else:
+                            st.error("Failed to delete the stock record.")
+
                 if update_button:
                     edit_datetime = datetime.combine(edit_date, datetime.min.time())
 
@@ -474,23 +496,6 @@ def stock_page():
                         refresh_data()
                     else:
                         st.error("Failed to update the stock record.")
-
-                if delete_button:
-                    # Confirmação antes de deletar
-                    confirm = st.checkbox("Are you sure you want to delete this stock record?")
-                    if confirm:
-                        delete_query = """
-                        DELETE FROM public.tb_estoque
-                        WHERE "Produto" = %s AND "Transação" = %s AND "Data" = %s;
-                        """
-                        success = run_insert(delete_query, (
-                            original_product, original_transaction, original_date
-                        ))
-                        if success:
-                            st.success("Stock record deleted successfully!")
-                            refresh_data()
-                        else:
-                            st.error("Failed to delete the stock record.")
     else:
         st.info("No stock records found.")
 
@@ -556,6 +561,19 @@ def clients_page():
                 with col2:
                     delete_button = st.form_submit_button(label="Delete Client")
 
+            # Botão de Deletar Cliente só aparece se delete_button for clicado
+            if delete_button:
+                # Utilizamos uma abordagem de duas etapas para confirmação
+                confirm = st.checkbox("Are you sure you want to delete this client?")
+                if confirm:
+                    delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
+                    success = run_insert(delete_query, (selected_email,))
+                    if success:
+                        st.success("Client deleted successfully!")
+                        refresh_data()
+                    else:
+                        st.error("Failed to delete the client.")
+
             if update_button:
                 if edit_name:
                     update_query = """
@@ -571,18 +589,6 @@ def clients_page():
                         st.error("Failed to update the client.")
                 else:
                     st.warning("Please fill in the Full Name field.")
-
-            if delete_button:
-                # Confirmação antes de deletar
-                confirm = st.checkbox("Are you sure you want to delete this client?")
-                if confirm:
-                    delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
-                    success = run_insert(delete_query, (selected_email,))
-                    if success:
-                        st.success("Client deleted successfully!")
-                        refresh_data()
-                    else:
-                        st.error("Failed to delete the client.")
     else:
         st.info("No clients found.")
 
