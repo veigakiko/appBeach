@@ -129,13 +129,13 @@ def home_page():
     
     st.subheader("Open Orders Summary")
     
-    # Consulta para obter pedidos em aberto agrupados por Cliente e Data com a soma total
+    # Consulta para obter pedidos em aberto agrupados por Cliente e Data (somente dia) com a soma total
     open_orders_query = """
-    SELECT "Cliente", "Data", SUM("total") as Total
+    SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
     FROM public.vw_pedido_produto
     WHERE status = %s
-    GROUP BY "Cliente", "Data"
-    ORDER BY "Cliente", "Data" DESC;
+    GROUP BY "Cliente", DATE("Data")
+    ORDER BY "Cliente", DATE("Data") DESC;
     """
     open_orders_data = run_query(open_orders_query, ('em aberto',))
     
@@ -144,7 +144,7 @@ def home_page():
         df_open_orders = pd.DataFrame(open_orders_data, columns=["Client", "Date", "Total"])
         
         # Formatar a coluna 'Date' para exibição amigável
-        df_open_orders["Date"] = pd.to_datetime(df_open_orders["Date"]).dt.strftime('%Y-%m-%d %H:%M:%S')
+        df_open_orders["Date"] = pd.to_datetime(df_open_orders["Date"]).dt.strftime('%Y-%m-%d')
         
         # Formatar a coluna 'Total' para moeda
         df_open_orders["Total"] = df_open_orders["Total"].apply(lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
