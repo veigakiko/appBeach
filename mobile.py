@@ -206,7 +206,7 @@ def home_page():
         else:
             st.info("Nenhum pedido em aberto encontrado.")
     
-    st.markdown("---")  # Separador visual
+  
     
     if st.session_state.get('show_closed_orders', False):
         st.subheader("Closed Orders Summary")
@@ -246,7 +246,7 @@ def home_page():
         else:
             st.info("Nenhum pedido fechado encontrado.")
     
-    st.markdown("---")  # Separador visual
+  
     
     if st.session_state.get('show_status_summary', False):
         st.subheader("Status Summary")
@@ -276,7 +276,7 @@ def home_page():
         else:
             st.info("Nenhum pedido encontrado para resumo por status.")
     
-    st.markdown("---")  # Separador visual
+
     
     if st.session_state.get('show_product_summary', False):
         st.subheader("Product Summary")
@@ -311,7 +311,7 @@ def home_page():
         else:
             st.info("Nenhum pedido encontrado para resumo por produto.")
     
-    st.markdown("---")  # Separador visual
+
     
     if st.session_state.get('show_combined_summary', False):
         st.subheader("Combined Product and Stock Summary")
