@@ -11,7 +11,7 @@ import pandas as pd
 @st.cache_resource
 def get_db_connection():
     """
-    Retorna uma conexão persistente com o banco de dados usando psycopg2.
+    Return a persistent database connection using psycopg2.
     """
     try:
         conn = psycopg2.connect(
@@ -23,12 +23,12 @@ def get_db_connection():
         )
         return conn
     except OperationalError as e:
-        st.error("Não foi possível conectar ao banco de dados. Por favor, tente novamente mais tarde.")
+        st.error("Could not connect to the database. Please try again later.")
         return None
 
 def run_query(query, values=None):
     """
-    Executa uma consulta de leitura (SELECT) e retorna os dados obtidos.
+    Runs a read-only query (SELECT) and returns the fetched data.
     """
     conn = get_db_connection()
     if conn is None:
@@ -40,12 +40,12 @@ def run_query(query, values=None):
     except Exception as e:
         if conn:
             conn.rollback()
-        st.error(f"Erro ao executar a consulta: {e}")
+        st.error(f"Error executing query: {e}")
         return []
 
 def run_insert(query, values):
     """
-    Executa uma consulta de inserção, atualização ou exclusão.
+    Runs an insert, update, or delete query.
     """
     conn = get_db_connection()
     if conn is None:
@@ -58,7 +58,7 @@ def run_insert(query, values):
     except Exception as e:
         if conn:
             conn.rollback()
-        st.error(f"Erro ao executar a operação: {e}")
+        st.error(f"Error executing query: {e}")
         return False
 
 #####################
@@ -66,7 +66,7 @@ def run_insert(query, values):
 #####################
 def load_all_data():
     """
-    Carrega todos os dados utilizados pelo aplicativo e retorna como um dicionário.
+    Load all data used by the application and return it as a dictionary.
     """
     data = {}
     try:
@@ -81,12 +81,12 @@ def load_all_data():
             'SELECT "Produto", "Quantidade", "Transação", "Data" FROM public.tb_estoque ORDER BY "Data" DESC;'
         )
     except Exception as e:
-        st.error(f"Erro ao carregar os dados: {e}")
+        st.error(f"Error loading data: {e}")
     return data
 
 def refresh_data():
     """
-    Recarrega todos os dados e atualiza o estado da sessão.
+    Reload all data and update the session state.
     """
     st.session_state.data = load_all_data()
 
@@ -95,12 +95,12 @@ def refresh_data():
 #####################
 def sidebar_navigation():
     """
-    Cria um menu lateral para navegação usando streamlit_option_menu.
+    Create a sidebar or horizontal menu for navigation using streamlit_option_menu.
     """
     with st.sidebar:
         st.title("Boituva Beach Club")
         selected = option_menu(
-            "Menu Principal", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
+            "Beach Menu", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
             icons=["house", "file-text", "box", "list-task", "layers", "person", "file-invoice"],
             menu_icon="cast",
             default_index=0,
@@ -126,199 +126,6 @@ def home_page():
     st.title("Boituva Beach Club")
     st.write("🎾 BeachTennis 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     st.info("Os dados são atualizados automaticamente ao navegar entre as páginas.")
-    
-    # Open Orders Summary
-    st.subheader("Open Orders Summary")
-    
-    # Consulta para obter pedidos em aberto agrupados por Cliente e Data (somente dia) com a soma total
-    open_orders_query = """
-    SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
-    FROM public.vw_pedido_produto
-    WHERE status = %s
-    GROUP BY "Cliente", DATE("Data")
-    ORDER BY "Cliente", DATE("Data") DESC;
-    """
-    open_orders_data = run_query(open_orders_query, ('em aberto',))
-    
-    if open_orders_data:
-        # Criar DataFrame
-        df_open_orders = pd.DataFrame(open_orders_data, columns=["Client", "Date", "Total"])
-        
-        # Calcular a soma total dos pedidos em aberto
-        total_open = df_open_orders["Total"].sum()
-        
-        # Formatar a coluna 'Date' para exibição amigável
-        df_open_orders["Date"] = pd.to_datetime(df_open_orders["Date"]).dt.strftime('%Y-%m-%d')
-        
-        # Formatar a coluna 'Total' para moeda brasileira
-        df_open_orders["Total"] = df_open_orders["Total"].apply(
-            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        )
-        
-        # Remover o índice e selecionar apenas as colunas desejadas
-        df_open_orders = df_open_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
-        
-        # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
-        styled_open_orders = df_open_orders.style.set_properties(**{
-            'text-align': 'left',
-            'font-size': '12px',
-            'white-space': 'pre-wrap',
-            'word-wrap': 'break-word'
-        })
-        
-        # Exibir a tabela sem índice e com estilos compactos
-        st.dataframe(
-            styled_open_orders,
-            use_container_width=True
-        )
-        
-        # Exibir a soma total abaixo da tabela
-        st.markdown(f"**Total Geral (Open Orders):** R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-    else:
-        st.info("Nenhum pedido em aberto encontrado.")
-    
-    st.markdown("---")  # Separador visual
-    
-    # Closed Orders Summary
-    st.subheader("Closed Orders Summary")
-    
-    # Consulta para obter pedidos fechados agrupados por Cliente e Data (somente dia) com a soma total
-    closed_orders_query = """
-    SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
-    FROM public.vw_pedido_produto
-    WHERE status != %s
-    GROUP BY "Cliente", DATE("Data")
-    ORDER BY "Cliente", DATE("Data") DESC;
-    """
-    closed_orders_data = run_query(closed_orders_query, ('em aberto',))
-    
-    if closed_orders_data:
-        # Criar DataFrame
-        df_closed_orders = pd.DataFrame(closed_orders_data, columns=["Client", "Date", "Total"])
-        
-        # Calcular a soma total dos pedidos fechados
-        total_closed = df_closed_orders["Total"].sum()
-        
-        # Formatar a coluna 'Date' para exibição amigável
-        df_closed_orders["Date"] = pd.to_datetime(df_closed_orders["Date"]).dt.strftime('%Y-%m-%d')
-        
-        # Formatar a coluna 'Total' para moeda brasileira
-        df_closed_orders["Total"] = df_closed_orders["Total"].apply(
-            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        )
-        
-        # Remover o índice e selecionar apenas as colunas desejadas
-        df_closed_orders = df_closed_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
-        
-        # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
-        styled_closed_orders = df_closed_orders.style.set_properties(**{
-            'text-align': 'left',
-            'font-size': '12px',
-            'white-space': 'pre-wrap',
-            'word-wrap': 'break-word'
-        })
-        
-        # Exibir a tabela sem índice e com estilos compactos
-        st.dataframe(
-            styled_closed_orders,
-            use_container_width=True
-        )
-        
-        # Exibir a soma total abaixo da tabela
-        st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-    else:
-        st.info("Nenhum pedido fechado encontrado.")
-    
-    st.markdown("---")  # Separador visual
-    
-    # Status Summary
-    st.subheader("Status Summary")
-    
-    # Consulta para obter soma total agrupada por Status
-    status_summary_query = """
-    SELECT status, SUM("total") as Total
-    FROM public.vw_pedido_produto
-    GROUP BY status
-    ORDER BY status;
-    """
-    status_summary_data = run_query(status_summary_query)
-    
-    if status_summary_data:
-        # Criar DataFrame
-        df_status_summary = pd.DataFrame(status_summary_data, columns=["Status", "Total"])
-        
-        # Formatar a coluna 'Total' para moeda brasileira
-        df_status_summary["Total"] = df_status_summary["Total"].apply(
-            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        )
-        
-        # Remover o índice e selecionar apenas as colunas desejadas
-        df_status_summary = df_status_summary.reset_index(drop=True)[["Status", "Total"]]
-        
-        # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
-        styled_status_summary = df_status_summary.style.set_properties(**{
-            'text-align': 'left',
-            'font-size': '12px',
-            'white-space': 'pre-wrap',
-            'word-wrap': 'break-word'
-        })
-        
-        # Exibir a tabela sem índice e com estilos compactos
-        st.dataframe(
-            styled_status_summary,
-            use_container_width=True
-        )
-    else:
-        st.info("Nenhum pedido encontrado para resumo por status.")
-    
-    st.markdown("---")  # Separador visual
-    
-    # Product Summary
-    st.subheader("Product Summary")
-    
-    # Consulta para obter soma total agrupada por Produto
-    product_summary_query = """
-    SELECT "Produto", SUM("Quantidade") as Quantity, SUM("total") as Total
-    FROM public.vw_pedido_produto
-    GROUP BY "Produto"
-    ORDER BY "Produto";
-    """
-    product_summary_data = run_query(product_summary_query)
-    
-    if product_summary_data:
-        # Criar DataFrame
-        df_product_summary = pd.DataFrame(product_summary_data, columns=["Product", "Quantity", "Total"])
-        
-        # Formatar a coluna 'Total' para moeda brasileira
-        df_product_summary["Total"] = df_product_summary["Total"].apply(
-            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        )
-        
-        # Formatar a coluna 'Quantity' para número inteiro com separadores de milhares, se necessário
-        df_product_summary["Quantity"] = df_product_summary["Quantity"].apply(
-            lambda x: f"{int(x):,}".replace(",", ".")
-        )
-        
-        # Remover o índice e selecionar apenas as colunas desejadas
-        df_product_summary = df_product_summary.reset_index(drop=True)[["Product", "Quantity", "Total"]]
-        
-        # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
-        styled_product_summary = df_product_summary.style.set_properties(**{
-            'text-align': 'left',
-            'font-size': '12px',
-            'white-space': 'pre-wrap',
-            'word-wrap': 'break-word'
-        })
-        
-        # Exibir a tabela sem índice e com estilos compactos
-        st.dataframe(
-            styled_product_summary,
-            use_container_width=True
-        )
-    else:
-        st.info("Nenhum pedido encontrado para resumo por produto.")
-
-
 
 def orders_page():
     st.title("Orders")
@@ -361,8 +168,8 @@ def orders_page():
         columns = ["Client", "Product", "Quantity", "Date", "Status"]
         df_orders = pd.DataFrame(orders_data, columns=columns)
         
-        # Remover o índice
-        df_orders = df_orders.reset_index(drop=True)
+        # Depuração: Exibir nomes das colunas
+        st.write("Columns in df_orders:", df_orders.columns.tolist())
 
         st.dataframe(df_orders, use_container_width=True)
 
@@ -386,7 +193,7 @@ def orders_page():
                 original_client = selected_row["Client"]
                 original_product = selected_row["Product"]
                 original_quantity = selected_row["Quantity"]
-                original_date = selected_row["Date"]
+                original_date = selected_row["Date"]  # Isso é um objeto datetime
                 original_status = selected_row["Status"]
 
                 # Formulário para editar o pedido
@@ -409,21 +216,6 @@ def orders_page():
                     update_button = st.form_submit_button(label="Update Order")
                     delete_button = st.form_submit_button(label="Delete Order")
 
-                # Deletar Ordem imediatamente após clicar no botão, sem confirmação
-                if delete_button:
-                    delete_query = """
-                    DELETE FROM public.tb_pedido
-                    WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
-                    """
-                    success = run_insert(delete_query, (
-                        original_client, original_product, original_date
-                    ))
-                    if success:
-                        st.success("Order deleted successfully!")
-                        refresh_data()
-                    else:
-                        st.error("Failed to delete the order.")
-
                 if update_button:
                     # Atualiza o pedido no banco usando a combinação de campos como filtro
                     update_query = """
@@ -440,6 +232,23 @@ def orders_page():
                         refresh_data()
                     else:
                         st.error("Failed to update the order.")
+
+                if delete_button:
+                    # Confirmação antes de deletar
+                    confirm = st.checkbox("Are you sure you want to delete this order?")
+                    if confirm:
+                        delete_query = """
+                        DELETE FROM public.tb_pedido
+                        WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
+                        """
+                        success = run_insert(delete_query, (
+                            original_client, original_product, original_date
+                        ))
+                        if success:
+                            st.success("Order deleted successfully!")
+                            refresh_data()
+                        else:
+                            st.error("Failed to delete the order.")
     else:
         st.info("No orders found.")
 
@@ -478,17 +287,10 @@ def products_page():
         columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
         df_products = pd.DataFrame(products_data, columns=columns)
         
-        # Remover o índice
-        df_products = df_products.reset_index(drop=True)
-        
-        # Selecionar apenas as colunas desejadas
-        df_products = df_products[["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]]
-        
-        # Exibir a tabela sem índice e com estilos compactos
-        st.dataframe(df_products.style.set_properties(**{
-            'text-align': 'left',
-            'font-size': '12px'
-        }), use_container_width=True)
+        # Depuração: Exibir nomes das colunas
+        st.write("Columns in df_products:", df_products.columns.tolist())
+
+        st.dataframe(df_products, use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Product")
         # Criar uma chave única para identificar cada produto
@@ -519,24 +321,9 @@ def products_page():
                     edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
                     edit_unit_value = st.number_input("Unit Value", min_value=0.0, step=0.01, format="%.2f", value=float(original_unit_value))
                     edit_creation_date = st.date_input("Creation Date", value=original_creation_date)
-                    
+
                     update_button = st.form_submit_button(label="Update Product")
                     delete_button = st.form_submit_button(label="Delete Product")
-
-                # Deletar Produto imediatamente após clicar no botão, sem confirmação
-                if delete_button:
-                    delete_query = """
-                    DELETE FROM public.tb_products
-                    WHERE supplier = %s AND product = %s AND creation_date = %s;
-                    """
-                    success = run_insert(delete_query, (
-                        original_supplier, original_product, original_creation_date
-                    ))
-                    if success:
-                        st.success("Product deleted successfully!")
-                        refresh_data()
-                    else:
-                        st.error("Failed to delete the product.")
 
                 if update_button:
                     # Recalcular total_value se quantity ou unit_value foram alterados
@@ -562,6 +349,21 @@ def products_page():
                         refresh_data()
                     else:
                         st.error("Failed to update the product.")
+
+                if delete_button:
+                    # Confirmação antes de deletar
+                    confirm = st.checkbox("Are you sure you want to delete this product?")
+                    if confirm:
+                        delete_query = """
+                        DELETE FROM public.tb_products
+                        WHERE supplier = %s AND product = %s AND creation_date = %s;
+                        """
+                        success = run_insert(delete_query, (original_supplier, original_product, original_creation_date))
+                        if success:
+                            st.success("Product deleted successfully!")
+                            refresh_data()
+                        else:
+                            st.error("Failed to delete the product.")
     else:
         st.info("No products found.")
 
@@ -605,17 +407,10 @@ def stock_page():
         columns = ["Product", "Quantity", "Transaction", "Date"]
         df_stock = pd.DataFrame(stock_data, columns=columns)
         
-        # Remover o índice
-        df_stock = df_stock.reset_index(drop=True)
-        
-        # Selecionar apenas as colunas desejadas
-        df_stock = df_stock[["Product", "Quantity", "Transaction", "Date"]]
-        
-        # Exibir a tabela sem índice e com estilos compactos
-        st.dataframe(df_stock.style.set_properties(**{
-            'text-align': 'left',
-            'font-size': '12px'
-        }), use_container_width=True)
+        # Depuração: Exibir nomes das colunas
+        st.write("Columns in df_stock:", df_stock.columns.tolist())
+
+        st.dataframe(df_stock, use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Stock Record")
         # Criar uma chave única para identificar cada registro de estoque
@@ -636,7 +431,7 @@ def stock_page():
                 original_product = selected_row["Product"]
                 original_quantity = selected_row["Quantity"]
                 original_transaction = selected_row["Transaction"]
-                original_date = selected_row["Date"]
+                original_date = selected_row["Date"]  # Isso é um objeto datetime
 
                 # Formulário para editar o registro de estoque
                 with st.form(key='edit_stock_form'):
@@ -661,21 +456,6 @@ def stock_page():
                     update_button = st.form_submit_button(label="Update Stock Record")
                     delete_button = st.form_submit_button(label="Delete Stock Record")
 
-                # Deletar Registro de Estoque imediatamente após clicar no botão, sem confirmação
-                if delete_button:
-                    delete_query = """
-                    DELETE FROM public.tb_estoque
-                    WHERE "Produto" = %s AND "Transação" = %s AND "Data" = %s;
-                    """
-                    success = run_insert(delete_query, (
-                        original_product, original_transaction, original_date
-                    ))
-                    if success:
-                        st.success("Stock record deleted successfully!")
-                        refresh_data()
-                    else:
-                        st.error("Failed to delete the stock record.")
-
                 if update_button:
                     edit_datetime = datetime.combine(edit_date, datetime.min.time())
 
@@ -694,6 +474,23 @@ def stock_page():
                         refresh_data()
                     else:
                         st.error("Failed to update the stock record.")
+
+                if delete_button:
+                    # Confirmação antes de deletar
+                    confirm = st.checkbox("Are you sure you want to delete this stock record?")
+                    if confirm:
+                        delete_query = """
+                        DELETE FROM public.tb_estoque
+                        WHERE "Produto" = %s AND "Transação" = %s AND "Data" = %s;
+                        """
+                        success = run_insert(delete_query, (
+                            original_product, original_transaction, original_date
+                        ))
+                        if success:
+                            st.success("Stock record deleted successfully!")
+                            refresh_data()
+                        else:
+                            st.error("Failed to delete the stock record.")
     else:
         st.info("No stock records found.")
 
@@ -738,15 +535,7 @@ def clients_page():
         st.subheader("All Clients")
         columns = ["Full Name", "Birth Date", "Gender", "Phone", "Email", "Address", "Register Date"]
         df_clients = pd.DataFrame(clients_data, columns=columns)
-        # Remover o índice
-        df_clients = df_clients.reset_index(drop=True)
-        # Selecionar apenas as colunas desejadas
-        df_clients = df_clients[["Full Name", "Birth Date", "Gender", "Phone", "Email", "Address", "Register Date"]]
-        # Exibir a tabela sem índice e com estilos compactos
-        st.dataframe(df_clients.style.set_properties(**{
-            'text-align': 'left',
-            'font-size': '12px'
-        }), use_container_width=True)
+        st.dataframe(df_clients, use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Client")
         # Selecionar um cliente para edição
@@ -767,16 +556,6 @@ def clients_page():
                 with col2:
                     delete_button = st.form_submit_button(label="Delete Client")
 
-            # Deletar Cliente imediatamente após clicar no botão, sem confirmação
-            if delete_button:
-                delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
-                success = run_insert(delete_query, (selected_email,))
-                if success:
-                    st.success("Client deleted successfully!")
-                    refresh_data()
-                else:
-                    st.error("Failed to delete the client.")
-
             if update_button:
                 if edit_name:
                     update_query = """
@@ -792,6 +571,18 @@ def clients_page():
                         st.error("Failed to update the client.")
                 else:
                     st.warning("Please fill in the Full Name field.")
+
+            if delete_button:
+                # Confirmação antes de deletar
+                confirm = st.checkbox("Are you sure you want to delete this client?")
+                if confirm:
+                    delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
+                    success = run_insert(delete_query, (selected_email,))
+                    if success:
+                        st.success("Client deleted successfully!")
+                        refresh_data()
+                    else:
+                        st.error("Failed to delete the client.")
     else:
         st.info("No clients found.")
 
@@ -819,8 +610,6 @@ def invoice_page():
 
             total_sum = df["total"].sum()
             st.subheader(f"Total Geral: R$ {total_sum:,.2f}")
-            # Formatar total_sum para moeda brasileira
-            st.subheader(f"Total Geral: R$ {total_sum:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
 
             col1, col2, col3 = st.columns(3)
 
