@@ -27,7 +27,7 @@ def get_db_connection():
             password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
             port=5432
         )
-    except OperationalError as e:
+    except OperationalError:
         st.error("Failed to connect to the database.")
         st.stop()
 
@@ -68,8 +68,8 @@ def sidebar_navigation():
     with st.sidebar:
         st.title("Boituva Beach Club")
         return option_menu(
-            "Menu", ["Home", "Orders", "Products", "Commands", "Stock", "Clients", "Nota Fiscal"],
-            icons=["house", "file-text", "box", "list-task", "layers", "person", "file-invoice"],
+            "Menu", ["Home", "Orders", "Products", "Clients", "Stock", "Nota Fiscal"],
+            icons=["house", "file-text", "box", "person", "layers", "file-invoice"],
             default_index=0
         )
 
@@ -93,19 +93,30 @@ def home_page():
 
 def orders_page():
     st.title("📦 Orders Management")
-    clients = [row[0] for row in run_query('SELECT nome_completo FROM public.tb_clientes')]
-    products = [row[1] for row in run_query("SELECT product FROM public.tb_products")]
+
+    # Fetch clients safely
+    clients = run_query('SELECT nome_completo FROM public.tb_clientes')
+    clients = [row[0] for row in clients if row] if clients else []
+
+    # Fetch products safely
+    products = run_query("SELECT product FROM public.tb_products")
+    products = [row[0] for row in products if row] if products else []
 
     with st.form("order_form"):
-        client = st.selectbox("Select Client", clients)
-        product = st.selectbox("Select Product", products)
+        client = st.selectbox("Select Client", clients) if clients else st.warning("No clients available.")
+        product = st.selectbox("Select Product", products) if products else st.warning("No products available.")
         quantity = st.number_input("Quantity", min_value=1)
-        if st.form_submit_button("Submit Order"):
-            if run_query("""
+        
+        if st.form_submit_button("Submit Order") and client and product:
+            query = """
                 INSERT INTO public.tb_pedido ("Cliente", "Produto", "Quantidade", "Data", "status")
                 VALUES (%s, %s, %s, %s, %s);
-            """, (client, product, quantity, datetime.now(), "em aberto"), fetch=False):
+            """
+            success = run_query(query, (client, product, quantity, datetime.now(), "em aberto"), fetch=False)
+            if success:
                 st.success("Order registered successfully!")
+            else:
+                st.error("Failed to add order.")
 
     display_data("Orders List", 
                  'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido;', 
@@ -155,18 +166,22 @@ def stock_page():
 
 def invoice_page():
     st.title("🧾 Generate Nota Fiscal")
-    clients = [row[0] for row in run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido;')]
-    selected_client = st.selectbox("Select Client", clients)
-    if selected_client:
+    clients = run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido;')
+    clients = [row[0] for row in clients if row] if clients else []
+
+    if clients:
+        selected_client = st.selectbox("Select Client", clients)
         query = """
-        SELECT "Produto", "Quantidade"
-        FROM public.tb_pedido
-        WHERE "Cliente" = %s AND status = 'em aberto';
+            SELECT "Produto", "Quantidade"
+            FROM public.tb_pedido
+            WHERE "Cliente" = %s AND status = 'em aberto';
         """
         data = run_query(query, (selected_client,))
         if data:
             st.dataframe(pd.DataFrame(data, columns=["Product", "Quantity"]))
             st.success("Invoice generated successfully!")
+    else:
+        st.warning("No clients with pending orders.")
 
 # ----------------------------------------
 # Application Logic
