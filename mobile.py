@@ -134,205 +134,231 @@ def home_page():
     # Botão para mostrar pedidos em aberto
     with col1:
         if st.button("Mostrar Pedidos em Aberto"):
-            st.subheader("Open Orders Summary")
-            # Consulta para obter pedidos em aberto agrupados por Cliente e Data (somente dia) com a soma total
-            open_orders_query = """
-            SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
-            FROM public.vw_pedido_produto
-            WHERE status = %s
-            GROUP BY "Cliente", DATE("Data")
-            ORDER BY "Cliente", DATE("Data") DESC;
-            """
-            open_orders_data = run_query(open_orders_query, ('em aberto',))
-
-            if open_orders_data:
-                # Criar DataFrame
-                df_open_orders = pd.DataFrame(open_orders_data, columns=["Client", "Date", "Total"])
-                
-                # Calcular a soma total dos pedidos em aberto
-                total_open = df_open_orders["Total"].sum()
-                
-                # Formatar a coluna 'Date' para exibição amigável
-                df_open_orders["Date"] = pd.to_datetime(df_open_orders["Date"]).dt.strftime('%Y-%m-%d')
-                
-                # Formatar a coluna 'Total' para moeda brasileira
-                df_open_orders["Total"] = df_open_orders["Total"].apply(
-                    lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                )
-                
-                # Remover o índice e selecionar apenas as colunas desejadas
-                df_open_orders = df_open_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
-                
-                # Exibir a tabela sem índice e com largura otimizada para a coluna
-                st.dataframe(df_open_orders, use_container_width=True)
-                
-                # Exibir a soma total abaixo da tabela
-                st.markdown(f"**Total Geral (Open Orders):** R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-            else:
-                st.info("Nenhum pedido em aberto encontrado.")
-    
-    st.markdown("---")  # Separador visual
+            st.session_state.show_open_orders = True
+        else:
+            st.session_state.show_open_orders = False
     
     # Botão para mostrar pedidos fechados
     with col2:
         if st.button("Mostrar Pedidos Fechados"):
-            st.subheader("Closed Orders Summary")
-            # Consulta para obter pedidos fechados agrupados por Cliente e Data (somente dia) com a soma total
-            closed_orders_query = """
-            SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
-            FROM public.vw_pedido_produto
-            WHERE status != %s
-            GROUP BY "Cliente", DATE("Data")
-            ORDER BY "Cliente", DATE("Data") DESC;
-            """
-            closed_orders_data = run_query(closed_orders_query, ('em aberto',))
-
-            if closed_orders_data:
-                # Criar DataFrame
-                df_closed_orders = pd.DataFrame(closed_orders_data, columns=["Client", "Date", "Total"])
-                
-                # Calcular a soma total dos pedidos fechados
-                total_closed = df_closed_orders["Total"].sum()
-                
-                # Formatar a coluna 'Date' para exibição amigável
-                df_closed_orders["Date"] = pd.to_datetime(df_closed_orders["Date"]).dt.strftime('%Y-%m-%d')
-                
-                # Formatar a coluna 'Total' para moeda brasileira
-                df_closed_orders["Total"] = df_closed_orders["Total"].apply(
-                    lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                )
-                
-                # Remover o índice e selecionar apenas as colunas desejadas
-                df_closed_orders = df_closed_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
-                
-                # Exibir a tabela sem índice e com largura otimizada para a coluna
-                st.dataframe(df_closed_orders, use_container_width=True)
-                
-                # Exibir a soma total abaixo da tabela
-                st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-            else:
-                st.info("Nenhum pedido fechado encontrado.")
-    
-    st.markdown("---")  # Separador visual
+            st.session_state.show_closed_orders = True
+        else:
+            st.session_state.show_closed_orders = False
     
     # Botão para mostrar resumo por status
     with col3:
         if st.button("Mostrar Resumo por Status"):
-            st.subheader("Status Summary")
-            # Consulta para obter soma total agrupada por Status
-            status_summary_query = """
-            SELECT status, SUM("total") as Total
-            FROM public.vw_pedido_produto
-            GROUP BY status
-            ORDER BY status;
-            """
-            status_summary_data = run_query(status_summary_query)
-
-            if status_summary_data:
-                # Criar DataFrame
-                df_status_summary = pd.DataFrame(status_summary_data, columns=["Status", "Total"])
-
-                # Formatar a coluna 'Total' para moeda brasileira
-                df_status_summary["Total"] = df_status_summary["Total"].apply(
-                    lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                )
-                
-                # Remover o índice e selecionar apenas as colunas desejadas
-                df_status_summary = df_status_summary.reset_index(drop=True)[["Status", "Total"]]
-                
-                # Exibir a tabela sem índice e com largura otimizada para a coluna
-                st.dataframe(df_status_summary, use_container_width=True)
-            else:
-                st.info("Nenhum pedido encontrado para resumo por status.")
-    
-    st.markdown("---")  # Separador visual
+            st.session_state.show_status_summary = True
+        else:
+            st.session_state.show_status_summary = False
     
     # Botão para mostrar resumo por produto
     with col4:
         if st.button("Mostrar Resumo por Produto"):
-            st.subheader("Product Summary")
-            # Consulta para obter soma total agrupada por Produto
-            product_summary_query = """
-            SELECT "Produto", SUM("Quantidade") as Quantity, SUM("total") as Total
-            FROM public.vw_pedido_produto
-            GROUP BY "Produto"
-            ORDER BY "Produto";
-            """
-            product_summary_data = run_query(product_summary_query)
-
-            if product_summary_data:
-                # Criar DataFrame
-                df_product_summary = pd.DataFrame(product_summary_data, columns=["Product", "Quantity", "Total"])
-
-                # Formatar a coluna 'Total' para moeda brasileira
-                df_product_summary["Total"] = df_product_summary["Total"].apply(
-                    lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                )
-
-                # Formatar a coluna 'Quantity' para número inteiro com separadores de milhares, se necessário
-                df_product_summary["Quantity"] = df_product_summary["Quantity"].apply(
-                    lambda x: f"{int(x):,}".replace(",", ".")
-                )
-                
-                # Remover o índice e selecionar apenas as colunas desejadas
-                df_product_summary = df_product_summary.reset_index(drop=True)[["Product", "Quantity", "Total"]]
-                
-                # Exibir a tabela sem índice e com largura otimizada para a coluna
-                st.dataframe(df_product_summary, use_container_width=True)
-            else:
-                st.info("Nenhum pedido encontrado para resumo por produto.")
-    
-    st.markdown("---")  # Separador visual
+            st.session_state.show_product_summary = True
+        else:
+            st.session_state.show_product_summary = False
     
     # Botão para mostrar resumo combinado de produto e estoque
     with col5:
         if st.button("Mostrar Resumo Combinado de Produto e Estoque"):
-            st.subheader("Combined Product and Stock Summary")
-            
-            # Consultas para obter dados de resumo combinado (produto e estoque)
-            combined_product_query = """
-            SELECT "Produto", SUM("Quantidade") as Summary_Quantity, SUM("total") as Summary_Total
-            FROM public.vw_pedido_produto
-            GROUP BY "Produto"
-            ORDER BY "Produto";
-            """
-            combined_product_data = run_query(combined_product_query)
-            
-            stock_records_query = """
-            SELECT "Produto", SUM("Quantidade") as Stock_Quantity
-            FROM public.tb_estoque
-            GROUP BY "Produto"
-            ORDER BY "Produto";
-            """
-            stock_records_data = run_query(stock_records_query)
-            
-            if combined_product_data and stock_records_data:
-                # Criar DataFrames
-                df_product_summary_combined = pd.DataFrame(combined_product_data, columns=["Product", "Summary_Quantity", "Summary_Total"])
-                df_stock_records = pd.DataFrame(stock_records_data, columns=["Product", "Stock_Quantity"])
-                
-                # Realizar merge dos DataFrames com base na coluna 'Product'
-                df_combined = pd.merge(df_product_summary_combined, df_stock_records, on="Product", how="left")
-                
-                # Preencher valores NaN em 'Stock_Quantity' com 0
-                df_combined["Stock_Quantity"] = df_combined["Stock_Quantity"].fillna(0).astype(int)
-                
-                # Calcular 'Estoque_Atual' = 'Total em Estoque' - 'Total Vendido'
-                df_combined["Estoque_Atual"] = df_combined["Stock_Quantity"] - df_combined["Summary_Quantity"]
-                
-                # Reformatar as colunas para exibição
-                df_combined["Summary_Quantity"] = df_combined["Summary_Quantity"].apply(lambda x: f"{x:,}".replace(",", "."))
-                df_combined["Stock_Quantity"] = df_combined["Stock_Quantity"].apply(lambda x: f"{x:,}".replace(",", "."))
-                df_combined["Estoque_Atual"] = df_combined["Estoque_Atual"].apply(lambda x: f"{x:,}".replace(",", "."))
-                
-                # Selecionar as colunas na ordem desejada
-                df_combined = df_combined[["Product", "Summary_Quantity", "Stock_Quantity", "Estoque_Atual"]]
-                
-                # Exibir a tabela combinada
-                st.dataframe(df_combined, use_container_width=True)
-            else:
-                st.info("Dados insuficientes para criar o resumo combinado de Produto e Estoque.")
+            st.session_state.show_combined_summary = True
+        else:
+            st.session_state.show_combined_summary = False
 
+    # Exibir as tabelas fora das colunas, dependendo do que o usuário selecionou
+
+    if st.session_state.get('show_open_orders', False):
+        st.subheader("Open Orders Summary")
+        # Consulta para obter pedidos em aberto agrupados por Cliente e Data (somente dia) com a soma total
+        open_orders_query = """
+        SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
+        FROM public.vw_pedido_produto
+        WHERE status = %s
+        GROUP BY "Cliente", DATE("Data")
+        ORDER BY "Cliente", DATE("Data") DESC;
+        """
+        open_orders_data = run_query(open_orders_query, ('em aberto',))
+
+        if open_orders_data:
+            # Criar DataFrame
+            df_open_orders = pd.DataFrame(open_orders_data, columns=["Client", "Date", "Total"])
+            
+            # Calcular a soma total dos pedidos em aberto
+            total_open = df_open_orders["Total"].sum()
+            
+            # Formatar a coluna 'Date' para exibição amigável
+            df_open_orders["Date"] = pd.to_datetime(df_open_orders["Date"]).dt.strftime('%Y-%m-%d')
+            
+            # Formatar a coluna 'Total' para moeda brasileira
+            df_open_orders["Total"] = df_open_orders["Total"].apply(
+                lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            )
+            
+            # Remover o índice e selecionar apenas as colunas desejadas
+            df_open_orders = df_open_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
+            
+            # Exibir a tabela sem índice e com largura otimizada para a coluna
+            st.dataframe(df_open_orders, use_container_width=True)
+            
+            # Exibir a soma total abaixo da tabela
+            st.markdown(f"**Total Geral (Open Orders):** R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        else:
+            st.info("Nenhum pedido em aberto encontrado.")
+    
+    st.markdown("---")  # Separador visual
+    
+    if st.session_state.get('show_closed_orders', False):
+        st.subheader("Closed Orders Summary")
+        # Consulta para obter pedidos fechados agrupados por Cliente e Data (somente dia) com a soma total
+        closed_orders_query = """
+        SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
+        FROM public.vw_pedido_produto
+        WHERE status != %s
+        GROUP BY "Cliente", DATE("Data")
+        ORDER BY "Cliente", DATE("Data") DESC;
+        """
+        closed_orders_data = run_query(closed_orders_query, ('em aberto',))
+
+        if closed_orders_data:
+            # Criar DataFrame
+            df_closed_orders = pd.DataFrame(closed_orders_data, columns=["Client", "Date", "Total"])
+            
+            # Calcular a soma total dos pedidos fechados
+            total_closed = df_closed_orders["Total"].sum()
+            
+            # Formatar a coluna 'Date' para exibição amigável
+            df_closed_orders["Date"] = pd.to_datetime(df_closed_orders["Date"]).dt.strftime('%Y-%m-%d')
+            
+            # Formatar a coluna 'Total' para moeda brasileira
+            df_closed_orders["Total"] = df_closed_orders["Total"].apply(
+                lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            )
+            
+            # Remover o índice e selecionar apenas as colunas desejadas
+            df_closed_orders = df_closed_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
+            
+            # Exibir a tabela sem índice e com largura otimizada para a coluna
+            st.dataframe(df_closed_orders, use_container_width=True)
+            
+            # Exibir a soma total abaixo da tabela
+            st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        else:
+            st.info("Nenhum pedido fechado encontrado.")
+    
+    st.markdown("---")  # Separador visual
+    
+    if st.session_state.get('show_status_summary', False):
+        st.subheader("Status Summary")
+        # Consulta para obter soma total agrupada por Status
+        status_summary_query = """
+        SELECT status, SUM("total") as Total
+        FROM public.vw_pedido_produto
+        GROUP BY status
+        ORDER BY status;
+        """
+        status_summary_data = run_query(status_summary_query)
+
+        if status_summary_data:
+            # Criar DataFrame
+            df_status_summary = pd.DataFrame(status_summary_data, columns=["Status", "Total"])
+
+            # Formatar a coluna 'Total' para moeda brasileira
+            df_status_summary["Total"] = df_status_summary["Total"].apply(
+                lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            )
+            
+            # Remover o índice e selecionar apenas as colunas desejadas
+            df_status_summary = df_status_summary.reset_index(drop=True)[["Status", "Total"]]
+            
+            # Exibir a tabela sem índice e com largura otimizada para a coluna
+            st.dataframe(df_status_summary, use_container_width=True)
+        else:
+            st.info("Nenhum pedido encontrado para resumo por status.")
+    
+    st.markdown("---")  # Separador visual
+    
+    if st.session_state.get('show_product_summary', False):
+        st.subheader("Product Summary")
+        # Consulta para obter soma total agrupada por Produto
+        product_summary_query = """
+        SELECT "Produto", SUM("Quantidade") as Quantity, SUM("total") as Total
+        FROM public.vw_pedido_produto
+        GROUP BY "Produto"
+        ORDER BY "Produto";
+        """
+        product_summary_data = run_query(product_summary_query)
+
+        if product_summary_data:
+            # Criar DataFrame
+            df_product_summary = pd.DataFrame(product_summary_data, columns=["Product", "Quantity", "Total"])
+
+            # Formatar a coluna 'Total' para moeda brasileira
+            df_product_summary["Total"] = df_product_summary["Total"].apply(
+                lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            )
+
+            # Formatar a coluna 'Quantity' para número inteiro com separadores de milhares, se necessário
+            df_product_summary["Quantity"] = df_product_summary["Quantity"].apply(
+                lambda x: f"{int(x):,}".replace(",", ".")
+            )
+            
+            # Remover o índice e selecionar apenas as colunas desejadas
+            df_product_summary = df_product_summary.reset_index(drop=True)[["Product", "Quantity", "Total"]]
+            
+            # Exibir a tabela sem índice e com largura otimizada para a coluna
+            st.dataframe(df_product_summary, use_container_width=True)
+        else:
+            st.info("Nenhum pedido encontrado para resumo por produto.")
+    
+    st.markdown("---")  # Separador visual
+    
+    if st.session_state.get('show_combined_summary', False):
+        st.subheader("Combined Product and Stock Summary")
+        
+        # Consultas para obter dados de resumo combinado (produto e estoque)
+        combined_product_query = """
+        SELECT "Produto", SUM("Quantidade") as Summary_Quantity, SUM("total") as Summary_Total
+        FROM public.vw_pedido_produto
+        GROUP BY "Produto"
+        ORDER BY "Produto";
+        """
+        combined_product_data = run_query(combined_product_query)
+        
+        stock_records_query = """
+        SELECT "Produto", SUM("Quantidade") as Stock_Quantity
+        FROM public.tb_estoque
+        GROUP BY "Produto"
+        ORDER BY "Produto";
+        """
+        stock_records_data = run_query(stock_records_query)
+        
+        if combined_product_data and stock_records_data:
+            # Criar DataFrames
+            df_product_summary_combined = pd.DataFrame(combined_product_data, columns=["Product", "Summary_Quantity", "Summary_Total"])
+            df_stock_records = pd.DataFrame(stock_records_data, columns=["Product", "Stock_Quantity"])
+            
+            # Realizar merge dos DataFrames com base na coluna 'Product'
+            df_combined = pd.merge(df_product_summary_combined, df_stock_records, on="Product", how="left")
+            
+            # Preencher valores NaN em 'Stock_Quantity' com 0
+            df_combined["Stock_Quantity"] = df_combined["Stock_Quantity"].fillna(0).astype(int)
+            
+            # Calcular 'Estoque_Atual' = 'Total em Estoque' - 'Total Vendido'
+            df_combined["Estoque_Atual"] = df_combined["Stock_Quantity"] - df_combined["Summary_Quantity"]
+            
+            # Reformatar as colunas para exibição
+            df_combined["Summary_Quantity"] = df_combined["Summary_Quantity"].apply(lambda x: f"{x:,}".replace(",", "."))
+            df_combined["Stock_Quantity"] = df_combined["Stock_Quantity"].apply(lambda x: f"{x:,}".replace(",", "."))
+            df_combined["Estoque_Atual"] = df_combined["Estoque_Atual"].apply(lambda x: f"{x:,}".replace(",", "."))
+            
+            # Selecionar as colunas na ordem desejada
+            df_combined = df_combined[["Product", "Summary_Quantity", "Stock_Quantity", "Estoque_Atual"]]
+            
+            # Exibir a tabela combinada
+            st.dataframe(df_combined, use_container_width=True)
+        else:
+            st.info("Dados insuficientes para criar o resumo combinado de Produto e Estoque.")
 
 def orders_page():
     st.title("Orders")
