@@ -253,9 +253,65 @@ def products_page():
     columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
     if products_data:
         st.subheader("All Products")
-        st.dataframe([dict(zip(columns, row)) for row in products_data])
+        df_products = pd.DataFrame(products_data, columns=columns)
+        st.dataframe(df_products, use_container_width=True)
+
+        # Criando uma chave única a partir de (Supplier, Product, Creation Date)
+        # Supondo que cada combinação dessas colunas é única.
+        df_products["unique_key"] = df_products.apply(
+            lambda row: f"{row['Supplier']}|{row['Product']}|{row['Creation Date']}", axis=1
+        )
+
+        st.subheader("Edit an existing product")
+
+        unique_keys = df_products["unique_key"].unique().tolist()
+        selected_key = st.selectbox("Select a product to edit:", [""] + unique_keys)
+
+        if selected_key:
+            selected_row = df_products[df_products["unique_key"] == selected_key].iloc[0]
+
+            original_supplier = selected_row["Supplier"]
+            original_product = selected_row["Product"]
+            original_quantity = selected_row["Quantity"]
+            original_unit_value = selected_row["Unit Value"]
+            original_total_value = selected_row["Total Value"]
+            original_creation_date = selected_row["Creation Date"]
+
+            # Formulário de edição
+            with st.form(key='edit_product_form'):
+                edit_supplier = st.text_input("Supplier", value=original_supplier, max_chars=100)
+                edit_product = st.text_input("Product", value=original_product, max_chars=100)
+                edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
+                edit_unit_value = st.number_input("Unit Value", min_value=0.0, step=0.01, format="%.2f", value=float(original_unit_value))
+                edit_creation_date = st.date_input("Creation Date", value=original_creation_date)
+
+                update_button = st.form_submit_button(label="Update Product")
+
+            if update_button:
+                # Recalcular total_value se quantity ou unit_value foram alterados
+                edit_total_value = edit_quantity * edit_unit_value
+
+                # Atualiza o produto no banco
+                update_query = """
+                UPDATE public.tb_products
+                SET supplier = %s,
+                    product = %s,
+                    quantity = %s,
+                    unit_value = %s,
+                    total_value = %s,
+                    creation_date = %s
+                WHERE supplier = %s AND product = %s AND creation_date = %s;
+                """
+                success = run_insert(update_query, (edit_supplier, edit_product, edit_quantity, edit_unit_value, edit_total_value, edit_creation_date, 
+                                                     original_supplier, original_product, original_creation_date))
+                if success:
+                    st.success("Product updated successfully!")
+                    refresh_data()
+                else:
+                    st.error("Failed to update the product.")
     else:
         st.info("No products found.")
+
 
 def commands_page():
     st.title("Commands")
