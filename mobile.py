@@ -163,24 +163,15 @@ def home_page():
                 # Remover o índice e selecionar apenas as colunas desejadas
                 df_open_orders = df_open_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
                 
-                # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
-                styled_open_orders = df_open_orders.style.set_properties(**{
-                    'text-align': 'left',
-                    'font-size': '12px',
-                    'white-space': 'pre-wrap',
-                    'word-wrap': 'break-word'
-                })
-                
-                # Exibir a tabela sem índice e com estilos compactos
-                st.dataframe(
-                    styled_open_orders,
-                    use_container_width=True
-                )
+                # Exibir a tabela sem índice e com largura otimizada para a coluna
+                st.dataframe(df_open_orders, use_container_width=True)
                 
                 # Exibir a soma total abaixo da tabela
                 st.markdown(f"**Total Geral (Open Orders):** R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
             else:
                 st.info("Nenhum pedido em aberto encontrado.")
+    
+    st.markdown("---")  # Separador visual
     
     # Botão para mostrar pedidos fechados
     with col2:
@@ -214,24 +205,15 @@ def home_page():
                 # Remover o índice e selecionar apenas as colunas desejadas
                 df_closed_orders = df_closed_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
                 
-                # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
-                styled_closed_orders = df_closed_orders.style.set_properties(**{
-                    'text-align': 'left',
-                    'font-size': '12px',
-                    'white-space': 'pre-wrap',
-                    'word-wrap': 'break-word'
-                })
-                
-                # Exibir a tabela sem índice e com estilos compactos
-                st.dataframe(
-                    styled_closed_orders,
-                    use_container_width=True
-                )
+                # Exibir a tabela sem índice e com largura otimizada para a coluna
+                st.dataframe(df_closed_orders, use_container_width=True)
                 
                 # Exibir a soma total abaixo da tabela
                 st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
             else:
                 st.info("Nenhum pedido fechado encontrado.")
+    
+    st.markdown("---")  # Separador visual
     
     # Botão para mostrar resumo por status
     with col3:
@@ -258,21 +240,12 @@ def home_page():
                 # Remover o índice e selecionar apenas as colunas desejadas
                 df_status_summary = df_status_summary.reset_index(drop=True)[["Status", "Total"]]
                 
-                # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
-                styled_status_summary = df_status_summary.style.set_properties(**{
-                    'text-align': 'left',
-                    'font-size': '12px',
-                    'white-space': 'pre-wrap',
-                    'word-wrap': 'break-word'
-                })
-                
-                # Exibir a tabela sem índice e com estilos compactos
-                st.dataframe(
-                    styled_status_summary,
-                    use_container_width=True
-                )
+                # Exibir a tabela sem índice e com largura otimizada para a coluna
+                st.dataframe(df_status_summary, use_container_width=True)
             else:
                 st.info("Nenhum pedido encontrado para resumo por status.")
+    
+    st.markdown("---")  # Separador visual
     
     # Botão para mostrar resumo por produto
     with col4:
@@ -304,21 +277,12 @@ def home_page():
                 # Remover o índice e selecionar apenas as colunas desejadas
                 df_product_summary = df_product_summary.reset_index(drop=True)[["Product", "Quantity", "Total"]]
                 
-                # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
-                styled_product_summary = df_product_summary.style.set_properties(**{
-                    'text-align': 'left',
-                    'font-size': '12px',
-                    'white-space': 'pre-wrap',
-                    'word-wrap': 'break-word'
-                })
-                
-                # Exibir a tabela sem índice e com estilos compactos
-                st.dataframe(
-                    styled_product_summary,
-                    use_container_width=True
-                )
+                # Exibir a tabela sem índice e com largura otimizada para a coluna
+                st.dataframe(df_product_summary, use_container_width=True)
             else:
                 st.info("Nenhum pedido encontrado para resumo por produto.")
+    
+    st.markdown("---")  # Separador visual
     
     # Botão para mostrar resumo combinado de produto e estoque
     with col5:
@@ -365,10 +329,7 @@ def home_page():
                 df_combined = df_combined[["Product", "Summary_Quantity", "Stock_Quantity", "Estoque_Atual"]]
                 
                 # Exibir a tabela combinada
-                st.dataframe(
-                    df_combined,
-                    use_container_width=True
-                )
+                st.dataframe(df_combined, use_container_width=True)
             else:
                 st.info("Dados insuficientes para criar o resumo combinado de Produto e Estoque.")
 
