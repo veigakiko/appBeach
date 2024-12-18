@@ -410,20 +410,24 @@ def clients_page():
     st.title("Clients")
 
     st.subheader("Register a New Client")
+    
     with st.form(key='client_form'):
         nome_completo = st.text_input("Full Name", max_chars=100)
         submit_client = st.form_submit_button(label="Register New Client")
 
     if submit_client:
-        # Preenchendo os demais campos automaticamente
-        # Ajuste conforme sua necessidade
-        data_nascimento = datetime(2000, 1, 1).date()  # Exemplo: data fixa
-        genero = "Man"  # Valor padrão
-        telefone = "0000-0000"  # Valor padrão
-        email = "default@example.com"  # Valor padrão
-        endereco = "Endereço padrão"  # Valor padrão
-
         if nome_completo:
+            # Outros valores padrões
+            data_nascimento = datetime(2000, 1, 1).date()
+            genero = "Man"
+            telefone = "0000-0000"
+
+            # Gera um email único baseado no nome e num timestamp para evitar duplicação
+            unique_id = datetime.now().strftime("%Y%m%d%H%M%S")
+            email = f"{nome_completo.replace(' ', '_').lower()}_{unique_id}@example.com"
+            
+            endereco = "Endereço padrão"
+
             query = """
             INSERT INTO public.tb_clientes (nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro)
             VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP);
@@ -434,6 +438,7 @@ def clients_page():
                 refresh_data()
         else:
             st.warning("Please fill in the Full Name field.")
+
 
 
 
