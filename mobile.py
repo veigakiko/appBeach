@@ -146,7 +146,7 @@ def sidebar_navigation():
 #####################
 def home_page():
     st.title("Boituva Beach Club")
-    st.write("🎾 Beach Tennis 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
+    st.write("🎾 BeachTennis 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     if st.button("Atualizar Dados"):
         refresh_data()
 
@@ -541,16 +541,16 @@ def invoice_page():
             col1, col2, col3, col4 = st.columns(4)
 
             with col1:
-                if st.button("Débito"):
+                if st.button("Débito", key="debit_button"):
                     process_payment(selected_client, "Received - Debited")
             with col2:
-                if st.button("Crédito"):
+                if st.button("Crédito", key="credit_button"):
                     process_payment(selected_client, "Received - Credit")
             with col3:
-                if st.button("Pix"):
+                if st.button("Pix", key="pix_button"):
                     process_payment(selected_client, "Received - Pix")
             with col4:
-                if st.button("Dinheiro"):
+                if st.button("Dinheiro", key="cash_button"):
                     process_payment(selected_client, "Received - Cash")
         else:
             st.info("Não há pedidos em aberto para o cliente selecionado.")
