@@ -8,10 +8,9 @@ import pandas as pd
 #####################
 # Database Utilities
 #####################
-@st.cache_resource
 def get_db_connection():
     """
-    Return a persistent database connection using psycopg2.
+    Establishes and returns a new database connection using psycopg2.
     """
     try:
         conn = psycopg2.connect(
@@ -28,7 +27,7 @@ def get_db_connection():
 
 def run_query(query, values=None):
     """
-    Runs a read-only query (SELECT) and returns the fetched data.
+    Executes a SELECT query and returns the fetched data.
     """
     conn = get_db_connection()
     if conn is None:
@@ -38,17 +37,14 @@ def run_query(query, values=None):
             cursor.execute(query, values or ())
             return cursor.fetchall()
     except Exception as e:
-        if conn:
-            conn.rollback()
         st.error(f"Error executing query: {e}")
         return []
     finally:
-        if conn:
-            conn.close()
+        conn.close()
 
 def run_insert(query, values):
     """
-    Runs an insert or update query.
+    Executes an INSERT, UPDATE, or DELETE query.
     """
     conn = get_db_connection()
     if conn is None:
@@ -59,13 +55,11 @@ def run_insert(query, values):
         conn.commit()
         return True
     except Exception as e:
-        if conn:
-            conn.rollback()
+        conn.rollback()
         st.error(f"Error executing insert/update/delete: {e}")
         return False
     finally:
-        if conn:
-            conn.close()
+        conn.close()
 
 #####################
 # Data Loading
@@ -73,7 +67,7 @@ def run_insert(query, values):
 @st.cache_data(ttl=600)
 def load_all_data():
     """
-    Load all data used by the application and return it as a dictionary.
+    Loads all necessary data from the database and returns it as a dictionary.
     """
     data = {}
     try:
@@ -83,7 +77,7 @@ def load_all_data():
         data["products"] = run_query(
             "SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products ORDER BY creation_date DESC;"
         )
-        data["clients"] = run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido;')
+        data["clients"] = run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido ORDER BY "Cliente";')
         data["stock"] = run_query(
             'SELECT "Produto", "Quantidade", "Transação", "Data" FROM public.tb_estoque ORDER BY "Data" DESC;'
         )
@@ -93,7 +87,7 @@ def load_all_data():
 
 def refresh_data():
     """
-    Reload all data and update the session state.
+    Reloads all data and updates the session state.
     """
     st.session_state.data = load_all_data()
 
@@ -102,7 +96,7 @@ def refresh_data():
 #####################
 def login():
     """
-    Display a login form and handle authentication.
+    Displays a login form and handles authentication.
     """
     st.title("Login")
     with st.form(key='login_form'):
@@ -123,13 +117,13 @@ def login():
 #####################
 def sidebar_navigation():
     """
-    Create a sidebar menu for navigation using streamlit_option_menu.
+    Creates a sidebar menu for navigation using streamlit_option_menu.
     """
     with st.sidebar:
         st.title("Boituva Beach Club")
         selected = option_menu(
             "Beach Menu", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal", "Logout"],
-            icons=["house", "file-text", "box", "list-task", "layers", "person", "box-arrow-right"],
+            icons=["house", "file-text", "box", "list-task", "people", "file-invoice", "box-arrow-right"],
             menu_icon="cast",
             default_index=0,
             styles={
@@ -152,13 +146,13 @@ def sidebar_navigation():
 #####################
 def home_page():
     st.title("Boituva Beach Club")
-    st.write("🎾 BeachTennis📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
+    st.write("🎾 Beach Tennis 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     if st.button("Refresh Data"):
         refresh_data()
 
 def orders_page():
     st.title("Orders")
-    st.subheader("Register a new order")
+    st.subheader("Register a New Order")
 
     product_data = st.session_state.data.get("products", [])
     product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
@@ -218,6 +212,7 @@ def orders_page():
             # Prepare the edit form
             product_index = product_list.index(original_product) if original_product in product_list else 0
 
+            st.markdown("### Edit Order Details")
             with st.form(key='edit_order_form'):
                 edit_product = st.selectbox("Product", product_list, index=product_index)
                 edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
@@ -225,11 +220,7 @@ def orders_page():
                 edit_status_index = edit_status_list.index(original_status) if original_status in edit_status_list else 0
                 edit_status = st.selectbox("Status", edit_status_list, index=edit_status_index)
 
-                col1, col2 = st.columns(2)
-                with col1:
-                    update_button = st.form_submit_button(label="Update Order")
-                with col2:
-                    delete_button = st.form_submit_button(label="Delete Order")
+                update_button = st.form_submit_button(label="Update Order")
 
             if update_button:
                 if edit_product and edit_quantity > 0 and edit_status:
@@ -248,19 +239,22 @@ def orders_page():
                 else:
                     st.warning("Please fill in all fields correctly.")
 
+            st.markdown("### Delete Order")
+            with st.form(key='delete_order_form'):
+                st.warning("Are you sure you want to delete this order?")
+                delete_button = st.form_submit_button(label="Delete Order")
+
             if delete_button:
-                confirm = st.warning("Are you sure you want to delete this order?", icon="⚠️")
-                if st.button("Yes, delete"):
-                    delete_query = """
-                    DELETE FROM public.tb_pedido
-                    WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
-                    """
-                    success = run_insert(delete_query, (original_client, original_product, original_date))
-                    if success:
-                        st.success("Order deleted successfully!")
-                        refresh_data()
-                    else:
-                        st.error("Failed to delete the order.")
+                delete_query = """
+                DELETE FROM public.tb_pedido
+                WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
+                """
+                success = run_insert(delete_query, (original_client, original_product, original_date))
+                if success:
+                    st.success("Order deleted successfully!")
+                    refresh_data()
+                else:
+                    st.error("Failed to delete the order.")
     else:
         st.info("No orders found.")
 
@@ -320,6 +314,7 @@ def products_page():
             original_creation_date = selected_row["Creation Date"]
 
             # Form to edit the product
+            st.markdown("### Edit Product Details")
             with st.form(key='edit_product_form'):
                 edit_supplier = st.text_input("Supplier", value=original_supplier, max_chars=100)
                 edit_product = st.text_input("Product", value=original_product, max_chars=100)
@@ -327,11 +322,7 @@ def products_page():
                 edit_unit_value = st.number_input("Unit Value", min_value=0.0, step=0.01, format="%.2f", value=float(original_unit_value))
                 edit_creation_date = st.date_input("Creation Date", value=original_creation_date)
 
-                col1, col2 = st.columns(2)
-                with col1:
-                    update_button = st.form_submit_button(label="Update Product")
-                with col2:
-                    delete_button = st.form_submit_button(label="Delete Product")
+                update_button = st.form_submit_button(label="Update Product")
 
             if update_button:
                 if edit_supplier and edit_product and edit_quantity > 0 and edit_unit_value >= 0:
@@ -358,19 +349,22 @@ def products_page():
                 else:
                     st.warning("Please fill in all fields correctly.")
 
+            st.markdown("### Delete Product")
+            with st.form(key='delete_product_form'):
+                st.warning("Are you sure you want to delete this product?")
+                delete_button = st.form_submit_button(label="Delete Product")
+
             if delete_button:
-                confirm = st.warning("Are you sure you want to delete this product?", icon="⚠️")
-                if st.button("Yes, delete"):
-                    delete_query = """
-                    DELETE FROM public.tb_products
-                    WHERE supplier = %s AND product = %s AND creation_date = %s;
-                    """
-                    success = run_insert(delete_query, (original_supplier, original_product, original_creation_date))
-                    if success:
-                        st.success("Product deleted successfully!")
-                        refresh_data()
-                    else:
-                        st.error("Failed to delete the product.")
+                delete_query = """
+                DELETE FROM public.tb_products
+                WHERE supplier = %s AND product = %s AND creation_date = %s;
+                """
+                success = run_insert(delete_query, (original_supplier, original_product, original_creation_date))
+                if success:
+                    st.success("Product deleted successfully!")
+                    refresh_data()
+                else:
+                    st.error("Failed to delete the product.")
     else:
         st.info("No products found.")
 
@@ -480,13 +474,10 @@ def clients_page():
             original_name = selected_client_row["Full Name"]
 
             # Form to edit the client's name
+            st.markdown("### Edit Client Details")
             with st.form(key='edit_client_form'):
                 edit_name = st.text_input("Full Name", value=original_name, max_chars=100)
-                col1, col2 = st.columns(2)
-                with col1:
-                    update_button = st.form_submit_button(label="Update Client")
-                with col2:
-                    delete_button = st.form_submit_button(label="Delete Client")
+                update_button = st.form_submit_button(label="Update Client")
 
             if update_button:
                 if edit_name:
@@ -504,16 +495,20 @@ def clients_page():
                 else:
                     st.warning("Please fill in the Full Name field.")
 
+            # Separate form for deleting the client
+            st.markdown("### Delete Client")
+            with st.form(key='delete_client_form'):
+                st.warning("Are you sure you want to delete this client?")
+                delete_button = st.form_submit_button(label="Delete Client")
+
             if delete_button:
-                confirm = st.warning("Are you sure you want to delete this client?", icon="⚠️")
-                if st.button("Yes, delete"):
-                    delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
-                    success = run_insert(delete_query, (selected_email,))
-                    if success:
-                        st.success("Client deleted successfully!")
-                        refresh_data()
-                    else:
-                        st.error("Failed to delete the client.")
+                delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
+                success = run_insert(delete_query, (selected_email,))
+                if success:
+                    st.success("Client deleted successfully!")
+                    refresh_data()
+                else:
+                    st.error("Failed to delete the client.")
     else:
         st.info("No clients found.")
 
@@ -618,7 +613,7 @@ def generate_invoice_for_printer(df):
 #####################
 def logout():
     """
-    Handle user logout.
+    Handles user logout.
     """
     st.session_state.logged_in = False
     st.session_state.page = "Home"
