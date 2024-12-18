@@ -126,6 +126,32 @@ def home_page():
     st.title("Boituva Beach Club")
     st.write("🎾 BeachTennis 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     st.info("Os dados são atualizados automaticamente ao navegar entre as páginas.")
+    
+    st.subheader("Open Orders Summary")
+    
+    # Consulta para obter pedidos em aberto agrupados por Cliente e Data com a soma total
+    open_orders_query = """
+    SELECT "Cliente", "Data", SUM("total") as Total
+    FROM public.vw_pedido_produto
+    WHERE status = %s
+    GROUP BY "Cliente", "Data"
+    ORDER BY "Cliente", "Data" DESC;
+    """
+    open_orders_data = run_query(open_orders_query, ('em aberto',))
+    
+    if open_orders_data:
+        # Criar DataFrame
+        df_open_orders = pd.DataFrame(open_orders_data, columns=["Client", "Date", "Total"])
+        
+        # Formatar a coluna 'Date' para exibição amigável
+        df_open_orders["Date"] = pd.to_datetime(df_open_orders["Date"]).dt.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Formatar a coluna 'Total' para moeda
+        df_open_orders["Total"] = df_open_orders["Total"].apply(lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        
+        st.dataframe(df_open_orders, use_container_width=True)
+    else:
+        st.info("Nenhum pedido em aberto encontrado.")
 
 def orders_page():
     st.title("Orders")
