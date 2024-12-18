@@ -378,7 +378,7 @@ def stock_page():
 
     # Carregar a lista de produtos da tabela tb_products
     product_data = run_query("SELECT product FROM public.tb_products;")
-    product_list = [row[0] for row in product_data]
+    product_list = [row[0] for row in product_data] if product_data else []
 
     with st.form(key='stock_form'):
         product = st.selectbox("Product", product_list)
@@ -387,7 +387,7 @@ def stock_page():
 
     if submit_stock:
         if product and quantity > 0:
-            transaction = "Entry"
+            transaction = "Entrada"
             current_date = datetime.now()
 
             query = """
@@ -406,10 +406,11 @@ def stock_page():
     columns = ["Product", "Quantity", "Transaction", "Date"]
     if stock_data:
         st.subheader("All Stock Records")
-        # O retorno do banco já é no formato ("Produto", "Quantidade", "Transação", "Data")
-        st.dataframe([dict(zip(columns, row)) for row in stock_data])
+        # Convertendo tuplas para dicionário para exibir no DataFrame
+        st.dataframe([dict(zip(columns, row)) for row in stock_data], use_container_width=True)
     else:
         st.info("No stock records found.")
+
 
 
 def clients_page():
