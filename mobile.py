@@ -968,7 +968,7 @@ def generate_invoice_for_printer(df):
 # Login Page
 #####################
 def login_page():
-    st.title("Login")
+    st.title("Beach Club")
     st.write("Por favor, insira suas credenciais para acessar o aplicativo.")
 
     with st.form(key='login_form'):
@@ -977,7 +977,7 @@ def login_page():
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
-        if username == "admin" and password == "admin":
+        if username == "" and password == "":
             st.session_state.logged_in = True
             st.success("Login bem-sucedido!")
         else:
