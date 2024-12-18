@@ -133,7 +133,7 @@ def home_page():
 
     # Botão para mostrar pedidos em aberto
     with col1:
-        if st.button("Pedidos em Aberto"):
+        if st.button("Pedidos"):
             st.session_state.show_open_orders = True
         else:
             st.session_state.show_open_orders = False
