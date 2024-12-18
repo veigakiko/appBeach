@@ -127,102 +127,107 @@ def home_page():
     st.write("🎾 BeachTennis 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     st.info("Os dados são atualizados automaticamente ao navegar entre as páginas.")
     
-    # Criar duas colunas para exibir as tabelas lado a lado
-    col1, col2 = st.columns(2)
+    # Open Orders Summary
+    st.subheader("Open Orders Summary")
     
-    with col1:
-        st.subheader("Open Orders Summary")
-        
-        # Consulta para obter pedidos em aberto agrupados por Cliente e Data (somente dia) com a soma total
-        open_orders_query = """
-        SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
-        FROM public.vw_pedido_produto
-        WHERE status = %s
-        GROUP BY "Cliente", DATE("Data")
-        ORDER BY "Cliente", DATE("Data") DESC;
-        """
-        open_orders_data = run_query(open_orders_query, ('em aberto',))
-        
-        if open_orders_data:
-            # Criar DataFrame
-            df_open_orders = pd.DataFrame(open_orders_data, columns=["Client", "Date", "Total"])
-            
-            # Calcular a soma total dos pedidos em aberto
-            total_open = df_open_orders["Total"].sum()
-            
-            # Formatar a coluna 'Date' para exibição amigável
-            df_open_orders["Date"] = pd.to_datetime(df_open_orders["Date"]).dt.strftime('%Y-%m-%d')
-            
-            # Formatar a coluna 'Total' para moeda brasileira
-            df_open_orders["Total"] = df_open_orders["Total"].apply(
-                lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            )
-            
-            # Remover o índice e selecionar apenas as colunas desejadas
-            df_open_orders = df_open_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
-            
-            # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
-            styled_open_orders = df_open_orders.style.set_properties(**{
-                'text-align': 'left',
-                'font-size': '12px',
-                'white-space': 'pre-wrap',
-                'word-wrap': 'break-word'
-            })
-            
-            # Exibir a tabela sem índice e com estilos compactos
-            st.dataframe(styled_open_orders, use_container_width=True)
-            
-            # Exibir a soma total abaixo da tabela
-            st.markdown(f"**Total Geral (Open Orders):** R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        else:
-            st.info("Nenhum pedido em aberto encontrado.")
+    # Consulta para obter pedidos em aberto agrupados por Cliente e Data (somente dia) com a soma total
+    open_orders_query = """
+    SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
+    FROM public.vw_pedido_produto
+    WHERE status = %s
+    GROUP BY "Cliente", DATE("Data")
+    ORDER BY "Cliente", DATE("Data") DESC;
+    """
+    open_orders_data = run_query(open_orders_query, ('em aberto',))
     
-    with col2:
-        st.subheader("Closed Orders Summary")
+    if open_orders_data:
+        # Criar DataFrame
+        df_open_orders = pd.DataFrame(open_orders_data, columns=["Client", "Date", "Total"])
         
-        # Consulta para obter pedidos fechados agrupados por Cliente e Data (somente dia) com a soma total
-        closed_orders_query = """
-        SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
-        FROM public.vw_pedido_produto
-        WHERE status != %s
-        GROUP BY "Cliente", DATE("Data")
-        ORDER BY "Cliente", DATE("Data") DESC;
-        """
-        closed_orders_data = run_query(closed_orders_query, ('em aberto',))
+        # Calcular a soma total dos pedidos em aberto
+        total_open = df_open_orders["Total"].sum()
         
-        if closed_orders_data:
-            # Criar DataFrame
-            df_closed_orders = pd.DataFrame(closed_orders_data, columns=["Client", "Date", "Total"])
-            
-            # Calcular a soma total dos pedidos fechados
-            total_closed = df_closed_orders["Total"].sum()
-            
-            # Formatar a coluna 'Date' para exibição amigável
-            df_closed_orders["Date"] = pd.to_datetime(df_closed_orders["Date"]).dt.strftime('%Y-%m-%d')
-            
-            # Formatar a coluna 'Total' para moeda brasileira
-            df_closed_orders["Total"] = df_closed_orders["Total"].apply(
-                lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            )
-            
-            # Remover o índice e selecionar apenas as colunas desejadas
-            df_closed_orders = df_closed_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
-            
-            # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
-            styled_closed_orders = df_closed_orders.style.set_properties(**{
-                'text-align': 'left',
-                'font-size': '12px',
-                'white-space': 'pre-wrap',
-                'word-wrap': 'break-word'
-            })
-            
-            # Exibir a tabela sem índice e com estilos compactos
-            st.dataframe(styled_closed_orders, use_container_width=True)
-            
-            # Exibir a soma total abaixo da tabela
-            st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        else:
-            st.info("Nenhum pedido fechado encontrado.")
+        # Formatar a coluna 'Date' para exibição amigável
+        df_open_orders["Date"] = pd.to_datetime(df_open_orders["Date"]).dt.strftime('%Y-%m-%d')
+        
+        # Formatar a coluna 'Total' para moeda brasileira
+        df_open_orders["Total"] = df_open_orders["Total"].apply(
+            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+        
+        # Remover o índice e selecionar apenas as colunas desejadas
+        df_open_orders = df_open_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
+        
+        # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
+        styled_open_orders = df_open_orders.style.set_properties(**{
+            'text-align': 'left',
+            'font-size': '12px',
+            'white-space': 'pre-wrap',
+            'word-wrap': 'break-word'
+        })
+        
+        # Exibir a tabela sem índice e com estilos compactos
+        st.dataframe(
+            styled_open_orders,
+            use_container_width=True
+        )
+        
+        # Exibir a soma total abaixo da tabela
+        st.markdown(f"**Total Geral (Open Orders):** R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    else:
+        st.info("Nenhum pedido em aberto encontrado.")
+    
+    st.markdown("---")  # Separador visual
+    
+    # Closed Orders Summary
+    st.subheader("Closed Orders Summary")
+    
+    # Consulta para obter pedidos fechados agrupados por Cliente e Data (somente dia) com a soma total
+    closed_orders_query = """
+    SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
+    FROM public.vw_pedido_produto
+    WHERE status != %s
+    GROUP BY "Cliente", DATE("Data")
+    ORDER BY "Cliente", DATE("Data") DESC;
+    """
+    closed_orders_data = run_query(closed_orders_query, ('em aberto',))
+    
+    if closed_orders_data:
+        # Criar DataFrame
+        df_closed_orders = pd.DataFrame(closed_orders_data, columns=["Client", "Date", "Total"])
+        
+        # Calcular a soma total dos pedidos fechados
+        total_closed = df_closed_orders["Total"].sum()
+        
+        # Formatar a coluna 'Date' para exibição amigável
+        df_closed_orders["Date"] = pd.to_datetime(df_closed_orders["Date"]).dt.strftime('%Y-%m-%d')
+        
+        # Formatar a coluna 'Total' para moeda brasileira
+        df_closed_orders["Total"] = df_closed_orders["Total"].apply(
+            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+        
+        # Remover o índice e selecionar apenas as colunas desejadas
+        df_closed_orders = df_closed_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
+        
+        # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
+        styled_closed_orders = df_closed_orders.style.set_properties(**{
+            'text-align': 'left',
+            'font-size': '12px',
+            'white-space': 'pre-wrap',
+            'word-wrap': 'break-word'
+        })
+        
+        # Exibir a tabela sem índice e com estilos compactos
+        st.dataframe(
+            styled_closed_orders,
+            use_container_width=True
+        )
+        
+        # Exibir a soma total abaixo da tabela
+        st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    else:
+        st.info("Nenhum pedido fechado encontrado.")
 
 def orders_page():
     st.title("Orders")
