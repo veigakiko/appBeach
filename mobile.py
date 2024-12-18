@@ -552,6 +552,7 @@ def invoice_page():
 
             # Exibir o total geral
             st.subheader(f"Total Geral: R$ {total_sum:,.2f}")
+
             st.markdown("### Escolha o Método de Pagamento")
             col1, col2, col3, col4 = st.columns(4)
 
