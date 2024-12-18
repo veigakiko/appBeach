@@ -375,8 +375,13 @@ def stock_page():
     st.title("Stock")
 
     st.subheader("Add a new stock record")
+
+    # Carrega a lista de produtos existentes no banco
+    product_data = run_query("SELECT product FROM public.tb_products;")
+    product_list = [row[0] for row in product_data]
+
     with st.form(key='stock_form'):
-        product = st.text_input("Product", max_chars=100)
+        product = st.selectbox("Product", product_list)
         quantity = st.number_input("Quantity", min_value=1, step=1)
         value = st.number_input("Value", min_value=0.0, step=0.01, format="%.2f")
         transaction = "Entry"
@@ -404,7 +409,7 @@ def stock_page():
         st.dataframe([dict(zip(columns, row)) for row in stock_data])
     else:
         st.info("No stock records found.")
-from datetime import datetime
+
 
 def clients_page():
     st.title("Clients")
