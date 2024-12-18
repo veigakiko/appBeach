@@ -149,9 +149,49 @@ def home_page():
         # Formatar a coluna 'Total' para moeda
         df_open_orders["Total"] = df_open_orders["Total"].apply(lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
         
-        st.dataframe(df_open_orders, use_container_width=True)
+        # Remover o índice
+        df_open_orders = df_open_orders.reset_index(drop=True)
+        
+        # Exibir a tabela sem índice e com estilos compactos
+        st.dataframe(df_open_orders.style.set_properties(**{
+            'text-align': 'left',
+            'font-size': '12px'
+        }).hide_index(), use_container_width=True)
     else:
         st.info("Nenhum pedido em aberto encontrado.")
+    
+    st.subheader("Closed Orders Summary")
+    
+    # Consulta para obter pedidos fechados agrupados por Cliente e Data (somente dia) com a soma total
+    closed_orders_query = """
+    SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
+    FROM public.vw_pedido_produto
+    WHERE status != %s
+    GROUP BY "Cliente", DATE("Data")
+    ORDER BY "Cliente", DATE("Data") DESC;
+    """
+    closed_orders_data = run_query(closed_orders_query, ('em aberto',))
+    
+    if closed_orders_data:
+        # Criar DataFrame
+        df_closed_orders = pd.DataFrame(closed_orders_data, columns=["Client", "Date", "Total"])
+        
+        # Formatar a coluna 'Date' para exibição amigável
+        df_closed_orders["Date"] = pd.to_datetime(df_closed_orders["Date"]).dt.strftime('%Y-%m-%d')
+        
+        # Formatar a coluna 'Total' para moeda
+        df_closed_orders["Total"] = df_closed_orders["Total"].apply(lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        
+        # Remover o índice
+        df_closed_orders = df_closed_orders.reset_index(drop=True)
+        
+        # Exibir a tabela sem índice e com estilos compactos
+        st.dataframe(df_closed_orders.style.set_properties(**{
+            'text-align': 'left',
+            'font-size': '12px'
+        }).hide_index(), use_container_width=True)
+    else:
+        st.info("Nenhum pedido fechado encontrado.")
 
 def orders_page():
     st.title("Orders")
@@ -194,8 +234,8 @@ def orders_page():
         columns = ["Client", "Product", "Quantity", "Date", "Status"]
         df_orders = pd.DataFrame(orders_data, columns=columns)
         
-        # Depuração: Exibir nomes das colunas
-        # st.write("Columns in df_orders:", df_orders.columns.tolist())
+        # Remover o índice
+        df_orders = df_orders.reset_index(drop=True)
 
         st.dataframe(df_orders, use_container_width=True)
 
@@ -311,10 +351,14 @@ def products_page():
         columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
         df_products = pd.DataFrame(products_data, columns=columns)
         
-        # Depuração: Exibir nomes das colunas
-        # st.write("Columns in df_products:", df_products.columns.tolist())
-
-        st.dataframe(df_products, use_container_width=True)
+        # Remover o índice
+        df_products = df_products.reset_index(drop=True)
+        
+        # Exibir a tabela sem índice e com estilos compactos
+        st.dataframe(df_products.style.set_properties(**{
+            'text-align': 'left',
+            'font-size': '12px'
+        }).hide_index(), use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Product")
         # Criar uma chave única para identificar cada produto
@@ -431,10 +475,14 @@ def stock_page():
         columns = ["Product", "Quantity", "Transaction", "Date"]
         df_stock = pd.DataFrame(stock_data, columns=columns)
         
-        # Depuração: Exibir nomes das colunas
-        # st.write("Columns in df_stock:", df_stock.columns.tolist())
-
-        st.dataframe(df_stock, use_container_width=True)
+        # Remover o índice
+        df_stock = df_stock.reset_index(drop=True)
+        
+        # Exibir a tabela sem índice e com estilos compactos
+        st.dataframe(df_stock.style.set_properties(**{
+            'text-align': 'left',
+            'font-size': '12px'
+        }).hide_index(), use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Stock Record")
         # Criar uma chave única para identificar cada registro de estoque
@@ -557,7 +605,13 @@ def clients_page():
         st.subheader("All Clients")
         columns = ["Full Name", "Birth Date", "Gender", "Phone", "Email", "Address", "Register Date"]
         df_clients = pd.DataFrame(clients_data, columns=columns)
-        st.dataframe(df_clients, use_container_width=True)
+        # Remover o índice
+        df_clients = df_clients.reset_index(drop=True)
+        # Exibir a tabela sem índice e com estilos compactos
+        st.dataframe(df_clients.style.set_properties(**{
+            'text-align': 'left',
+            'font-size': '12px'
+        }).hide_index(), use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Client")
         # Selecionar um cliente para edição
