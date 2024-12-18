@@ -228,6 +228,48 @@ def home_page():
         st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     else:
         st.info("Nenhum pedido fechado encontrado.")
+    
+    st.markdown("---")  # Separador visual
+    
+    # Status Summary
+    st.subheader("Status Summary")
+    
+    # Consulta para obter soma total agrupada por Status
+    status_summary_query = """
+    SELECT status, SUM("total") as Total
+    FROM public.vw_pedido_produto
+    GROUP BY status
+    ORDER BY status;
+    """
+    status_summary_data = run_query(status_summary_query)
+    
+    if status_summary_data:
+        # Criar DataFrame
+        df_status_summary = pd.DataFrame(status_summary_data, columns=["Status", "Total"])
+        
+        # Formatar a coluna 'Total' para moeda brasileira
+        df_status_summary["Total"] = df_status_summary["Total"].apply(
+            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+        
+        # Remover o índice e selecionar apenas as colunas desejadas
+        df_status_summary = df_status_summary.reset_index(drop=True)[["Status", "Total"]]
+        
+        # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
+        styled_status_summary = df_status_summary.style.set_properties(**{
+            'text-align': 'left',
+            'font-size': '12px',
+            'white-space': 'pre-wrap',
+            'word-wrap': 'break-word'
+        })
+        
+        # Exibir a tabela sem índice e com estilos compactos
+        st.dataframe(
+            styled_status_summary,
+            use_container_width=True
+        )
+    else:
+        st.info("Nenhum pedido encontrado para resumo por status.")
 
 def orders_page():
     st.title("Orders")
