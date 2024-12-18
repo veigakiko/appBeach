@@ -12,15 +12,15 @@ import pandas as pd
 @st.cache_resource
 def get_db_connection():
     """
-    Return a persistent database connection using psycopg2.
+    Retorna uma conexão persistente com o banco de dados usando psycopg2.
     """
     try:
         conn = psycopg2.connect(
-            host=st.secrets["DB_HOST"],       # Utilize st.secrets para segurança
-            database=st.secrets["DB_NAME"],
-            user=st.secrets["DB_USER"],
-            password=st.secrets["DB_PASSWORD"],
-            port=st.secrets["DB_PORT"]
+            host=st.secrets["DB"]["DB_HOST"],
+            database=st.secrets["DB"]["DB_NAME"],
+            user=st.secrets["DB"]["DB_USER"],
+            password=st.secrets["DB"]["DB_PASSWORD"],
+            port=st.secrets["DB"]["DB_PORT"]
         )
         return conn
     except OperationalError as e:
@@ -29,7 +29,7 @@ def get_db_connection():
 
 def run_query(query, values=None):
     """
-    Executes a read-only query (SELECT) and returns the fetched data.
+    Executa uma consulta de leitura (SELECT) e retorna os dados obtidos.
     """
     conn = get_db_connection()
     if conn is None:
@@ -47,7 +47,7 @@ def run_query(query, values=None):
 
 def run_insert(query, values):
     """
-    Executes an insert or update query.
+    Executa uma consulta de inserção ou atualização.
     """
     conn = get_db_connection()
     if conn is None:
@@ -73,7 +73,7 @@ def run_insert(query, values):
 @st.cache_data(ttl=600)
 def load_all_data():
     """
-    Load all data used by the application and return it as a dictionary.
+    Carrega todos os dados usados pela aplicação e retorna como um dicionário.
     """
     data = {}
     try:
@@ -97,7 +97,7 @@ def load_all_data():
 
 def refresh_data():
     """
-    Reload all data and update the session state.
+    Recarrega todos os dados e atualiza o estado da sessão.
     """
     st.session_state.data = load_all_data()
 
@@ -107,7 +107,7 @@ def refresh_data():
 
 def login():
     """
-    Display a login form and handle authentication.
+    Exibe um formulário de login e lida com a autenticação.
     """
     st.title("Login")
     with st.form(key='login_form'):
@@ -129,7 +129,7 @@ def login():
 
 def sidebar_navigation():
     """
-    Create a sidebar menu for navigation using streamlit_option_menu.
+    Cria um menu lateral para navegação usando streamlit_option_menu.
     """
     with st.sidebar:
         st.title("Boituva Beach Club")
@@ -179,6 +179,7 @@ def orders_page():
         customer_name = st.selectbox("Nome do Cliente", customer_list, index=0)
         product = st.selectbox("Produto", product_list, index=0)
         quantity = st.number_input("Quantidade", min_value=1, step=1)
+        # Botão de envio do formulário
         submit_button = st.form_submit_button(label="Registrar Pedido")
 
     if submit_button:
@@ -282,6 +283,7 @@ def products_page():
         quantity = st.number_input("Quantidade", min_value=1, step=1)
         unit_value = st.number_input("Valor Unitário", min_value=0.0, step=0.01, format="%.2f")
         creation_date = st.date_input("Data de Criação", value=datetime.today())
+        # Botão de envio do formulário
         submit_product = st.form_submit_button(label="Inserir Produto")
 
     if submit_product:
@@ -395,6 +397,7 @@ def stock_page():
         product = st.selectbox("Produto", product_list)
         quantity = st.number_input("Quantidade", min_value=1, step=1)
         transaction_type = st.selectbox("Tipo de Transação", ["Entrada", "Saída"])
+        # Botão de envio do formulário
         submit_stock = st.form_submit_button(label="Registrar")
 
     if submit_stock:
@@ -688,7 +691,7 @@ def generate_invoice_for_printer(df):
 
 def logout():
     """
-    Handles user logout.
+    Lida com o logout do usuário.
     """
     st.session_state.logged_in = False
     st.session_state.page = "Home"
