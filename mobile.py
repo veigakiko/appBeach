@@ -379,7 +379,7 @@ def home_page():
         # Reformatar as colunas para exibição
         # Reformatar 'Total Vendido' para moeda brasileira
         df_combined["Total Vendido"] = df_combined["Total Vendido"].apply(
-            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            lambda x: f"{x:,}".replace(",", ".")
         )
         
         # Reformatar 'Total em Estoque' com separadores de milhares
