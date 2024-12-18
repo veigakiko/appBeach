@@ -10,9 +10,6 @@ import pandas as pd
 #####################
 @st.cache_resource
 def get_db_connection():
-    """
-    Return a persistent database connection using psycopg2.
-    """
     try:
         conn = psycopg2.connect(
             host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
@@ -23,13 +20,10 @@ def get_db_connection():
         )
         return conn
     except OperationalError as e:
-        st.error("Não foi possível conectar ao banco de dados. Tente novamente mais tarde.")
+        st.error("Could not connect to the database. Please try again later.")
         return None
 
 def run_query(query, values=None):
-    """
-    Runs a read-only query (SELECT) and returns the fetched data.
-    """
     conn = get_db_connection()
     if conn is None:
         return []
@@ -40,13 +34,10 @@ def run_query(query, values=None):
     except Exception as e:
         if conn:
             conn.rollback()
-        st.error(f"Erro ao executar consulta: {e}")
+        st.error(f"Error executing query: {e}")
         return []
 
 def run_insert(query, values):
-    """
-    Runs an insert or update query.
-    """
     conn = get_db_connection()
     if conn is None:
         return False
@@ -58,16 +49,13 @@ def run_insert(query, values):
     except Exception as e:
         if conn:
             conn.rollback()
-        st.error(f"Erro ao executar inserção/atualização: {e}")
+        st.error(f"Error executing insert: {e}")
         return False
 
 #####################
 # Data Loading
 #####################
 def load_all_data():
-    """
-    Load all data used by the application and return it as a dictionary.
-    """
     data = {}
     try:
         data["orders"] = run_query(
@@ -81,27 +69,21 @@ def load_all_data():
             'SELECT "Produto", "Quantidade", "Transação", "Data" FROM public.tb_estoque;'
         )
     except Exception as e:
-        st.error(f"Erro ao carregar os dados: {e}")
+        st.error(f"Error loading data: {e}")
     return data
 
 def refresh_data():
-    """
-    Reload all data and update the session state.
-    """
     st.session_state.data = load_all_data()
 
 #####################
 # Menu Navigation
 #####################
 def sidebar_navigation():
-    """
-    Create a sidebar or horizontal menu for navigation using streamlit_option_menu.
-    """
     with st.sidebar:
         st.title("Boituva Beach Club")
         selected = option_menu(
-            "Menu Principal", ["Início", "Pedidos", "Produtos", "Estoque", "Clientes", "Nota Fiscal"],
-            icons=["house", "file-text", "box", "list-task", "layers", "file-invoice"],
+            "Beach Menu", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
+            icons=["house", "file-text", "box", "list-task", "layers", "person", "file-invoice"],
             menu_icon="cast",
             default_index=0,
             styles={
@@ -124,33 +106,24 @@ def sidebar_navigation():
 #####################
 def home_page():
     st.title("Boituva Beach Club")
-    st.write("🎾 Bem-vindo ao BeachTennis 📍Av. Do Trabalhador, 1879 🏆 5° Open BBC")
-    if "data" in st.session_state:
-        orders_data = st.session_state.data.get("orders", [])
-        products_data = st.session_state.data.get("products", [])
-
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Total de Pedidos", len(orders_data))
-        with col2:
-            st.metric("Produtos Cadastrados", len(products_data))
-    st.button("Atualizar Dados", on_click=refresh_data)
+    st.write("🎾 BeachTennis📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
+    st.button("Refresh Data", on_click=refresh_data)
 
 def orders_page():
-    st.title("Pedidos")
-    st.subheader("Cadastrar Novo Pedido")
+    st.title("Orders")
+    st.subheader("Register a new order")
 
     product_data = st.session_state.data.get("products", [])
-    product_list = [row[1] for row in product_data] if product_data else []
+    product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
 
     with st.form(key='order_form'):
         clientes = run_query('SELECT nome_completo FROM public.tb_clientes')
-        customer_list = [row[0] for row in clientes]
+        customer_list = [""] + [row[0] for row in clientes]
 
-        customer_name = st.selectbox("Cliente", [""] + customer_list)
-        product = st.selectbox("Produto", [""] + product_list)
-        quantity = st.number_input("Quantidade", min_value=1, step=1)
-        submit_button = st.form_submit_button(label="Registrar Pedido")
+        customer_name = st.selectbox("Customer Name", customer_list, index=0)
+        product = st.selectbox("Product", product_list, index=0)
+        quantity = st.number_input("Quantity", min_value=1, step=1)
+        submit_button = st.form_submit_button(label="Register Order")
 
     if submit_button:
         if customer_name and product and quantity > 0:
@@ -161,22 +134,30 @@ def orders_page():
             timestamp = datetime.now()
             success = run_insert(query, (customer_name, product, quantity, timestamp))
             if success:
-                st.success("Pedido registrado com sucesso!")
+                st.success("Order registered successfully!")
                 refresh_data()
         else:
-            st.warning("Por favor, preencha todos os campos corretamente.")
+            st.warning("Please fill in all fields correctly.")
+
+    orders_data = st.session_state.data.get("orders", [])
+    if orders_data:
+        st.subheader("All Orders")
+        columns = ["Client", "Product", "Quantity", "Date", "Status"]
+        df_orders = pd.DataFrame(orders_data, columns=columns)
+        st.dataframe(df_orders, use_container_width=True)
+    else:
+        st.info("No orders found.")
 
 def products_page():
-    st.title("Produtos")
-    st.subheader("Cadastrar Novo Produto")
-
+    st.title("Products")
+    st.subheader("Add a new product")
     with st.form(key='product_form'):
-        supplier = st.text_input("Fornecedor")
-        product = st.text_input("Produto")
-        quantity = st.number_input("Quantidade", min_value=1, step=1)
-        unit_value = st.number_input("Valor Unitário", min_value=0.0, step=0.01, format="%.2f")
-        creation_date = st.date_input("Data de Cadastro")
-        submit_product = st.form_submit_button(label="Cadastrar Produto")
+        supplier = st.text_input("Supplier", max_chars=100)
+        product = st.text_input("Product", max_chars=100)
+        quantity = st.number_input("Quantity", min_value=1, step=1)
+        unit_value = st.number_input("Unit Value", min_value=0.0, step=0.01, format="%.2f")
+        creation_date = st.date_input("Creation Date")
+        submit_product = st.form_submit_button(label="Insert Product")
 
     if submit_product:
         if supplier and product and quantity > 0 and unit_value >= 0:
@@ -187,29 +168,66 @@ def products_page():
             total_value = quantity * unit_value
             success = run_insert(query, (supplier, product, quantity, unit_value, total_value, creation_date))
             if success:
-                st.success("Produto cadastrado com sucesso!")
+                st.success("Product added successfully!")
                 refresh_data()
         else:
-            st.warning("Por favor, preencha todos os campos corretamente.")
+            st.warning("Please fill in all fields correctly.")
+
+    products_data = st.session_state.data.get("products", [])
+    columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
+    if products_data:
+        st.subheader("All Products")
+        df_products = pd.DataFrame(products_data, columns=columns)
+        st.dataframe(df_products, use_container_width=True)
+    else:
+        st.info("No products found.")
 
 def stock_page():
-    st.title("Estoque")
-    st.subheader("Gerenciamento de Estoque")
+    st.title("Stock")
+    st.subheader("Add a new stock record")
+
+    product_data = run_query("SELECT product FROM public.tb_products;")
+    product_list = [row[0] for row in product_data] if product_data else ["No products available"]
+
+    with st.form(key='stock_form'):
+        product = st.selectbox("Product", product_list)
+        quantity = st.number_input("Quantity", min_value=1, step=1)
+        submit_stock = st.form_submit_button(label="Register")
+
+    if submit_stock:
+        if product and quantity > 0:
+            transaction = "Entrada"
+            current_date = datetime.now()
+
+            query = """
+            INSERT INTO public.tb_estoque ("Produto", "Quantidade", "Transação", "Data")
+            VALUES (%s, %s, %s, %s);
+            """
+            success = run_insert(query, (product, quantity, transaction, current_date))
+            if success:
+                st.success("Stock record added successfully!")
+                refresh_data()
+            else:
+                st.error("Failed to add stock record.")
+        else:
+            st.warning("Please select a product and enter a quantity greater than 0.")
+
     stock_data = st.session_state.data.get("stock", [])
+    columns = ["Product", "Quantity", "Transaction", "Date"]
+
     if stock_data:
-        columns = ["Produto", "Quantidade", "Transação", "Data"]
+        st.subheader("All Stock Records")
         df_stock = pd.DataFrame(stock_data, columns=columns)
         st.dataframe(df_stock, use_container_width=True)
     else:
-        st.info("Nenhum registro de estoque encontrado.")
+        st.info("No stock records found.")
 
 def clients_page():
-    st.title("Clientes")
-    st.subheader("Cadastrar Novo Cliente")
-
+    st.title("Clients")
+    st.subheader("Register a New Client")
     with st.form(key='client_form'):
-        nome_completo = st.text_input("Nome Completo")
-        submit_client = st.form_submit_button(label="Cadastrar Cliente")
+        nome_completo = st.text_input("Full Name", max_chars=100)
+        submit_client = st.form_submit_button(label="Register New Client")
 
     if submit_client:
         if nome_completo:
@@ -218,7 +236,7 @@ def clients_page():
             telefone = "0000-0000"
             unique_id = datetime.now().strftime("%Y%m%d%H%M%S")
             email = f"{nome_completo.replace(' ', '_').lower()}_{unique_id}@example.com"
-            endereco = "Endereço padrão"
+            endereco = "Default Address"
 
             query = """
             INSERT INTO public.tb_clientes (nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro)
@@ -226,19 +244,27 @@ def clients_page():
             """
             success = run_insert(query, (nome_completo, data_nascimento, genero, telefone, email, endereco))
             if success:
-                st.success("Cliente cadastrado com sucesso!")
+                st.success("Client registered successfully!")
                 refresh_data()
         else:
-            st.warning("Por favor, preencha o campo Nome Completo.")
+            st.warning("Please fill in the Full Name field.")
+
+    clients_data = run_query("SELECT nome_completo, email FROM public.tb_clientes ORDER BY data_cadastro DESC;")
+    if clients_data:
+        st.subheader("All Clients")
+        columns = ["Full Name", "Email"]
+        df_clients = pd.DataFrame(clients_data, columns=columns)
+        st.dataframe(df_clients, use_container_width=True)
+    else:
+        st.info("No clients found.")
 
 def invoice_page():
     st.title("Nota Fiscal")
-    st.subheader("Gerar Nota Fiscal")
     open_clients_query = 'SELECT DISTINCT "Cliente" FROM public.vw_pedido_produto WHERE status = %s;'
     open_clients = run_query(open_clients_query, ('em aberto',))
-    client_list = [row[0] for row in open_clients] if open_clients else []
 
-    selected_client = st.selectbox("Selecione um Cliente", [""] + client_list)
+    client_list = [row[0] for row in open_clients] if open_clients else []
+    selected_client = st.selectbox("Select a Client", [""] + client_list)
 
     if selected_client:
         invoice_query = (
@@ -250,45 +276,51 @@ def invoice_page():
 
         if invoice_data:
             df = pd.DataFrame(invoice_data, columns=["Produto", "Quantidade", "total"])
-            st.dataframe(df)
-            total_sum = df["total"].sum()
-            st.subheader(f"Total Geral: R$ {total_sum:,.2f}")
-            payment_options = ["Debitado", "Cartão de Crédito", "Pix"]
-            payment_status = st.selectbox("Forma de Pagamento", payment_options)
+            st.dataframe(df, use_container_width=True)
+        else:
+            st.info("No pending invoices for the selected client.")
 
-            if st.button("Finalizar e Atualizar Status"):
-                query = """
-                UPDATE public.tb_pedido
-                SET status = %s, "Data" = CURRENT_TIMESTAMP
-                WHERE "Cliente" = %s AND status = 'em aberto';
-                """
-                success = run_insert(query, (payment_status, selected_client))
-                if success:
-                    st.success("Nota Fiscal atualizada e pagamento registrado com sucesso!")
-                    refresh_data()
-                else:
-                    st.error("Erro ao atualizar a Nota Fiscal.")
+#####################
+# Login Page
+#####################
+def login():
+    st.title("Login")
+    st.write("Please enter your username and password to access the application.")
+    with st.form(key='login_form'):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        login_button = st.form_submit_button(label="Login")
+
+    if login_button:
+        if username == "admin" and password == "admin":
+            st.success("Login successful!")
+            st.session_state.logged_in = True
+        else:
+            st.error("Invalid username or password.")
 
 #####################
 # Initialization
 #####################
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
 
 if 'data' not in st.session_state:
     st.session_state.data = load_all_data()
 
-# Menu Navigation
-st.session_state.page = sidebar_navigation()
+if not st.session_state.logged_in:
+    login()
+else:
+    st.session_state.page = sidebar_navigation()
 
-# Page Routing
-if st.session_state.page == "Início":
-    home_page()
-elif st.session_state.page == "Pedidos":
-    orders_page()
-elif st.session_state.page == "Produtos":
-    products_page()
-elif st.session_state.page == "Estoque":
-    stock_page()
-elif st.session_state.page == "Clientes":
-    clients_page()
-elif st.session_state.page == "Nota Fiscal":
-    invoice_page()
+    if st.session_state.page == "Home":
+        home_page()
+    elif st.session_state.page == "Orders":
+        orders_page()
+    elif st.session_state.page == "Products":
+        products_page()
+    elif st.session_state.page == "Stock":
+        stock_page()
+    elif st.session_state.page == "Clients":
+        clients_page()
+    elif st.session_state.page == "Nota Fiscal":
+        invoice_page()
