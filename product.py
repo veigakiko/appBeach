@@ -399,11 +399,22 @@ def stock_page():
     # Carregar os registros do estoque atualizados
     stock_data = st.session_state.data.get("stock", [])
     columns = ["Product", "Quantity", "Transaction", "Date"]
+
+    # Depuração: Verifique o que está sendo retornado
+    st.write("Raw Stock Data:", stock_data)
+
     if stock_data:
         st.subheader("All Stock Records")
-        # Convertendo tuplas para dicionário para exibir no DataFrame
-        df_stock = pd.DataFrame(stock_data, columns=columns)
-        st.dataframe(df_stock, use_container_width=True)
+        try:
+            # Convertendo tuplas para dicionário para exibir no DataFrame
+            df_stock = pd.DataFrame(stock_data, columns=columns)
+            st.write("DataFrame Stock:", df_stock)  # Depuração: Verifique o DataFrame
+            st.dataframe(df_stock, use_container_width=True)
+        except ValueError as ve:
+            st.error(f"DataFrame creation failed: {ve}")
+            st.write("Columns Expected:", columns)
+            st.write("Number of elements per row:", [len(row) for row in stock_data])
+            st.write("Example Row:", stock_data[0] if stock_data else "No data")
     else:
         st.info("No stock records found.")
 
