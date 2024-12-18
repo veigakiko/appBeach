@@ -449,10 +449,10 @@ def clients_page():
         df_clients = pd.DataFrame(clients_data, columns=columns)
         st.dataframe(df_clients, use_container_width=True)
 
-        # Selecionar um cliente para edição (usando o email como chave única)
-        st.subheader("Edit an existing client")
+        # Selecionar um cliente para edição
+        st.subheader("Edit or Delete an existing client")
         client_emails = df_clients["Email"].unique().tolist()
-        selected_email = st.selectbox("Select a client to edit by Email:", [""] + client_emails)
+        selected_email = st.selectbox("Select a client by Email:", [""] + client_emails)
 
         if selected_email:
             # Obtém dados do cliente selecionado
@@ -462,7 +462,11 @@ def clients_page():
             # Formulário para editar o nome
             with st.form(key='edit_client_form'):
                 edit_name = st.text_input("Full Name", value=original_name, max_chars=100)
-                update_button = st.form_submit_button(label="Update Client")
+                col1, col2 = st.columns(2)
+                with col1:
+                    update_button = st.form_submit_button(label="Update Client")
+                with col2:
+                    delete_button = st.form_submit_button(label="Delete Client")
 
             if update_button:
                 if edit_name:
@@ -479,6 +483,15 @@ def clients_page():
                         st.error("Failed to update the client.")
                 else:
                     st.warning("Please fill in the Full Name field.")
+
+            if delete_button:
+                delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
+                success = run_insert(delete_query, (selected_email,))
+                if success:
+                    st.success("Client deleted successfully!")
+                    refresh_data()
+                else:
+                    st.error("Failed to delete the client.")
     else:
         st.info("No clients found.")
 
