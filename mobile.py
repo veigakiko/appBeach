@@ -402,7 +402,7 @@ def orders_page():
         df_orders = pd.DataFrame(orders_data, columns=columns)
         
         # Depuração: Exibir nomes das colunas
-        st.write("Columns in df_orders:", df_orders.columns.tolist())
+        # st.write("Columns in df_orders:", df_orders.columns.tolist())
 
         st.dataframe(df_orders, use_container_width=True)
 
@@ -426,7 +426,7 @@ def orders_page():
                 original_client = selected_row["Client"]
                 original_product = selected_row["Product"]
                 original_quantity = selected_row["Quantity"]
-                original_date = selected_row["Date"]  # Isso é um objeto datetime
+                original_date = selected_row["Date"]
                 original_status = selected_row["Status"]
 
                 # Formulário para editar o pedido
@@ -449,6 +449,21 @@ def orders_page():
                     update_button = st.form_submit_button(label="Update Order")
                     delete_button = st.form_submit_button(label="Delete Order")
 
+                # Deletar Ordem imediatamente após clicar no botão, sem confirmação
+                if delete_button:
+                    delete_query = """
+                    DELETE FROM public.tb_pedido
+                    WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
+                    """
+                    success = run_insert(delete_query, (
+                        original_client, original_product, original_date
+                    ))
+                    if success:
+                        st.success("Order deleted successfully!")
+                        refresh_data()
+                    else:
+                        st.error("Failed to delete the order.")
+
                 if update_button:
                     # Atualiza o pedido no banco usando a combinação de campos como filtro
                     update_query = """
@@ -465,23 +480,6 @@ def orders_page():
                         refresh_data()
                     else:
                         st.error("Failed to update the order.")
-
-                if delete_button:
-                    # Confirmação antes de deletar
-                    confirm = st.checkbox("Are you sure you want to delete this order?")
-                    if confirm:
-                        delete_query = """
-                        DELETE FROM public.tb_pedido
-                        WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
-                        """
-                        success = run_insert(delete_query, (
-                            original_client, original_product, original_date
-                        ))
-                        if success:
-                            st.success("Order deleted successfully!")
-                            refresh_data()
-                        else:
-                            st.error("Failed to delete the order.")
     else:
         st.info("No orders found.")
 
