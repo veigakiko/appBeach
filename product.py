@@ -410,7 +410,8 @@ def clients_page():
     st.title("Clients")
 
     st.subheader("Register a New Client")
-    
+
+    # Formulário com apenas o campo Full Name
     with st.form(key='client_form'):
         nome_completo = st.text_input("Full Name", max_chars=100)
         submit_client = st.form_submit_button(label="Register New Client")
@@ -421,11 +422,11 @@ def clients_page():
             data_nascimento = datetime(2000, 1, 1).date()
             genero = "Man"
             telefone = "0000-0000"
-
-            # Gera um email único baseado no nome e num timestamp para evitar duplicação
+            
+            # Gera um email único para evitar conflito de chave única
             unique_id = datetime.now().strftime("%Y%m%d%H%M%S")
             email = f"{nome_completo.replace(' ', '_').lower()}_{unique_id}@example.com"
-            
+
             endereco = "Endereço padrão"
 
             query = """
@@ -438,6 +439,48 @@ def clients_page():
                 refresh_data()
         else:
             st.warning("Please fill in the Full Name field.")
+
+    # Mostrar a tabela de clientes cadastrados
+    clients_data = run_query("SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro FROM public.tb_clientes ORDER BY data_cadastro DESC;")
+
+    if clients_data:
+        st.subheader("All Clients")
+        columns = ["Full Name", "Birth Date", "Gender", "Phone", "Email", "Address", "Register Date"]
+        df_clients = pd.DataFrame(clients_data, columns=columns)
+        st.dataframe(df_clients, use_container_width=True)
+
+        # Selecionar um cliente para edição (usando o email como chave única)
+        st.subheader("Edit an existing client")
+        client_emails = df_clients["Email"].unique().tolist()
+        selected_email = st.selectbox("Select a client to edit by Email:", [""] + client_emails)
+
+        if selected_email:
+            # Obtém dados do cliente selecionado
+            selected_client_row = df_clients[df_clients["Email"] == selected_email].iloc[0]
+            original_name = selected_client_row["Full Name"]
+
+            # Formulário para editar o nome
+            with st.form(key='edit_client_form'):
+                edit_name = st.text_input("Full Name", value=original_name, max_chars=100)
+                update_button = st.form_submit_button(label="Update Client")
+
+            if update_button:
+                if edit_name:
+                    update_query = """
+                    UPDATE public.tb_clientes
+                    SET nome_completo = %s
+                    WHERE email = %s;
+                    """
+                    success = run_insert(update_query, (edit_name, selected_email))
+                    if success:
+                        st.success("Client updated successfully!")
+                        refresh_data()
+                    else:
+                        st.error("Failed to update the client.")
+                else:
+                    st.warning("Please fill in the Full Name field.")
+    else:
+        st.info("No clients found.")
 
 
 
