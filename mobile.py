@@ -72,12 +72,12 @@ def load_all_data():
     data = {}
     try:
         data["orders"] = run_query(
-            'SELECT "Cliente", "Produto", "Quantidade", "Data", status, email FROM public.tb_pedido ORDER BY "Data" DESC;'
+            'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
         )
         data["products"] = run_query(
             "SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products ORDER BY creation_date DESC;"
         )
-        data["clients"] = run_query('SELECT nome_completo, email FROM public.tb_clientes ORDER BY nome_completo;')
+        data["clients"] = run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido ORDER BY "Cliente";')
         data["stock"] = run_query(
             'SELECT "Produto", "Quantidade", "Transação", "Data" FROM public.tb_estoque ORDER BY "Data" DESC;'
         )
@@ -160,29 +160,22 @@ def orders_page():
     # Formulário para inserir novo pedido
     with st.form(key='order_form'):
         # Carregando lista de clientes para o novo pedido
-        clientes = run_query('SELECT nome_completo, email FROM public.tb_clientes ORDER BY nome_completo;')
-        customer_list = [""] + [f"{row[0]} ({row[1]})" for row in clientes] if clientes else ["Nenhum cliente disponível"]
+        clientes = run_query('SELECT nome_completo FROM public.tb_clientes ORDER BY nome_completo;')
+        customer_list = [""] + [row[0] for row in clientes] if clientes else ["Nenhum cliente disponível"]
 
-        customer_selection = st.selectbox("Cliente", customer_list, index=0)
-        if customer_selection and "(" in customer_selection and ")" in customer_selection:
-            customer_name = customer_selection.split(" (")[0]
-            customer_email = customer_selection.split(" (")[1].rstrip(")")
-        else:
-            customer_name = ""
-            customer_email = ""
-        
+        customer_name = st.selectbox("Nome do Cliente", customer_list, index=0)
         product = st.selectbox("Produto", product_list, index=0)
         quantity = st.number_input("Quantidade", min_value=1, step=1)
         submit_button = st.form_submit_button(label="Registrar Pedido")
 
     if submit_button:
-        if customer_email and product and quantity > 0:
+        if customer_name and product and quantity > 0:
             query = """
-            INSERT INTO public.tb_pedido ("Cliente", "Produto", "Quantidade", "Data", "status", email)
-            VALUES (%s, %s, %s, %s, 'em aberto', %s);
+            INSERT INTO public.tb_pedido ("Cliente", "Produto", "Quantidade", "Data", "status")
+            VALUES (%s, %s, %s, %s, 'em aberto');
             """
             timestamp = datetime.now()
-            success = run_insert(query, (customer_name, product, quantity, timestamp, customer_email))
+            success = run_insert(query, (customer_name, product, quantity, timestamp))
             if success:
                 st.success("Pedido registrado com sucesso!")
                 refresh_data()
@@ -195,11 +188,11 @@ def orders_page():
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
         st.subheader("Todos os Pedidos")
-        columns = ["Cliente", "Produto", "Quantidade", "Data", "Status", "Email"]
+        columns = ["Cliente", "Produto", "Quantidade", "Data", "Status"]
         df_orders = pd.DataFrame(orders_data, columns=columns)
-        st.dataframe(df_orders.drop(columns=["Email"]), use_container_width=True)  # Escondendo a coluna Email para visualização
+        st.dataframe(df_orders, use_container_width=True)
 
-        # Criar identificadores únicos com base em Cliente, Produto, Data
+        # Criar identificadores únicos com base em Cliente, Produto e Data
         df_orders["unique_key"] = df_orders.apply(lambda row: f"{row['Cliente']}|{row['Produto']}|{row['Data']}", axis=1)
 
         st.subheader("Editar ou Excluir um Pedido Existente")
@@ -211,7 +204,6 @@ def orders_page():
             selected_row = df_orders[df_orders["unique_key"] == selected_key].iloc[0]
 
             original_client = selected_row["Cliente"]
-            original_email = selected_row["Email"]
             original_product = selected_row["Produto"]
             original_date = selected_row["Data"]  # datetime
             original_quantity = selected_row["Quantidade"]
@@ -235,10 +227,10 @@ def orders_page():
                     update_query = """
                     UPDATE public.tb_pedido
                     SET "Produto" = %s, "Quantidade" = %s, status = %s, "Data" = %s
-                    WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s AND email = %s;
+                    WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
                     """
                     new_timestamp = datetime.now()
-                    success = run_insert(update_query, (edit_product, edit_quantity, edit_status, new_timestamp, original_client, original_product, original_date, original_email))
+                    success = run_insert(update_query, (edit_product, edit_quantity, edit_status, new_timestamp, original_client, original_product, original_date))
                     if success:
                         st.success("Pedido atualizado com sucesso!")
                         refresh_data()
@@ -255,9 +247,9 @@ def orders_page():
             if delete_button:
                 delete_query = """
                 DELETE FROM public.tb_pedido
-                WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s AND email = %s;
+                WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
                 """
-                success = run_insert(delete_query, (original_client, original_product, original_date, original_email))
+                success = run_insert(delete_query, (original_client, original_product, original_date))
                 if success:
                     st.success("Pedido excluído com sucesso!")
                     refresh_data()
@@ -523,71 +515,96 @@ def clients_page():
 def invoice_page():
     st.title("Nota Fiscal")
 
-    open_clients_query = 'SELECT DISTINCT "Cliente", email FROM public.tb_pedido WHERE status = %s ORDER BY "Cliente";'
+    # Selecionar um cliente com pedidos em aberto
+    open_clients_query = 'SELECT DISTINCT "Cliente" FROM public.tb_pedido WHERE status = %s ORDER BY "Cliente";'
     open_clients = run_query(open_clients_query, ('em aberto',))
 
-    # Lista de clientes com nome e email
-    client_list = [f"{row[0]} ({row[1]})" for row in open_clients] if open_clients else []
+    client_list = [row[0] for row in open_clients] if open_clients else []
 
     selected_client = st.selectbox("Selecione um Cliente", [""] + client_list)
 
     if selected_client:
-        if "(" in selected_client and ")" in selected_client:
-            # Extrair nome e email do cliente selecionado
-            client_name = selected_client.split(" (")[0]
-            client_email = selected_client.split(" (")[1].rstrip(")")
+        # Recuperar os pedidos em aberto do cliente selecionado
+        invoice_query = (
+            'SELECT "Produto", "Quantidade", "Data" '
+            'FROM public.tb_pedido '
+            'WHERE "Cliente" = %s AND status = %s '
+            'ORDER BY "Data" ASC;'
+        )
+        invoice_data = run_query(invoice_query, (selected_client, 'em aberto'))
+
+        if invoice_data:
+            df = pd.DataFrame(invoice_data, columns=["Produto", "Quantidade", "Data"])
+            st.subheader("Detalhes da Nota Fiscal")
+            st.dataframe(df, use_container_width=True)
+
+            # Coletar os identificadores únicos (Cliente|Produto|Data)
+            invoice_data_keys = df.apply(lambda row: f"{selected_client}|{row['Produto']}|{row['Data']}", axis=1).tolist()
+
+            # Exibir a nota fiscal para impressão
+            generate_invoice_for_printer(df)
+
+            # Calcular o total
+            total_sum = df["Quantidade"].astype(float) * run_query(
+                "SELECT unit_value FROM public.tb_products WHERE product = %s;",
+                (df["Produto"][0],)
+            )[0][0] if not df.empty else 0  # Exemplo simplificado
+
+            st.subheader(f"Total Geral: R$ {total_sum:,.2f}")
+
+            st.markdown("### Escolha o Método de Pagamento")
+            col1, col2, col3, col4 = st.columns(4)
+
+            with col1:
+                if st.button("Débito", key="debit_button"):
+                    process_payment(selected_client, invoice_data_keys, "Received - Debited")
+            with col2:
+                if st.button("Crédito", key="credit_button"):
+                    process_payment(selected_client, invoice_data_keys, "Received - Credit")
+            with col3:
+                if st.button("Pix", key="pix_button"):
+                    process_payment(selected_client, invoice_data_keys, "Received - Pix")
+            with col4:
+                if st.button("Dinheiro", key="cash_button"):
+                    process_payment(selected_client, invoice_data_keys, "Received - Cash")
         else:
-            st.error("Cliente selecionado inválido.")
-            client_name = ""
-            client_email = ""
-        
-        if client_email:
-            invoice_query = (
-                'SELECT "Produto", "Quantidade", "total" '
-                'FROM public.vw_pedido_produto '
-                'WHERE "Cliente" = %s AND status = %s AND email = %s;'
-            )
-            invoice_data = run_query(invoice_query, (client_name, 'em aberto', client_email))
-
-            if invoice_data:
-                df = pd.DataFrame(invoice_data, columns=["Produto", "Quantidade", "total"])
-                generate_invoice_for_printer(df)
-
-                total_sum = df["total"].sum()
-                st.subheader(f"Total Geral: R$ {total_sum:,.2f}")
-
-                st.markdown("### Escolha o Método de Pagamento")
-                col1, col2, col3, col4 = st.columns(4)
-
-                with col1:
-                    if st.button("Débito", key="debit_button"):
-                        process_payment(client_email, "Received - Debited")
-                with col2:
-                    if st.button("Crédito", key="credit_button"):
-                        process_payment(client_email, "Received - Credit")
-                with col3:
-                    if st.button("Pix", key="pix_button"):
-                        process_payment(client_email, "Received - Pix")
-                with col4:
-                    if st.button("Dinheiro", key="cash_button"):
-                        process_payment(client_email, "Received - Cash")
-            else:
-                st.info("Não há pedidos em aberto para o cliente selecionado.")
-        else:
-            st.error("Erro ao extrair o email do cliente selecionado.")
+            st.info("Não há pedidos em aberto para o cliente selecionado.")
     else:
         st.warning("Por favor, selecione um cliente.")
 
-def process_payment(client_email, payment_status):
+def process_payment(client, invoice_keys, payment_status):
     """
-    Atualiza o status dos pedidos do cliente para o status de pagamento selecionado.
+    Atualiza o status dos pedidos específicos do cliente para o status de pagamento selecionado.
+    
+    Parameters:
+    - client (str): Nome do cliente.
+    - invoice_keys (list): Lista de identificadores únicos dos pedidos a serem atualizados.
+    - payment_status (str): Novo status a ser atribuído.
     """
-    query = """
+    if not invoice_keys:
+        st.warning("Nenhum pedido para atualizar.")
+        return
+
+    # Construir a consulta com cláusulas WHERE para cada identificador único
+    # Cada identificador único é uma combinação de "Cliente|Produto|Data"
+    # Vamos dividir isso para obter os campos necessários
+    conditions = []
+    params = [payment_status]
+    for key in invoice_keys:
+        cliente, produto, data = key.split('|')
+        conditions.append('( "Cliente" = %s AND "Produto" = %s AND "Data" = %s )')
+        params.extend([cliente, produto, data])
+
+    where_clause = " OR ".join(conditions)
+    query = f"""
     UPDATE public.tb_pedido
-    SET status = %s, "Data" = CURRENT_TIMESTAMP
-    WHERE email = %s AND status = 'em aberto';
+    SET status = %s, "Data" = %s
+    WHERE {where_clause} AND status = 'em aberto';
     """
-    success = run_insert(query, (payment_status, client_email))
+    # Adicionar o timestamp para a atualização
+    params.insert(1, datetime.now())
+
+    success = run_insert(query, tuple(params))
     if success:
         st.success(f"Status atualizado para: {payment_status}")
         refresh_data()
@@ -621,10 +638,28 @@ def generate_invoice_for_printer(df):
 
     for _, row in df.iterrows():
         description = f"{row['Produto'][:20]:<20}"
-        quantity = f"{row['Quantidade']:>5}"
-        total = row['total']
+        quantity = f"{int(row['Quantidade']):>5}"
+        # Aqui, precisamos obter o valor unitário do produto
+        # Como não alteramos o banco de dados, assumimos que já temos o total ou precisamos calcular
+        # Para simplificação, vamos assumir que o total já está calculado e disponível
+        # Caso contrário, você precisará buscar o valor unitário
+        # Aqui, apenas exibimos um placeholder
+        # total_formatted = "R$ 0,00"
+        # total_general += 0
+        # Ajuste conforme sua lógica de negócio
+        # Se você tiver o total disponível na consulta, use-o
+        # Caso contrário, você pode modificar a consulta para incluir o total
+        # Neste exemplo, vamos supor que o total é unit_value * quantity
+        # Assim, precisamos buscar unit_value para cada produto
+
+        # Buscar unit_value
+        unit_value_query = "SELECT unit_value FROM public.tb_products WHERE product = %s;"
+        unit_value_result = run_query(unit_value_query, (row['Produto'],))
+        unit_value = unit_value_result[0][0] if unit_value_result else 0.0
+        total = unit_value * row['Quantidade']
         total_general += total
         total_formatted = f"R$ {total:,.2f}".replace('.', ',')
+
         invoice_note.append(f"{description} {quantity} {total_formatted}")
 
     formatted_general_total = f"R$ {total_general:,.2f}".replace('.', ',')
