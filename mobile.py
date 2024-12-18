@@ -45,7 +45,7 @@ def run_query(query, values=None):
 
 def run_insert(query, values):
     """
-    Runs an insert or update/delete query.
+    Runs an insert, update, or delete query.
     """
     conn = get_db_connection()
     if conn is None:
@@ -74,11 +74,11 @@ def load_all_data():
             'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
         )
         data["products"] = run_query(
-            "SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products;"
+            'SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products ORDER BY creation_date DESC;'
         )
-        data["clients"] = run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido;')
+        data["clients"] = run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido ORDER BY "Cliente";')
         data["stock"] = run_query(
-            'SELECT "Produto", "Quantidade", "Transação", "Data" FROM public.tb_estoque;'
+            'SELECT "Produto", "Quantidade", "Transação", "Data" FROM public.tb_estoque ORDER BY "Data" DESC;'
         )
     except Exception as e:
         st.error(f"Error loading data: {e}")
@@ -137,7 +137,7 @@ def orders_page():
     # Formulário para inserir novo pedido
     with st.form(key='order_form'):
         # Carregando lista de clientes para o novo pedido
-        clientes = run_query('SELECT nome_completo FROM public.tb_clientes')
+        clientes = run_query('SELECT nome_completo FROM public.tb_clientes ORDER BY nome_completo;')
         customer_list = [""] + [row[0] for row in clientes]
 
         customer_name = st.selectbox("Customer Name", customer_list, index=0)
@@ -156,6 +156,8 @@ def orders_page():
             if success:
                 st.success("Order registered successfully!")
                 refresh_data()
+            else:
+                st.error("Failed to register the order.")
         else:
             st.warning("Please fill in all fields correctly.")
 
@@ -165,11 +167,15 @@ def orders_page():
         st.subheader("All Orders")
         columns = ["Client", "Product", "Quantity", "Date", "Status"]
         df_orders = pd.DataFrame(orders_data, columns=columns)
+        
+        # Depuração: Exibir nomes das colunas
+        st.write("Columns in df_orders:", df_orders.columns.tolist())
+
         st.dataframe(df_orders, use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Order")
         # Criar uma chave única para identificar cada pedido
-        df_orders["unique_key"] = df_orders.apply(lambda row: f"{row['Cliente']}|{row['Produto']}|{row['Data']}", axis=1)
+        df_orders["unique_key"] = df_orders.apply(lambda row: f"{row['Client']}|{row['Product']}|{row['Date']}", axis=1)
         unique_keys = df_orders["unique_key"].unique().tolist()
         selected_key = st.selectbox("Select an order to edit/delete:", [""] + unique_keys)
 
@@ -251,6 +257,8 @@ def products_page():
             if success:
                 st.success("Product added successfully!")
                 refresh_data()
+            else:
+                st.error("Failed to add the product.")
         else:
             st.warning("Please fill in all fields correctly.")
 
@@ -260,11 +268,15 @@ def products_page():
         st.subheader("All Products")
         columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
         df_products = pd.DataFrame(products_data, columns=columns)
+        
+        # Depuração: Exibir nomes das colunas
+        st.write("Columns in df_products:", df_products.columns.tolist())
+
         st.dataframe(df_products, use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Product")
         # Criar uma chave única para identificar cada produto
-        df_products["unique_key"] = df_products.apply(lambda row: f"{row['supplier']}|{row['product']}|{row['creation_date']}", axis=1)
+        df_products["unique_key"] = df_products.apply(lambda row: f"{row['Supplier']}|{row['Product']}|{row['Creation Date']}", axis=1)
         unique_keys = df_products["unique_key"].unique().tolist()
         selected_key = st.selectbox("Select a product to edit/delete:", [""] + unique_keys)
 
@@ -279,7 +291,6 @@ def products_page():
                 original_product = selected_row["Product"]
                 original_quantity = selected_row["Quantity"]
                 original_unit_value = selected_row["Unit Value"]
-                original_total_value = selected_row["Total Value"]
                 original_creation_date = selected_row["Creation Date"]
 
                 # Formulário para editar o produto
@@ -308,8 +319,10 @@ def products_page():
                         creation_date = %s
                     WHERE supplier = %s AND product = %s AND creation_date = %s;
                     """
-                    success = run_insert(update_query, (edit_supplier, edit_product, edit_quantity, edit_unit_value, edit_total_value, edit_creation_date,
-                                                         original_supplier, original_product, original_creation_date))
+                    success = run_insert(update_query, (
+                        edit_supplier, edit_product, edit_quantity, edit_unit_value, edit_total_value, edit_creation_date,
+                        original_supplier, original_product, original_creation_date
+                    ))
                     if success:
                         st.success("Product updated successfully!")
                         refresh_data()
@@ -339,7 +352,7 @@ def stock_page():
     st.subheader("Add a new stock record")
 
     # Carregar a lista de produtos da tabela tb_products
-    product_data = run_query("SELECT product FROM public.tb_products;")
+    product_data = run_query("SELECT product FROM public.tb_products ORDER BY product;")
     product_list = [row[0] for row in product_data] if product_data else ["No products available"]
 
     with st.form(key='stock_form'):
@@ -370,13 +383,17 @@ def stock_page():
     stock_data = st.session_state.data.get("stock", [])
     if stock_data:
         st.subheader("All Stock Records")
-        columns = ["Produto", "Quantidade", "Transação", "Data"]
+        columns = ["Product", "Quantity", "Transaction", "Date"]
         df_stock = pd.DataFrame(stock_data, columns=columns)
+        
+        # Depuração: Exibir nomes das colunas
+        st.write("Columns in df_stock:", df_stock.columns.tolist())
+
         st.dataframe(df_stock, use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Stock Record")
         # Criar uma chave única para identificar cada registro de estoque
-        df_stock["unique_key"] = df_stock.apply(lambda row: f"{row['Produto']}|{row['Transação']}|{row['Data']}", axis=1)
+        df_stock["unique_key"] = df_stock.apply(lambda row: f"{row['Product']}|{row['Transaction']}|{row['Date']}", axis=1)
         unique_keys = df_stock["unique_key"].unique().tolist()
         selected_key = st.selectbox("Select a stock record to edit/delete:", [""] + unique_keys)
 
@@ -387,10 +404,10 @@ def stock_page():
                 st.warning("Multiple stock records found with the same key. Please refine your selection.")
             else:
                 selected_row = matching_rows.iloc[0]
-                original_product = selected_row["Produto"]
-                original_quantity = selected_row["Quantidade"]
-                original_transaction = selected_row["Transação"]
-                original_date = selected_row["Data"]
+                original_product = selected_row["Product"]
+                original_quantity = selected_row["Quantity"]
+                original_transaction = selected_row["Transaction"]
+                original_date = selected_row["Date"]
 
                 # Formulário para editar o registro de estoque
                 with st.form(key='edit_stock_form'):
@@ -411,8 +428,10 @@ def stock_page():
                     SET "Produto" = %s, "Quantidade" = %s, "Transação" = %s, "Data" = %s
                     WHERE "Produto" = %s AND "Transação" = %s AND "Data" = %s;
                     """
-                    success = run_insert(update_query, (edit_product, edit_quantity, edit_transaction, edit_datetime,
-                                                        original_product, original_transaction, original_date))
+                    success = run_insert(update_query, (
+                        edit_product, edit_quantity, edit_transaction, edit_datetime,
+                        original_product, original_transaction, original_date
+                    ))
                     if success:
                         st.success("Stock record updated successfully!")
                         refresh_data()
