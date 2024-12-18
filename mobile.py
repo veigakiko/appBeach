@@ -524,19 +524,25 @@ def invoice_page():
     selected_client = st.selectbox("Selecione um Cliente", [""] + client_list)
 
     if selected_client:
-        # Recuperar os pedidos em aberto do cliente selecionado
+        # Recuperar os pedidos em aberto do cliente selecionado, junto com unit_value
         invoice_query = (
-            'SELECT "Produto", "Quantidade", "Data" '
-            'FROM public.tb_pedido '
-            'WHERE "Cliente" = %s AND status = %s '
-            'ORDER BY "Data" ASC;'
+            'SELECT p."Produto", p."Quantidade", p."Data", pr.unit_value '
+            'FROM public.tb_pedido p '
+            'JOIN public.tb_products pr ON p."Produto" = pr.product '
+            'WHERE p."Cliente" = %s AND p.status = %s '
+            'ORDER BY p."Data" ASC;'
         )
         invoice_data = run_query(invoice_query, (selected_client, 'em aberto'))
 
         if invoice_data:
-            df = pd.DataFrame(invoice_data, columns=["Produto", "Quantidade", "Data"])
+            # Criar DataFrame com os dados dos pedidos
+            df = pd.DataFrame(invoice_data, columns=["Produto", "Quantidade", "Data", "unit_value"])
             st.subheader("Detalhes da Nota Fiscal")
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(df.drop(columns=["unit_value"]), use_container_width=True)
+
+            # Calcular o total de cada pedido
+            df['Total'] = df["Quantidade"].astype(float) * df["unit_value"].astype(float)
+            total_sum = df["Total"].sum()
 
             # Coletar os identificadores únicos (Cliente|Produto|Data)
             invoice_data_keys = df.apply(lambda row: f"{selected_client}|{row['Produto']}|{row['Data']}", axis=1).tolist()
@@ -544,12 +550,7 @@ def invoice_page():
             # Exibir a nota fiscal para impressão
             generate_invoice_for_printer(df)
 
-            # Calcular o total
-            total_sum = df["Quantidade"].astype(float) * run_query(
-                "SELECT unit_value FROM public.tb_products WHERE product = %s;",
-                (df["Produto"][0],)
-            )[0][0] if not df.empty else 0  # Exemplo simplificado
-
+            # Exibir o total geral
             st.subheader(f"Total Geral: R$ {total_sum:,.2f}")
 
             st.markdown("### Escolha o Método de Pagamento")
@@ -557,28 +558,27 @@ def invoice_page():
 
             with col1:
                 if st.button("Débito", key="debit_button"):
-                    process_payment(selected_client, invoice_data_keys, "Received - Debited")
+                    process_payment(invoice_data_keys, "Received - Debited")
             with col2:
                 if st.button("Crédito", key="credit_button"):
-                    process_payment(selected_client, invoice_data_keys, "Received - Credit")
+                    process_payment(invoice_data_keys, "Received - Credit")
             with col3:
                 if st.button("Pix", key="pix_button"):
-                    process_payment(selected_client, invoice_data_keys, "Received - Pix")
+                    process_payment(invoice_data_keys, "Received - Pix")
             with col4:
                 if st.button("Dinheiro", key="cash_button"):
-                    process_payment(selected_client, invoice_data_keys, "Received - Cash")
+                    process_payment(invoice_data_keys, "Received - Cash")
         else:
             st.info("Não há pedidos em aberto para o cliente selecionado.")
     else:
         st.warning("Por favor, selecione um cliente.")
 
-def process_payment(client, invoice_keys, payment_status):
+def process_payment(invoice_keys, payment_status):
     """
-    Atualiza o status dos pedidos específicos do cliente para o status de pagamento selecionado.
+    Atualiza o status dos pedidos específicos para o status de pagamento selecionado.
     
     Parameters:
-    - client (str): Nome do cliente.
-    - invoice_keys (list): Lista de identificadores únicos dos pedidos a serem atualizados.
+    - invoice_keys (list): Lista de identificadores únicos dos pedidos (Cliente|Produto|Data).
     - payment_status (str): Novo status a ser atribuído.
     """
     if not invoice_keys:
@@ -589,7 +589,7 @@ def process_payment(client, invoice_keys, payment_status):
     # Cada identificador único é uma combinação de "Cliente|Produto|Data"
     # Vamos dividir isso para obter os campos necessários
     conditions = []
-    params = [payment_status]
+    params = []
     for key in invoice_keys:
         cliente, produto, data = key.split('|')
         conditions.append('( "Cliente" = %s AND "Produto" = %s AND "Data" = %s )')
@@ -599,10 +599,10 @@ def process_payment(client, invoice_keys, payment_status):
     query = f"""
     UPDATE public.tb_pedido
     SET status = %s, "Data" = %s
-    WHERE {where_clause} AND status = 'em aberto';
+    WHERE ({where_clause}) AND status = 'em aberto';
     """
-    # Adicionar o timestamp para a atualização
-    params.insert(1, datetime.now())
+    # Adicionar o payment_status e o novo timestamp
+    params = [payment_status, datetime.now()] + params
 
     success = run_insert(query, tuple(params))
     if success:
@@ -639,27 +639,9 @@ def generate_invoice_for_printer(df):
     for _, row in df.iterrows():
         description = f"{row['Produto'][:20]:<20}"
         quantity = f"{int(row['Quantidade']):>5}"
-        # Aqui, precisamos obter o valor unitário do produto
-        # Como não alteramos o banco de dados, assumimos que já temos o total ou precisamos calcular
-        # Para simplificação, vamos assumir que o total já está calculado e disponível
-        # Caso contrário, você precisará buscar o valor unitário
-        # Aqui, apenas exibimos um placeholder
-        # total_formatted = "R$ 0,00"
-        # total_general += 0
-        # Ajuste conforme sua lógica de negócio
-        # Se você tiver o total disponível na consulta, use-o
-        # Caso contrário, você pode modificar a consulta para incluir o total
-        # Neste exemplo, vamos supor que o total é unit_value * quantity
-        # Assim, precisamos buscar unit_value para cada produto
-
-        # Buscar unit_value
-        unit_value_query = "SELECT unit_value FROM public.tb_products WHERE product = %s;"
-        unit_value_result = run_query(unit_value_query, (row['Produto'],))
-        unit_value = unit_value_result[0][0] if unit_value_result else 0.0
-        total = unit_value * row['Quantidade']
+        total = row['Total']
         total_general += total
         total_formatted = f"R$ {total:,.2f}".replace('.', ',')
-
         invoice_note.append(f"{description} {quantity} {total_formatted}")
 
     formatted_general_total = f"R$ {total_general:,.2f}".replace('.', ',')
@@ -670,52 +652,3 @@ def generate_invoice_for_printer(df):
     invoice_note.append("==================================================")
 
     st.text("\n".join(invoice_note))
-
-#####################
-# Logout Functionality
-#####################
-def logout():
-    """
-    Lida com o logout do usuário.
-    """
-    st.session_state.logged_in = False
-    st.session_state.page = "Home"
-    st.success("Logout realizado com sucesso!")
-
-#####################
-# Initialization
-#####################
-
-# Inicializar variáveis de estado da sessão
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-
-if 'data' not in st.session_state and st.session_state.get('logged_in', False):
-    st.session_state.data = load_all_data()
-
-# Verificação de Autenticação
-if not st.session_state.logged_in:
-    login()
-    st.stop()
-
-# Menu de Navegação
-selected_page = sidebar_navigation()
-
-# Tratar Logout
-if selected_page == "Sair":
-    logout()
-    st.stop()
-
-# Roteamento das Páginas
-if selected_page == "Home":
-    home_page()
-elif selected_page == "Pedidos":
-    orders_page()
-elif selected_page == "Produtos":
-    products_page()
-elif selected_page == "Estoque":
-    stock_page()
-elif selected_page == "Clientes":
-    clients_page()
-elif selected_page == "Nota Fiscal":
-    invoice_page()
