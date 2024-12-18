@@ -153,7 +153,7 @@ def home_page():
             # Formatar a coluna 'Date' para exibição amigável
             df_open_orders["Date"] = pd.to_datetime(df_open_orders["Date"]).dt.strftime('%Y-%m-%d')
             
-            # Formatar a coluna 'Total' para moeda
+            # Formatar a coluna 'Total' para moeda brasileira
             df_open_orders["Total"] = df_open_orders["Total"].apply(
                 lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
@@ -161,14 +161,16 @@ def home_page():
             # Remover o índice e selecionar apenas as colunas desejadas
             df_open_orders = df_open_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
             
+            # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
+            styled_open_orders = df_open_orders.style.set_properties(**{
+                'text-align': 'left',
+                'font-size': '12px',
+                'white-space': 'pre-wrap',
+                'word-wrap': 'break-word'
+            })
+            
             # Exibir a tabela sem índice e com estilos compactos
-            st.dataframe(
-                df_open_orders.style.set_properties(**{
-                    'text-align': 'left',
-                    'font-size': '12px'
-                }),
-                use_container_width=True
-            )
+            st.dataframe(styled_open_orders, use_container_width=True)
             
             # Exibir a soma total abaixo da tabela
             st.markdown(f"**Total Geral (Open Orders):** R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
@@ -198,7 +200,7 @@ def home_page():
             # Formatar a coluna 'Date' para exibição amigável
             df_closed_orders["Date"] = pd.to_datetime(df_closed_orders["Date"]).dt.strftime('%Y-%m-%d')
             
-            # Formatar a coluna 'Total' para moeda
+            # Formatar a coluna 'Total' para moeda brasileira
             df_closed_orders["Total"] = df_closed_orders["Total"].apply(
                 lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
@@ -206,20 +208,21 @@ def home_page():
             # Remover o índice e selecionar apenas as colunas desejadas
             df_closed_orders = df_closed_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
             
+            # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
+            styled_closed_orders = df_closed_orders.style.set_properties(**{
+                'text-align': 'left',
+                'font-size': '12px',
+                'white-space': 'pre-wrap',
+                'word-wrap': 'break-word'
+            })
+            
             # Exibir a tabela sem índice e com estilos compactos
-            st.dataframe(
-                df_closed_orders.style.set_properties(**{
-                    'text-align': 'left',
-                    'font-size': '12px'
-                }),
-                use_container_width=True
-            )
+            st.dataframe(styled_closed_orders, use_container_width=True)
             
             # Exibir a soma total abaixo da tabela
             st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
         else:
             st.info("Nenhum pedido fechado encontrado.")
-
 
 def orders_page():
     st.title("Orders")
