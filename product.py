@@ -100,7 +100,7 @@ def sidebar_navigation():
     with st.sidebar:
         st.title("Boituva Beach Club")
         selected = option_menu(
-            "Beach Menu", ["Home", "Orders", "Products", "Commands", "Stock", "Clients", "Nota Fiscal"],
+            "Beach Menu", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
             icons=["house", "file-text", "box", "list-task", "layers", "person", "file-invoice"],
             menu_icon="cast",
             default_index=0,
@@ -306,63 +306,7 @@ def products_page():
     else:
         st.info("No products found.")
 
-def commands_page():
-    st.title("Commands")
 
-    clients_data = [""] + [row[0] for row in st.session_state.data.get("clients", [])]
-
-    if clients_data:
-        selected_client = st.selectbox("Select a Client", clients_data)
-
-        if selected_client:
-            query = """
-            SELECT "Cliente", "Produto", "Quantidade", "Data", status, unit_value, 
-                   ("Quantidade" * unit_value) AS total
-            FROM vw_pedido_produto
-            WHERE "Cliente" = %s;
-            """
-            client_orders = run_query(query, (selected_client,))
-
-            if client_orders:
-                columns = ["Client", "Product", "Quantity", "Date", "Status", "Unit Value", "Total"]
-                df = pd.DataFrame(client_orders, columns=columns)
-                st.divider()
-                st.dataframe(df, use_container_width=True)
-
-                total_sum = df["Total"].sum()
-                st.subheader(f"Total Amount: R$ {total_sum:,.2f}")
-
-                col1, col2, col3 = st.columns([1, 1, 1])
-                payment_status = None
-
-                with col1:
-                    if st.button("Debit"):
-                        payment_status = "Received - Debited"
-                with col2:
-                    if st.button("Credit"):
-                        payment_status = "Received - Credit"
-                with col3:
-                    if st.button("Pix"):
-                        payment_status = "Received - Pix"
-
-                if payment_status:
-                    update_query = """
-                    UPDATE public.tb_pedido
-                    SET status = %s, "Data" = CURRENT_TIMESTAMP
-                    WHERE "Cliente" = %s AND status = 'em aberto';
-                    """
-                    success = run_insert(update_query, (payment_status, selected_client))
-                    if success:
-                        st.success(f"OK - Amount Received via {payment_status.split(' - ')[1]}")
-                        refresh_data()
-                    else:
-                        st.error("Failed to update order status.")
-            else:
-                st.info("No orders found for this client.")
-        else:
-            st.info("Please select a client.")
-    else:
-        st.info("No clients found.")
 
 def stock_page():
     st.title("Stock")
@@ -613,8 +557,6 @@ elif st.session_state.page == "Orders":
     orders_page()
 elif st.session_state.page == "Products":
     products_page()
-elif st.session_state.page == "Commands":
-    commands_page()
 elif st.session_state.page == "Stock":
     stock_page()
 elif st.session_state.page == "Clients":
