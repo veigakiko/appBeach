@@ -359,30 +359,41 @@ def home_page():
         # Preencher valores NaN em 'Stock_Quantity' com 0
         df_combined["Stock_Quantity"] = df_combined["Stock_Quantity"].fillna(0).astype(int)
         
-        # Formatar as colunas 'Summary_Total' para moeda brasileira
-        df_combined["Summary_Total"] = df_combined["Summary_Total"].apply(
+        # Calcular 'Estoque_Atual' = 'Total em Estoque' - 'Total Vendido'
+        # Primeiramente, renomear colunas para facilitar
+        df_combined = df_combined.rename(columns={
+            "Summary_Quantity": "Total Vendido",
+            "Summary_Total": "Total (Product Summary)",
+            "Stock_Quantity": "Total em Estoque"
+        })
+        
+        # Calcular 'Estoque_Atual'
+        # Primeiro, converter 'Total Vendido' e 'Total em Estoque' para valores numéricos
+        # Remove o prefixo "R$" e substitui ',' por '.' para conversão correta
+        df_combined["Total Vendido"] = df_combined["Total Vendido"].replace({"R\$ ": "", ",": "."}, regex=True).astype(float)
+        df_combined["Total em Estoque"] = df_combined["Total em Estoque"].astype(int)
+        
+        # Calcular 'Estoque_Atual'
+        df_combined["Estoque_Atual"] = df_combined["Total em Estoque"] - df_combined["Total Vendido"]
+        
+        # Reformatar as colunas para exibição
+        # Reformatar 'Total Vendido' para moeda brasileira
+        df_combined["Total Vendido"] = df_combined["Total Vendido"].apply(
             lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         )
         
-        # Formatar a coluna 'Summary_Quantity' para número inteiro com separadores de milhares
-        df_combined["Summary_Quantity"] = df_combined["Summary_Quantity"].apply(
-            lambda x: f"{int(x):,}".replace(",", ".")
+        # Reformatar 'Total em Estoque' com separadores de milhares
+        df_combined["Total em Estoque"] = df_combined["Total em Estoque"].apply(
+            lambda x: f"{x:,}".replace(",", ".")
         )
         
-        # Formatar a coluna 'Stock_Quantity' para número inteiro com separadores de milhares
-        df_combined["Stock_Quantity"] = df_combined["Stock_Quantity"].apply(
-            lambda x: f"{int(x):,}".replace(",", ".")
+        # Reformatar 'Estoque_Atual' com separadores de milhares
+        df_combined["Estoque_Atual"] = df_combined["Estoque_Atual"].apply(
+            lambda x: f"{x:,}".replace(",", ".")
         )
         
-        # Remover o índice e selecionar apenas as colunas desejadas
-        df_combined = df_combined.reset_index(drop=True)[["Product", "Summary_Quantity", "Summary_Total", "Stock_Quantity"]]
-        
-        # Renomear as colunas para maior clareza
-        df_combined = df_combined.rename(columns={
-            "Summary_Quantity": "Quantity (Product Summary)",
-            "Summary_Total": "Total (Product Summary)",
-            "Stock_Quantity": "Quantity (All Stock Records)"
-        })
+        # Selecionar as colunas na ordem desejada
+        df_combined = df_combined[["Product", "Total Vendido", "Total em Estoque", "Estoque_Atual"]]
         
         # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
         styled_combined = df_combined.style.set_properties(**{
@@ -399,7 +410,6 @@ def home_page():
         )
     else:
         st.info("Dados insuficientes para criar o resumo combinado de Produto e Estoque.")
-
 
 
 def orders_page():
