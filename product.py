@@ -561,5 +561,5 @@ elif st.session_state.page == "Stock":
     stock_page()
 elif st.session_state.page == "Clients":
     clients_page()
-elif st.session_state.page == "Nota Fiscal":
+elif st.session_state.page == "Box":
     invoice_page()
