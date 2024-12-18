@@ -175,7 +175,11 @@ def orders_page():
 
         st.subheader("Edit or Delete an Existing Order")
         # Criar uma chave única para identificar cada pedido
-        df_orders["unique_key"] = df_orders.apply(lambda row: f"{row['Client']}|{row['Product']}|{row['Date']}", axis=1)
+        # Formate a data para string no mesmo formato do banco de dados
+        df_orders["unique_key"] = df_orders.apply(
+            lambda row: f"{row['Client']}|{row['Product']}|{row['Date'].strftime('%Y-%m-%d %H:%M:%S')}",
+            axis=1
+        )
         unique_keys = df_orders["unique_key"].unique().tolist()
         selected_key = st.selectbox("Select an order to edit/delete:", [""] + unique_keys)
 
@@ -189,13 +193,22 @@ def orders_page():
                 original_client = selected_row["Client"]
                 original_product = selected_row["Product"]
                 original_quantity = selected_row["Quantity"]
-                original_date = selected_row["Date"]
+                original_date = selected_row["Date"]  # Isso é um objeto datetime
                 original_status = selected_row["Status"]
 
                 # Formulário para editar o pedido
                 with st.form(key='edit_order_form'):
-                    edit_product = st.selectbox("Product", product_list, index=product_list.index(original_product) if original_product in product_list else 0)
-                    edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
+                    edit_product = st.selectbox(
+                        "Product",
+                        product_list,
+                        index=product_list.index(original_product) if original_product in product_list else 0
+                    )
+                    edit_quantity = st.number_input(
+                        "Quantity",
+                        min_value=1,
+                        step=1,
+                        value=int(original_quantity)
+                    )
                     edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix"]
                     edit_status_index = edit_status_list.index(original_status) if original_status in edit_status_list else 0
                     edit_status = st.selectbox("Status", edit_status_list, index=edit_status_index)
@@ -210,7 +223,10 @@ def orders_page():
                     SET "Produto" = %s, "Quantidade" = %s, status = %s
                     WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
                     """
-                    success = run_insert(update_query, (edit_product, edit_quantity, edit_status, original_client, original_product, original_date))
+                    success = run_insert(update_query, (
+                        edit_product, edit_quantity, edit_status,
+                        original_client, original_product, original_date
+                    ))
                     if success:
                         st.success("Order updated successfully!")
                         refresh_data()
@@ -225,7 +241,9 @@ def orders_page():
                         DELETE FROM public.tb_pedido
                         WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
                         """
-                        success = run_insert(delete_query, (original_client, original_product, original_date))
+                        success = run_insert(delete_query, (
+                            original_client, original_product, original_date
+                        ))
                         if success:
                             st.success("Order deleted successfully!")
                             refresh_data()
@@ -276,7 +294,10 @@ def products_page():
 
         st.subheader("Edit or Delete an Existing Product")
         # Criar uma chave única para identificar cada produto
-        df_products["unique_key"] = df_products.apply(lambda row: f"{row['Supplier']}|{row['Product']}|{row['Creation Date']}", axis=1)
+        df_products["unique_key"] = df_products.apply(
+            lambda row: f"{row['Supplier']}|{row['Product']}|{row['Creation Date'].strftime('%Y-%m-%d')}",
+            axis=1
+        )
         unique_keys = df_products["unique_key"].unique().tolist()
         selected_key = st.selectbox("Select a product to edit/delete:", [""] + unique_keys)
 
@@ -393,7 +414,10 @@ def stock_page():
 
         st.subheader("Edit or Delete an Existing Stock Record")
         # Criar uma chave única para identificar cada registro de estoque
-        df_stock["unique_key"] = df_stock.apply(lambda row: f"{row['Product']}|{row['Transaction']}|{row['Date']}", axis=1)
+        df_stock["unique_key"] = df_stock.apply(
+            lambda row: f"{row['Product']}|{row['Transaction']}|{row['Date'].strftime('%Y-%m-%d %H:%M:%S')}",
+            axis=1
+        )
         unique_keys = df_stock["unique_key"].unique().tolist()
         selected_key = st.selectbox("Select a stock record to edit/delete:", [""] + unique_keys)
 
@@ -407,13 +431,26 @@ def stock_page():
                 original_product = selected_row["Product"]
                 original_quantity = selected_row["Quantity"]
                 original_transaction = selected_row["Transaction"]
-                original_date = selected_row["Date"]
+                original_date = selected_row["Date"]  # Isso é um objeto datetime
 
                 # Formulário para editar o registro de estoque
                 with st.form(key='edit_stock_form'):
-                    edit_product = st.selectbox("Product", product_list, index=product_list.index(original_product) if original_product in product_list else 0)
-                    edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
-                    edit_transaction = st.selectbox("Transaction Type", ["Entrada", "Saída"], index=["Entrada", "Saída"].index(original_transaction) if original_transaction in ["Entrada", "Saída"] else 0)
+                    edit_product = st.selectbox(
+                        "Product",
+                        product_list,
+                        index=product_list.index(original_product) if original_product in product_list else 0
+                    )
+                    edit_quantity = st.number_input(
+                        "Quantity",
+                        min_value=1,
+                        step=1,
+                        value=int(original_quantity)
+                    )
+                    edit_transaction = st.selectbox(
+                        "Transaction Type",
+                        ["Entrada", "Saída"],
+                        index=["Entrada", "Saída"].index(original_transaction) if original_transaction in ["Entrada", "Saída"] else 0
+                    )
                     edit_date = st.date_input("Date", value=original_date.date())
 
                     update_button = st.form_submit_button(label="Update Stock Record")
@@ -446,7 +483,9 @@ def stock_page():
                         DELETE FROM public.tb_estoque
                         WHERE "Produto" = %s AND "Transação" = %s AND "Data" = %s;
                         """
-                        success = run_insert(delete_query, (original_product, original_transaction, original_date))
+                        success = run_insert(delete_query, (
+                            original_product, original_transaction, original_date
+                        ))
                         if success:
                             st.success("Stock record deleted successfully!")
                             refresh_data()
