@@ -270,6 +270,49 @@ def home_page():
         )
     else:
         st.info("Nenhum pedido encontrado para resumo por status.")
+    
+    st.markdown("---")  # Separador visual
+    
+    # Product Summary
+    st.subheader("Product Summary")
+    
+    # Consulta para obter soma total agrupada por Produto
+    product_summary_query = """
+    SELECT "Produto", SUM("total") as Total
+    FROM public.vw_pedido_produto
+    GROUP BY "Produto"
+    ORDER BY "Produto";
+    """
+    product_summary_data = run_query(product_summary_query)
+    
+    if product_summary_data:
+        # Criar DataFrame
+        df_product_summary = pd.DataFrame(product_summary_data, columns=["Product", "Total"])
+        
+        # Formatar a coluna 'Total' para moeda brasileira
+        df_product_summary["Total"] = df_product_summary["Total"].apply(
+            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+        
+        # Remover o índice e selecionar apenas as colunas desejadas
+        df_product_summary = df_product_summary.reset_index(drop=True)[["Product", "Total"]]
+        
+        # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
+        styled_product_summary = df_product_summary.style.set_properties(**{
+            'text-align': 'left',
+            'font-size': '12px',
+            'white-space': 'pre-wrap',
+            'word-wrap': 'break-word'
+        })
+        
+        # Exibir a tabela sem índice e com estilos compactos
+        st.dataframe(
+            styled_product_summary,
+            use_container_width=True
+        )
+    else:
+        st.info("Nenhum pedido encontrado para resumo por produto.")
+
 
 def orders_page():
     st.title("Orders")
