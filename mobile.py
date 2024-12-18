@@ -134,13 +134,8 @@ def orders_page():
     product_data = st.session_state.data.get("products", [])
     product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
 
-    # Formulário para inserir novo pedido
     with st.form(key='order_form'):
-        # Carregando lista de clientes para o novo pedido
-        clientes = run_query('SELECT nome_completo FROM public.tb_clientes')
-        customer_list = [""] + [row[0] for row in clientes]
-
-        customer_name = st.selectbox("Customer Name", customer_list, index=0)
+        customer_name = st.selectbox("Customer Name", [""] + [row[0] for row in run_query('SELECT nome_completo FROM public.tb_clientes')], index=0)
         product = st.selectbox("Product", product_list, index=0)
         quantity = st.number_input("Quantity", min_value=1, step=1)
         submit_button = st.form_submit_button(label="Register Order")
@@ -159,69 +154,13 @@ def orders_page():
         else:
             st.warning("Please fill in all fields correctly.")
 
-    # Exibir todos os pedidos
-    # Ajuste a função load_all_data() para incluir todas as colunas necessárias.
-    # Ex: data["orders"] = run_query(
-    #     'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
-    # )
-
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
         st.subheader("All Orders")
         columns = ["Client", "Product", "Quantity", "Date", "Status"]
-        df_orders = pd.DataFrame(orders_data, columns=columns)
-        st.dataframe(df_orders, use_container_width=True)
-
-        # Cria identificadores únicos temporários com base em Cliente, Produto e Data
-        # Convertendo Data para string, caso esteja em datetime, para exibição
-        df_orders["unique_key"] = df_orders.apply(lambda row: f"{row['Client']}|{row['Product']}|{row['Date']}", axis=1)
-        
-        st.subheader("Edit an existing order")
-        # Selecionar um pedido pelo identificador único
-        unique_keys = df_orders["unique_key"].unique().tolist()
-        selected_key = st.selectbox("Select an order to edit:", [""] + unique_keys)
-
-        if selected_key:
-            # Extrair valores originais do pedido selecionado
-            selected_row = df_orders[df_orders["unique_key"] == selected_key].iloc[0]
-            
-            original_client = selected_row["Client"]
-            original_product = selected_row["Product"]
-            original_date = selected_row["Date"]  # provavelmente datetime
-            original_quantity = selected_row["Quantity"]
-            original_status = selected_row["Status"]
-
-            # Prepara o formulário de edição
-            # Para o produto, reutiliza a mesma lista product_list, ajustando o índice se possível.
-            product_index = product_list.index(original_product) if original_product in product_list else 0
-
-            with st.form(key='edit_order_form'):
-                edit_product = st.selectbox("Product", product_list, index=product_index)
-                edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
-                edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix"]
-                edit_status_index = edit_status_list.index(original_status) if original_status in edit_status_list else 0
-                edit_status = st.selectbox("Status", edit_status_list, index=edit_status_index)
-                
-                update_button = st.form_submit_button(label="Update Order")
-
-            if update_button:
-                # Atualiza o pedido no banco
-                # Usa (Cliente, Produto, Data) originais no WHERE, pois são únicos.
-                # Caso queira permitir alterar também o cliente, adicione um campo e ajuste o WHERE.
-                update_query = """
-                UPDATE public.tb_pedido
-                SET "Produto" = %s, "Quantidade" = %s, status = %s
-                WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
-                """
-                success = run_insert(update_query, (edit_product, edit_quantity, edit_status, original_client, original_product, original_date))
-                if success:
-                    st.success("Order updated successfully!")
-                    refresh_data()
-                else:
-                    st.error("Failed to update the order.")
+        st.dataframe([dict(zip(columns, row)) for row in orders_data], use_container_width=True)
     else:
         st.info("No orders found.")
-
 
 def products_page():
     st.title("Products")
@@ -253,65 +192,9 @@ def products_page():
     columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
     if products_data:
         st.subheader("All Products")
-        df_products = pd.DataFrame(products_data, columns=columns)
-        st.dataframe(df_products, use_container_width=True)
-
-        # Criando uma chave única a partir de (Supplier, Product, Creation Date)
-        # Supondo que cada combinação dessas colunas é única.
-        df_products["unique_key"] = df_products.apply(
-            lambda row: f"{row['Supplier']}|{row['Product']}|{row['Creation Date']}", axis=1
-        )
-
-        st.subheader("Edit an existing product")
-
-        unique_keys = df_products["unique_key"].unique().tolist()
-        selected_key = st.selectbox("Select a product to edit:", [""] + unique_keys)
-
-        if selected_key:
-            selected_row = df_products[df_products["unique_key"] == selected_key].iloc[0]
-
-            original_supplier = selected_row["Supplier"]
-            original_product = selected_row["Product"]
-            original_quantity = selected_row["Quantity"]
-            original_unit_value = selected_row["Unit Value"]
-            original_total_value = selected_row["Total Value"]
-            original_creation_date = selected_row["Creation Date"]
-
-            # Formulário de edição
-            with st.form(key='edit_product_form'):
-                edit_supplier = st.text_input("Supplier", value=original_supplier, max_chars=100)
-                edit_product = st.text_input("Product", value=original_product, max_chars=100)
-                edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
-                edit_unit_value = st.number_input("Unit Value", min_value=0.0, step=0.01, format="%.2f", value=float(original_unit_value))
-                edit_creation_date = st.date_input("Creation Date", value=original_creation_date)
-
-                update_button = st.form_submit_button(label="Update Product")
-
-            if update_button:
-                # Recalcular total_value se quantity ou unit_value foram alterados
-                edit_total_value = edit_quantity * edit_unit_value
-
-                # Atualiza o produto no banco
-                update_query = """
-                UPDATE public.tb_products
-                SET supplier = %s,
-                    product = %s,
-                    quantity = %s,
-                    unit_value = %s,
-                    total_value = %s,
-                    creation_date = %s
-                WHERE supplier = %s AND product = %s AND creation_date = %s;
-                """
-                success = run_insert(update_query, (edit_supplier, edit_product, edit_quantity, edit_unit_value, edit_total_value, edit_creation_date, 
-                                                     original_supplier, original_product, original_creation_date))
-                if success:
-                    st.success("Product updated successfully!")
-                    refresh_data()
-                else:
-                    st.error("Failed to update the product.")
+        st.dataframe([dict(zip(columns, row)) for row in products_data])
     else:
         st.info("No products found.")
-
 
 def commands_page():
     st.title("Commands")
@@ -375,66 +258,51 @@ def stock_page():
     st.title("Stock")
 
     st.subheader("Add a new stock record")
-
-    # Carregar a lista de produtos da tabela tb_products
-    product_data = run_query("SELECT product FROM public.tb_products;")
-    product_list = [row[0] for row in product_data]
-
     with st.form(key='stock_form'):
-        product = st.selectbox("Product", product_list)
+        product = st.text_input("Product", max_chars=100)
         quantity = st.number_input("Quantity", min_value=1, step=1)
+        value = st.number_input("Value", min_value=0.0, step=0.01, format="%.2f")
+        transaction = "Entry"
+        current_date = datetime.now().date()
         submit_stock = st.form_submit_button(label="Register")
 
     if submit_stock:
-        if product and quantity > 0:
-            transaction = "Entry"
-            current_date = datetime.now()
-
+        if product and quantity > 0 and value >= 0:
             query = """
-            INSERT INTO public.tb_estoque ("Produto", "Quantidade", "Transação", "Data")
-            VALUES (%s, %s, %s, %s);
+            INSERT INTO public.tb_estoque ("Produto", "Quantidade", "Valor", "Total", "Transação", "Data")
+            VALUES (%s, %s, %s, %s, %s, %s);
             """
-            success = run_insert(query, (product, quantity, transaction, current_date))
+            total = quantity * value
+            success = run_insert(query, (product, quantity, value, total, transaction, current_date))
             if success:
                 st.success("Stock record added successfully!")
                 refresh_data()
         else:
-            st.warning("Please select a product and enter a quantity greater than 0.")
+            st.warning("Please fill in all fields correctly.")
 
-    # Carregar os registros do estoque atualizados
     stock_data = st.session_state.data.get("stock", [])
-    columns = ["Product", "Quantity", "Transaction", "Date"]
+    columns = ["Product", "Quantity", "Value", "Total", "Transaction", "Date"]
     if stock_data:
         st.subheader("All Stock Records")
-        # O retorno do banco já é no formato ("Produto", "Quantidade", "Transação", "Data")
         st.dataframe([dict(zip(columns, row)) for row in stock_data])
     else:
         st.info("No stock records found.")
-
 
 def clients_page():
     st.title("Clients")
 
     st.subheader("Register a New Client")
-
-    # Formulário com apenas o campo Full Name
     with st.form(key='client_form'):
         nome_completo = st.text_input("Full Name", max_chars=100)
+        data_nascimento = st.date_input("Date of Birth")
+        genero = st.selectbox("Sex/Gender (optional)", ["Man", "Woman"], index=0)
+        telefone = st.text_input("Phone", max_chars=15)
+        email = st.text_input("Email", max_chars=100)
+        endereco = st.text_area("Address")
         submit_client = st.form_submit_button(label="Register New Client")
 
     if submit_client:
-        if nome_completo:
-            # Outros valores padrões
-            data_nascimento = datetime(2000, 1, 1).date()
-            genero = "Man"
-            telefone = "0000-0000"
-            
-            # Gera um email único para evitar conflito de chave única
-            unique_id = datetime.now().strftime("%Y%m%d%H%M%S")
-            email = f"{nome_completo.replace(' ', '_').lower()}_{unique_id}@example.com"
-
-            endereco = "Endereço padrão"
-
+        if nome_completo and data_nascimento and telefone and email and endereco:
             query = """
             INSERT INTO public.tb_clientes (nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro)
             VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP);
@@ -444,65 +312,7 @@ def clients_page():
                 st.success("Client registered successfully!")
                 refresh_data()
         else:
-            st.warning("Please fill in the Full Name field.")
-
-    # Mostrar a tabela de clientes cadastrados
-    clients_data = run_query("SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro FROM public.tb_clientes ORDER BY data_cadastro DESC;")
-
-    if clients_data:
-        st.subheader("All Clients")
-        columns = ["Full Name", "Birth Date", "Gender", "Phone", "Email", "Address", "Register Date"]
-        df_clients = pd.DataFrame(clients_data, columns=columns)
-        st.dataframe(df_clients, use_container_width=True)
-
-        # Selecionar um cliente para edição
-        st.subheader("Edit or Delete an existing client")
-        client_emails = df_clients["Email"].unique().tolist()
-        selected_email = st.selectbox("Select a client by Email:", [""] + client_emails)
-
-        if selected_email:
-            # Obtém dados do cliente selecionado
-            selected_client_row = df_clients[df_clients["Email"] == selected_email].iloc[0]
-            original_name = selected_client_row["Full Name"]
-
-            # Formulário para editar o nome
-            with st.form(key='edit_client_form'):
-                edit_name = st.text_input("Full Name", value=original_name, max_chars=100)
-                col1, col2 = st.columns(2)
-                with col1:
-                    update_button = st.form_submit_button(label="Update Client")
-                with col2:
-                    delete_button = st.form_submit_button(label="Delete Client")
-
-            if update_button:
-                if edit_name:
-                    update_query = """
-                    UPDATE public.tb_clientes
-                    SET nome_completo = %s
-                    WHERE email = %s;
-                    """
-                    success = run_insert(update_query, (edit_name, selected_email))
-                    if success:
-                        st.success("Client updated successfully!")
-                        refresh_data()
-                    else:
-                        st.error("Failed to update the client.")
-                else:
-                    st.warning("Please fill in the Full Name field.")
-
-            if delete_button:
-                delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
-                success = run_insert(delete_query, (selected_email,))
-                if success:
-                    st.success("Client deleted successfully!")
-                    refresh_data()
-                else:
-                    st.error("Failed to delete the client.")
-    else:
-        st.info("No clients found.")
-
-
-
+            st.warning("Please fill in all required fields.")
 
 def invoice_page():
     st.title("Nota Fiscal")
