@@ -140,28 +140,28 @@ def home_page():
     
     # Botão para mostrar pedidos fechados
     with col2:
-        if st.button("Pedidos Pagos"):
+        if st.button("Pagos"):
             st.session_state.show_closed_orders = True
         else:
             st.session_state.show_closed_orders = False
     
     # Botão para mostrar resumo por status
     with col3:
-        if st.button("Resumo por Status"):
+        if st.button("Status"):
             st.session_state.show_status_summary = True
         else:
             st.session_state.show_status_summary = False
     
     # Botão para mostrar resumo por produto
     with col4:
-        if st.button("Resumo por Produto"):
+        if st.button("Produto"):
             st.session_state.show_product_summary = True
         else:
             st.session_state.show_product_summary = False
     
     # Botão para mostrar resumo combinado de produto e estoque
     with col5:
-        if st.button("Mostrar Estoque"):
+        if st.button("Estoque"):
             st.session_state.show_combined_summary = True
         else:
             st.session_state.show_combined_summary = False
