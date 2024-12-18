@@ -404,6 +404,7 @@ def stock_page():
         st.dataframe([dict(zip(columns, row)) for row in stock_data])
     else:
         st.info("No stock records found.")
+from datetime import datetime
 
 def clients_page():
     st.title("Clients")
@@ -411,15 +412,17 @@ def clients_page():
     st.subheader("Register a New Client")
     with st.form(key='client_form'):
         nome_completo = st.text_input("Full Name", max_chars=100)
-        data_nascimento = st.date_input("Date of Birth")
-        genero = st.selectbox("Sex/Gender (optional)", ["Man", "Woman"], index=0)
-        telefone = st.text_input("Phone", max_chars=15)
-        email = st.text_input("Email", max_chars=100)
-        endereco = st.text_area("Address")
         submit_client = st.form_submit_button(label="Register New Client")
 
     if submit_client:
-        if nome_completo and data_nascimento and telefone and email and endereco:
+        # Preenchendo os demais campos automaticamente
+        data_nascimento = datetime(2000, 1, 1).date()  # Exemplo: data fixa
+        genero = "Man"  # Valor padrão
+        telefone = "0000-0000"  # Valor padrão
+        email = "default@example.com"  # Valor padrão
+        endereco = "Endereço padrão"  # Valor padrão
+
+        if nome_completo:
             query = """
             INSERT INTO public.tb_clientes (nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro)
             VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP);
@@ -429,7 +432,8 @@ def clients_page():
                 st.success("Client registered successfully!")
                 refresh_data()
         else:
-            st.warning("Please fill in all required fields.")
+            st.warning("Please fill in the Full Name field.")
+
 
 def invoice_page():
     st.title("Nota Fiscal")
