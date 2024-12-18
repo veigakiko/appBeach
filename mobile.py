@@ -8,9 +8,11 @@ import pandas as pd
 #####################
 # Database Utilities
 #####################
+
+@st.cache_resource
 def get_db_connection():
     """
-    Estabelece e retorna uma nova conexão com o banco de dados usando psycopg2.
+    Return a persistent database connection using psycopg2.
     """
     try:
         conn = psycopg2.connect(
@@ -27,7 +29,7 @@ def get_db_connection():
 
 def run_query(query, values=None):
     """
-    Executa uma consulta SELECT e retorna os dados obtidos.
+    Runs a read-only query (SELECT) and returns the fetched data.
     """
     conn = get_db_connection()
     if conn is None:
@@ -37,6 +39,8 @@ def run_query(query, values=None):
             cursor.execute(query, values or ())
             return cursor.fetchall()
     except Exception as e:
+        if conn:
+            conn.rollback()
         st.error(f"Erro ao executar a consulta: {e}")
         return []
     finally:
@@ -44,7 +48,7 @@ def run_query(query, values=None):
 
 def run_insert(query, values):
     """
-    Executa uma consulta INSERT, UPDATE ou DELETE.
+    Runs an insert or update query.
     """
     conn = get_db_connection()
     if conn is None:
@@ -55,7 +59,8 @@ def run_insert(query, values):
         conn.commit()
         return True
     except Exception as e:
-        conn.rollback()
+        if conn:
+            conn.rollback()
         st.error(f"Erro ao executar a operação: {e}")
         return False
     finally:
@@ -64,20 +69,25 @@ def run_insert(query, values):
 #####################
 # Data Loading
 #####################
+
 @st.cache_data(ttl=600)
 def load_all_data():
     """
-    Carrega todos os dados necessários do banco de dados e retorna um dicionário.
+    Load all data used by the application and return it as a dictionary.
     """
     data = {}
     try:
+        # Carrega todos os pedidos
         data["orders"] = run_query(
             'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
         )
+        # Carrega todos os produtos
         data["products"] = run_query(
             "SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products ORDER BY creation_date DESC;"
         )
+        # Carrega todos os clientes
         data["clients"] = run_query('SELECT nome_completo FROM public.tb_clientes ORDER BY nome_completo;')
+        # Carrega todos os registros de estoque
         data["stock"] = run_query(
             'SELECT "Produto", "Quantidade", "Transação", "Data" FROM public.tb_estoque ORDER BY "Data" DESC;'
         )
@@ -87,16 +97,17 @@ def load_all_data():
 
 def refresh_data():
     """
-    Recarrega todos os dados e atualiza o estado da sessão.
+    Reload all data and update the session state.
     """
     st.session_state.data = load_all_data()
 
 #####################
 # Login Functionality
 #####################
+
 def login():
     """
-    Exibe um formulário de login e trata a autenticação.
+    Display a login form and handle authentication.
     """
     st.title("Login")
     with st.form(key='login_form'):
@@ -115,9 +126,10 @@ def login():
 #####################
 # Menu Navigation
 #####################
+
 def sidebar_navigation():
     """
-    Cria um menu lateral para navegação usando streamlit_option_menu.
+    Create a sidebar menu for navigation using streamlit_option_menu.
     """
     with st.sidebar:
         st.title("Boituva Beach Club")
@@ -144,6 +156,7 @@ def sidebar_navigation():
 #####################
 # Page Functions
 #####################
+
 def home_page():
     st.title("Boituva Beach Club")
     st.write("🎾 BeachTennis 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
@@ -192,7 +205,8 @@ def orders_page():
         df_orders = pd.DataFrame(orders_data, columns=columns)
         st.dataframe(df_orders, use_container_width=True)
 
-        # Criar identificadores únicos com base em Cliente, Produto e Data
+        # Cria identificadores únicos com base em Cliente, Produto e Data
+        # Convertendo Data para string, caso esteja em datetime, para exibição
         df_orders["unique_key"] = df_orders.apply(lambda row: f"{row['Cliente']}|{row['Produto']}|{row['Data']}", axis=1)
 
         st.subheader("Editar ou Excluir um Pedido Existente")
@@ -209,7 +223,7 @@ def orders_page():
             original_quantity = selected_row["Quantidade"]
             original_status = selected_row["Status"]
 
-            # Preparar o formulário de edição
+            # Prepara o formulário de edição
             product_index = product_list.index(original_product) if original_product in product_list else 0
 
             st.markdown("### Editar Detalhes do Pedido")
@@ -516,7 +530,13 @@ def invoice_page():
     st.title("Nota Fiscal")
 
     # Selecionar um cliente com pedidos em aberto
-    open_clients_query = 'SELECT DISTINCT "Cliente" FROM public.tb_pedido WHERE status = %s ORDER BY "Cliente";'
+    open_clients_query = """
+    SELECT DISTINCT c.nome_completo
+    FROM public.tb_clientes c
+    JOIN public.tb_pedido p ON c.nome_completo = p."Cliente"
+    WHERE p.status = %s
+    ORDER BY c.nome_completo;
+    """
     open_clients = run_query(open_clients_query, ('em aberto',))
 
     client_list = [row[0] for row in open_clients] if open_clients else []
@@ -525,13 +545,13 @@ def invoice_page():
 
     if selected_client:
         # Recuperar os pedidos em aberto do cliente selecionado, junto com unit_value
-        invoice_query = (
-            'SELECT p."Produto", p."Quantidade", p."Data", pr.unit_value '
-            'FROM public.tb_pedido p '
-            'JOIN public.tb_products pr ON p."Produto" = pr.product '
-            'WHERE p."Cliente" = %s AND p.status = %s '
-            'ORDER BY p."Data" ASC;'
-        )
+        invoice_query = """
+        SELECT p."Produto", p."Quantidade", p."Data", pr.unit_value
+        FROM public.tb_pedido p
+        JOIN public.tb_products pr ON p."Produto" = pr.product
+        WHERE p."Cliente" = %s AND p.status = %s
+        ORDER BY p."Data" ASC;
+        """
         invoice_data = run_query(invoice_query, (selected_client, 'em aberto'))
 
         if invoice_data:
@@ -553,6 +573,7 @@ def invoice_page():
             # Exibir o total geral
             st.subheader(f"Total Geral: R$ {total_sum:,.2f}")
 
+            # Botões para escolher o método de pagamento
             st.markdown("### Escolha o Método de Pagamento")
             col1, col2, col3, col4 = st.columns(4)
 
@@ -595,6 +616,7 @@ def process_payment(invoice_keys, payment_status):
             cliente, produto, data = key.split('|')
             # Converter 'data' de string para datetime se necessário
             if isinstance(data, str):
+                # Dependendo do formato da data, ajuste aqui. Exemplo assume ISO format.
                 data = datetime.fromisoformat(data)
             conditions.append('( "Cliente" = %s AND "Produto" = %s AND "Data" = %s )')
             params.extend([cliente, produto, data])
@@ -663,9 +685,10 @@ def generate_invoice_for_printer(df):
 #####################
 # Logout Functionality
 #####################
+
 def logout():
     """
-    Lida com o logout do usuário.
+    Handles user logout.
     """
     st.session_state.logged_in = False
     st.session_state.page = "Home"
@@ -679,13 +702,13 @@ def logout():
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
-if 'data' not in st.session_state and st.session_state.get('logged_in', False):
-    st.session_state.data = load_all_data()
-
 # Verificação de Autenticação
 if not st.session_state.logged_in:
     login()
     st.stop()
+
+if 'data' not in st.session_state:
+    st.session_state.data = load_all_data()
 
 # Menu de Navegação
 selected_page = sidebar_navigation()
@@ -695,7 +718,7 @@ if selected_page == "Sair":
     logout()
     st.stop()
 
-# Roteamento das Páginas
+# Page Routing
 if selected_page == "Home":
     home_page()
 elif selected_page == "Pedidos":
