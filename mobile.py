@@ -67,19 +67,23 @@ def run_insert(query, values):
 @st.cache_data(ttl=600)
 def load_all_data():
     """
-    Carrega todos os dados necessários do banco de dados e retorna um dicionário.
+    Carrega todos os dados necessários das views do banco de dados e retorna um dicionário.
     """
     data = {}
     try:
+        # Substitua 'vw_pedido_produto' pelo nome real da sua view que combina pedidos e produtos
         data["orders"] = run_query(
-            'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
+            'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.vw_pedido_produto ORDER BY "Data" DESC;'
         )
+        # Substitua 'vw_products' pelo nome real da sua view de produtos, se existir
         data["products"] = run_query(
-            "SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products ORDER BY creation_date DESC;"
+            "SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.vw_products ORDER BY creation_date DESC;"
         )
-        data["clients"] = run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido ORDER BY "Cliente";')
+        # Substitua 'vw_clientes' pelo nome real da sua view de clientes, se existir
+        data["clients"] = run_query('SELECT nome_completo FROM public.vw_clientes ORDER BY nome_completo;')
+        # Substitua 'vw_estoque' pelo nome real da sua view de estoque, se existir
         data["stock"] = run_query(
-            'SELECT "Produto", "Quantidade", "Transação", "Data" FROM public.tb_estoque ORDER BY "Data" DESC;'
+            'SELECT "Produto", "Quantidade", "Transação", "Data" FROM public.vw_estoque ORDER BY "Data" DESC;'
         )
     except Exception as e:
         st.error(f"Erro ao carregar os dados: {e}")
@@ -160,7 +164,7 @@ def orders_page():
     # Formulário para inserir novo pedido
     with st.form(key='order_form'):
         # Carregando lista de clientes para o novo pedido
-        clientes = run_query('SELECT nome_completo FROM public.tb_clientes ORDER BY nome_completo;')
+        clientes = run_query('SELECT nome_completo FROM public.vw_clientes ORDER BY nome_completo;')
         customer_list = [""] + [row[0] for row in clientes] if clientes else ["Nenhum cliente disponível"]
 
         customer_name = st.selectbox("Nome do Cliente", customer_list, index=0)
@@ -373,8 +377,8 @@ def stock_page():
 
     st.subheader("Adicionar um Novo Registro de Estoque")
 
-    # Carregar a lista de produtos da tabela tb_products
-    product_data = run_query("SELECT product FROM public.tb_products ORDER BY product;")
+    # Carregar a lista de produtos da view vw_estoque ou vw_products
+    product_data = run_query("SELECT product FROM public.vw_products ORDER BY product;")
     product_list = [row[0] for row in product_data] if product_data else ["Nenhum produto disponível"]
 
     with st.form(key='stock_form'):
@@ -401,7 +405,7 @@ def stock_page():
         else:
             st.warning("Por favor, selecione um produto e insira uma quantidade maior que 0.")
 
-    # Carregar os registros de estoque atualizados
+    # Carregar os registros de estoque atualizados da view vw_estoque
     stock_data = st.session_state.data.get("stock", [])
     columns = ["Produto", "Quantidade", "Transação", "Data"]
 
@@ -454,8 +458,8 @@ def clients_page():
         else:
             st.warning("Por favor, preencha o campo Nome Completo.")
 
-    # Mostrar a tabela de clientes cadastrados
-    clients_data = run_query("SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro FROM public.tb_clientes ORDER BY data_cadastro DESC;")
+    # Mostrar a tabela de clientes cadastrados da view vw_clientes
+    clients_data = run_query("SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro FROM public.vw_clientes ORDER BY data_cadastro DESC;")
 
     if clients_data:
         st.subheader("Todos os Clientes")
@@ -516,7 +520,7 @@ def invoice_page():
     st.title("Nota Fiscal")
 
     # Selecionar um cliente com pedidos em aberto
-    open_clients_query = 'SELECT DISTINCT "Cliente" FROM public.tb_pedido WHERE status = %s ORDER BY "Cliente";'
+    open_clients_query = 'SELECT DISTINCT "Cliente" FROM public.vw_pedido_produto WHERE status = %s ORDER BY "Cliente";'
     open_clients = run_query(open_clients_query, ('em aberto',))
 
     client_list = [row[0] for row in open_clients] if open_clients else []
@@ -527,8 +531,8 @@ def invoice_page():
         # Recuperar os pedidos em aberto do cliente selecionado, junto com unit_value
         invoice_query = (
             'SELECT p."Produto", p."Quantidade", p."Data", pr.unit_value '
-            'FROM public.tb_pedido p '
-            'JOIN public.tb_products pr ON p."Produto" = pr.product '
+            'FROM public.vw_pedido_produto p '
+            'JOIN public.vw_products pr ON p."Produto" = pr.product '
             'WHERE p."Cliente" = %s AND p.status = %s '
             'ORDER BY p."Data" ASC;'
         )
