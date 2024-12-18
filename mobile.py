@@ -278,7 +278,7 @@ def home_page():
     
     # Consulta para obter soma total agrupada por Produto
     product_summary_query = """
-    SELECT "Produto", SUM("total") as Total
+    SELECT "Produto", SUM("Quantidade") as Quantity, SUM("total") as Total
     FROM public.vw_pedido_produto
     GROUP BY "Produto"
     ORDER BY "Produto";
@@ -287,15 +287,20 @@ def home_page():
     
     if product_summary_data:
         # Criar DataFrame
-        df_product_summary = pd.DataFrame(product_summary_data, columns=["Product", "Total"])
+        df_product_summary = pd.DataFrame(product_summary_data, columns=["Product", "Quantity", "Total"])
         
         # Formatar a coluna 'Total' para moeda brasileira
         df_product_summary["Total"] = df_product_summary["Total"].apply(
             lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         )
         
+        # Formatar a coluna 'Quantity' para número inteiro com separadores de milhares, se necessário
+        df_product_summary["Quantity"] = df_product_summary["Quantity"].apply(
+            lambda x: f"{int(x):,}".replace(",", ".")
+        )
+        
         # Remover o índice e selecionar apenas as colunas desejadas
-        df_product_summary = df_product_summary.reset_index(drop=True)[["Product", "Total"]]
+        df_product_summary = df_product_summary.reset_index(drop=True)[["Product", "Quantity", "Total"]]
         
         # Aplicar estilos para permitir quebra de linha e ajustar a largura das colunas
         styled_product_summary = df_product_summary.style.set_properties(**{
@@ -312,6 +317,7 @@ def home_page():
         )
     else:
         st.info("Nenhum pedido encontrado para resumo por produto.")
+
 
 
 def orders_page():
