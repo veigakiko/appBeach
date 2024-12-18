@@ -64,6 +64,7 @@ def run_insert(query, values):
 #####################
 # Data Loading
 #####################
+@st.cache_data(ttl=60)  # Atualiza os dados a cada 60 segundos
 def load_all_data():
     """
     Load all data used by the application and return it as a dictionary.
@@ -125,7 +126,8 @@ def sidebar_navigation():
 def home_page():
     st.title("Boituva Beach Club")
     st.write("🎾 BeachTennis📍Av. Do Trabalhador, 1879🏆 5° Open BBC")
-    st.button("Refresh Data", on_click=refresh_data)
+    # Removido o botão de "Refresh Data" para simplificar com a atualização automática
+    st.info("Os dados são atualizados automaticamente a cada 60 segundos.")
 
 def orders_page():
     st.title("Orders")
