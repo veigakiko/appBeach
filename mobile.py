@@ -169,7 +169,7 @@ def orders_page():
         df_orders = pd.DataFrame(orders_data, columns=columns)
         
         # Depuração: Exibir nomes das colunas
-        st.write("Columns in df_orders:", df_orders.columns.tolist())
+        # st.write("Columns in df_orders:", df_orders.columns.tolist())
 
         st.dataframe(df_orders, use_container_width=True)
 
@@ -216,23 +216,20 @@ def orders_page():
                     update_button = st.form_submit_button(label="Update Order")
                     delete_button = st.form_submit_button(label="Delete Order")
 
-                # Botão de Deletar Ordem só aparece se delete_button for clicado
+                # Deletar Ordem imediatamente após clicar no botão, sem confirmação
                 if delete_button:
-                    # Utilizamos uma abordagem de duas etapas para confirmação
-                    confirm = st.checkbox("Are you sure you want to delete this order?")
-                    if confirm:
-                        delete_query = """
-                        DELETE FROM public.tb_pedido
-                        WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
-                        """
-                        success = run_insert(delete_query, (
-                            original_client, original_product, original_date
-                        ))
-                        if success:
-                            st.success("Order deleted successfully!")
-                            refresh_data()
-                        else:
-                            st.error("Failed to delete the order.")
+                    delete_query = """
+                    DELETE FROM public.tb_pedido
+                    WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
+                    """
+                    success = run_insert(delete_query, (
+                        original_client, original_product, original_date
+                    ))
+                    if success:
+                        st.success("Order deleted successfully!")
+                        refresh_data()
+                    else:
+                        st.error("Failed to delete the order.")
 
                 if update_button:
                     # Atualiza o pedido no banco usando a combinação de campos como filtro
@@ -289,7 +286,7 @@ def products_page():
         df_products = pd.DataFrame(products_data, columns=columns)
         
         # Depuração: Exibir nomes das colunas
-        st.write("Columns in df_products:", df_products.columns.tolist())
+        # st.write("Columns in df_products:", df_products.columns.tolist())
 
         st.dataframe(df_products, use_container_width=True)
 
@@ -326,23 +323,20 @@ def products_page():
                     update_button = st.form_submit_button(label="Update Product")
                     delete_button = st.form_submit_button(label="Delete Product")
 
-                # Botão de Deletar Produto só aparece se delete_button for clicado
+                # Deletar Produto imediatamente após clicar no botão, sem confirmação
                 if delete_button:
-                    # Utilizamos uma abordagem de duas etapas para confirmação
-                    confirm = st.checkbox("Are you sure you want to delete this product?")
-                    if confirm:
-                        delete_query = """
-                        DELETE FROM public.tb_products
-                        WHERE supplier = %s AND product = %s AND creation_date = %s;
-                        """
-                        success = run_insert(delete_query, (
-                            original_supplier, original_product, original_creation_date
-                        ))
-                        if success:
-                            st.success("Product deleted successfully!")
-                            refresh_data()
-                        else:
-                            st.error("Failed to delete the product.")
+                    delete_query = """
+                    DELETE FROM public.tb_products
+                    WHERE supplier = %s AND product = %s AND creation_date = %s;
+                    """
+                    success = run_insert(delete_query, (
+                        original_supplier, original_product, original_creation_date
+                    ))
+                    if success:
+                        st.success("Product deleted successfully!")
+                        refresh_data()
+                    else:
+                        st.error("Failed to delete the product.")
 
                 if update_button:
                     # Recalcular total_value se quantity ou unit_value foram alterados
@@ -412,7 +406,7 @@ def stock_page():
         df_stock = pd.DataFrame(stock_data, columns=columns)
         
         # Depuração: Exibir nomes das colunas
-        st.write("Columns in df_stock:", df_stock.columns.tolist())
+        # st.write("Columns in df_stock:", df_stock.columns.tolist())
 
         st.dataframe(df_stock, use_container_width=True)
 
@@ -460,23 +454,20 @@ def stock_page():
                     update_button = st.form_submit_button(label="Update Stock Record")
                     delete_button = st.form_submit_button(label="Delete Stock Record")
 
-                # Botão de Deletar Registro de Estoque só aparece se delete_button for clicado
+                # Deletar Registro de Estoque imediatamente após clicar no botão, sem confirmação
                 if delete_button:
-                    # Utilizamos uma abordagem de duas etapas para confirmação
-                    confirm = st.checkbox("Are you sure you want to delete this stock record?")
-                    if confirm:
-                        delete_query = """
-                        DELETE FROM public.tb_estoque
-                        WHERE "Produto" = %s AND "Transação" = %s AND "Data" = %s;
-                        """
-                        success = run_insert(delete_query, (
-                            original_product, original_transaction, original_date
-                        ))
-                        if success:
-                            st.success("Stock record deleted successfully!")
-                            refresh_data()
-                        else:
-                            st.error("Failed to delete the stock record.")
+                    delete_query = """
+                    DELETE FROM public.tb_estoque
+                    WHERE "Produto" = %s AND "Transação" = %s AND "Data" = %s;
+                    """
+                    success = run_insert(delete_query, (
+                        original_product, original_transaction, original_date
+                    ))
+                    if success:
+                        st.success("Stock record deleted successfully!")
+                        refresh_data()
+                    else:
+                        st.error("Failed to delete the stock record.")
 
                 if update_button:
                     edit_datetime = datetime.combine(edit_date, datetime.min.time())
@@ -561,18 +552,15 @@ def clients_page():
                 with col2:
                     delete_button = st.form_submit_button(label="Delete Client")
 
-            # Botão de Deletar Cliente só aparece se delete_button for clicado
+            # Deletar Cliente imediatamente após clicar no botão, sem confirmação
             if delete_button:
-                # Utilizamos uma abordagem de duas etapas para confirmação
-                confirm = st.checkbox("Are you sure you want to delete this client?")
-                if confirm:
-                    delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
-                    success = run_insert(delete_query, (selected_email,))
-                    if success:
-                        st.success("Client deleted successfully!")
-                        refresh_data()
-                    else:
-                        st.error("Failed to delete the client.")
+                delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
+                success = run_insert(delete_query, (selected_email,))
+                if success:
+                    st.success("Client deleted successfully!")
+                    refresh_data()
+                else:
+                    st.error("Failed to delete the client.")
 
             if update_button:
                 if edit_name:
