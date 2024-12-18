@@ -400,15 +400,11 @@ def stock_page():
     stock_data = st.session_state.data.get("stock", [])
     columns = ["Product", "Quantity", "Transaction", "Date"]
 
-    # Depuração: Verifique o que está sendo retornado
-    st.write("Raw Stock Data:", stock_data)
-
     if stock_data:
         st.subheader("All Stock Records")
         try:
             # Convertendo tuplas para dicionário para exibir no DataFrame
             df_stock = pd.DataFrame(stock_data, columns=columns)
-            st.write("DataFrame Stock:", df_stock)  # Depuração: Verifique o DataFrame
             st.dataframe(df_stock, use_container_width=True)
         except ValueError as ve:
             st.error(f"DataFrame creation failed: {ve}")
@@ -537,11 +533,9 @@ def invoice_page():
             with col1:
                 if st.button("Debit", key="debit_button"):
                     process_payment(selected_client, "Received - Debited")
-
             with col2:
                 if st.button("Credit", key="credit_button"):
                     process_payment(selected_client, "Received - Credit")
-
             with col3:
                 if st.button("Pix", key="pix_button"):
                     process_payment(selected_client, "Received - Pix")
