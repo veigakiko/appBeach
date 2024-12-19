@@ -200,34 +200,12 @@ def home_page():
         )
         
         # Calcular a soma total dos pedidos fechados
-        total_closed = df_closed_orders_display["Total"].sum()
+        total_closed = df_closed_orders_display["Total"].replace("R$ ", "").replace(".", "").replace(",", ".").astype(float).sum()
         
         # Exibir a tabela de Closed Orders Summary
         st.table(df_closed_orders_display)
         
-        # REMOVIDO: Gráfico de área
-        """
-        # Criar o gráfico de área abaixo da tabela
-        fig = px.area(
-            df_closed_orders_plot,
-            x='Date',
-            y='Total',
-            title='Total Vendido por Dia',
-            labels={'Date': 'Data', 'Total': 'Total Vendido (R$)'},
-            template='plotly_white'
-        )
-        
-        fig.update_layout(
-            autosize=False,
-            width=700,
-            height=500
-        )
-        
-        # Exibir o gráfico
-        st.plotly_chart(fig, use_container_width=True)
-        """
-        
-        # Exibir a soma total abaixo do gráfico (agora logo abaixo da tabela)
+        # Exibir a soma total abaixo da tabela (já que o gráfico foi removido)
         st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     else:
         st.info("Nenhum pedido fechado encontrado.")
@@ -733,9 +711,13 @@ def invoice_page():
             df = pd.DataFrame(invoice_data, columns=["Produto", "Quantidade", "total"])
             generate_invoice_for_printer(df)
 
+            # Calcular o total geral antes da formatação
             total_sum = df["total"].sum()
-            st.markdown(f"**Total Geral: R$ {total_sum:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+            # Formatar para moeda brasileira
+            formatted_total_sum = f"R$ {total_sum:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
+            st.markdown(f"**Total Geral: {formatted_total_sum}**")
+            
             col1, col2, col3 = st.columns(3)
 
             with col1:
