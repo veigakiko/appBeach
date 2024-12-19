@@ -13,3 +13,7 @@ streamlit
 streamlit-option-menu
 psycopg2
 pandas
+streamlit
+pandas
+psycopg2
+plotly
