@@ -5,6 +5,8 @@ from psycopg2 import OperationalError
 from datetime import datetime
 import pandas as pd
 from PIL import Image
+import requests
+from io import BytesIO
 
 #####################
 # Database Utilities
@@ -132,25 +134,22 @@ def home_page():
     ############################
 
     st.subheader("Open Orders Summary")
-    # Consulta para obter pedidos em aberto agrupados por Cliente e Data (somente dia) com a soma total
+    # Consulta para obter pedidos em aberto agrupados por Cliente com a soma total
     open_orders_query = """
-    SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
+    SELECT "Cliente", SUM("total") as Total
     FROM public.vw_pedido_produto
     WHERE status = %s
-    GROUP BY "Cliente", DATE("Data")
-    ORDER BY "Cliente", DATE("Data") DESC;
+    GROUP BY "Cliente"
+    ORDER BY "Cliente" DESC;
     """
     open_orders_data = run_query(open_orders_query, ('em aberto',))
 
     if open_orders_data:
         # Criar DataFrame
-        df_open_orders = pd.DataFrame(open_orders_data, columns=["Client", "Date", "Total"])
+        df_open_orders = pd.DataFrame(open_orders_data, columns=["Client", "Total"])
         
         # Calcular a soma total dos pedidos em aberto
         total_open = df_open_orders["Total"].sum()
-        
-        # Formatar a coluna 'Date' para exibição amigável
-        df_open_orders["Date"] = pd.to_datetime(df_open_orders["Date"]).dt.strftime('%Y-%m-%d')
         
         # Formatar a coluna 'Total' para moeda brasileira
         df_open_orders["Total"] = df_open_orders["Total"].apply(
@@ -158,7 +157,7 @@ def home_page():
         )
         
         # Remover o índice e selecionar apenas as colunas desejadas
-        df_open_orders = df_open_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
+        df_open_orders = df_open_orders.reset_index(drop=True)[["Client", "Total"]]
         
         # Exibir a tabela sem índice e com largura otimizada para a coluna
         st.dataframe(df_open_orders, use_container_width=True)
@@ -785,6 +784,34 @@ def generate_invoice_for_printer(df):
 # Login Page
 #####################
 def login_page():
+    # CSS para alterar a cor de fundo da página de login para branco
+    st.markdown(
+        """
+        <style>
+        /* Define a cor de fundo para branco */
+        body {
+            background-color: white;
+        }
+        /* Opcional: Centralizar o conteúdo do login */
+        .block-container {
+            padding-top: 100px;
+            padding-bottom: 100px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Carregar e exibir o logotipo
+    logo_url = "https://res.cloudinary.com/lptennis/image/upload/v1657233475/kyz4k7fcptxt7x7mu9qu.jpg"
+    try:
+        response = requests.get(logo_url)
+        response.raise_for_status()
+        logo = Image.open(BytesIO(response.content))
+        st.image(logo, use_column_width=False)  # Removido use_column_width=True para exibir em tamanho original
+    except requests.exceptions.RequestException as e:
+        st.error("Falha ao carregar o logotipo.")
+
     st.title("Beach Club")
     st.write("Por favor, insira suas credenciais para acessar o aplicativo.")
 
