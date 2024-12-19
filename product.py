@@ -16,19 +16,19 @@ import numpy as np  # Importação do NumPy
 @st.cache_resource
 def get_db_connection():
     """
-    Retorna uma conexão persistente com o banco de dados usando psycopg2.
+    Return a persistent database connection using psycopg2.
     """
     try:
         conn = psycopg2.connect(
-            host=st.secrets["db_host"],
-            database=st.secrets["db_name"],
-            user=st.secrets["db_user"],
-            password=st.secrets["db_password"],
-            port=st.secrets["db_port"]
+            host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
+            database="beachtennis",
+            user="kiko",
+            password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
+            port=5432
         )
         return conn
     except OperationalError as e:
-        st.error("Não foi possível conectar ao banco de dados. Por favor, tente novamente mais tarde.")
+        st.error("Could not connect to the database. Please try again later.")
         return None
 
 def run_query(query, values=None):
