@@ -146,22 +146,22 @@ def home_page():
     open_orders_data = run_query(open_orders_query, ('em aberto',))
 
     if open_orders_data:
-        # Criar DataFrame
-        df_open_orders = pd.DataFrame(open_orders_data, columns=["Client", "Total"])
+        # Criar DataFrame para exibição
+        df_open_orders_display = pd.DataFrame(open_orders_data, columns=["Client", "Total"])
         
         # Calcular a soma total dos pedidos em aberto
-        total_open = df_open_orders["Total"].sum()
+        total_open = df_open_orders_display["Total"].sum()
         
         # Formatar a coluna 'Total' para moeda brasileira
-        df_open_orders["Total"] = df_open_orders["Total"].apply(
+        df_open_orders_display["Total"] = df_open_orders_display["Total"].apply(
             lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         )
         
         # Remover o índice e selecionar apenas as colunas desejadas
-        df_open_orders = df_open_orders.reset_index(drop=True)[["Client", "Total"]]
+        df_open_orders_display = df_open_orders_display.reset_index(drop=True)[["Client", "Total"]]
         
         # Exibir a tabela sem índice e com largura otimizada para a coluna
-        st.table(df_open_orders)
+        st.table(df_open_orders_display)
         
         # Exibir a soma total abaixo da tabela
         st.markdown(f"**Total Geral (Open Orders):** R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
@@ -184,18 +184,32 @@ def home_page():
     closed_orders_data = run_query(closed_orders_query, ('em aberto',))
 
     if closed_orders_data:
-        # Criar DataFrame
-        df_closed_orders = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
+        # Criar DataFrame com dados brutos para plotagem
+        df_closed_orders_plot = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
+        
+        # Criar DataFrame para exibição com formatação
+        df_closed_orders_display = df_closed_orders_plot.copy()
+        
+        # Formatar a coluna 'Date' para exibição amigável (somente dia)
+        df_closed_orders_display["Date"] = pd.to_datetime(df_closed_orders_display["Date"]).dt.strftime('%Y-%m-%d')
+        
+        # Formatar a coluna 'Total' para moeda brasileira
+        df_closed_orders_display["Total"] = df_closed_orders_display["Total"].apply(
+            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
         
         # Calcular a soma total dos pedidos fechados
-        total_closed = df_closed_orders["Total"].sum()
+        total_closed = df_closed_orders_plot["Total"].sum()
         
-        # Criar o gráfico de barras antes de formatar os totais
+        # Exibir a tabela de Closed Orders Summary
+        st.table(df_closed_orders_display)
+        
+        # Criar o gráfico de barras abaixo da tabela
         fig = go.Figure()
         
         fig.add_trace(go.Bar(
-            x=df_closed_orders["Date"],
-            y=df_closed_orders["Total"],
+            x=df_closed_orders_plot["Date"],
+            y=df_closed_orders_plot["Total"],
             marker_color='indigo'
         ))
         
@@ -209,23 +223,14 @@ def home_page():
             template="plotly_white"
         )
         
+        # Atualizar os eixos para garantir margens adequadas
+        fig.update_yaxes(automargin=True)
+        fig.update_xaxes(automargin=True)
+        
+        # Exibir o gráfico
         st.plotly_chart(fig, use_container_width=True)
         
-        # Formatar a coluna 'Date' para exibição amigável
-        df_closed_orders["Date"] = pd.to_datetime(df_closed_orders["Date"]).dt.strftime('%Y-%m-%d')
-        
-        # Formatar a coluna 'Total' para moeda brasileira
-        df_closed_orders["Total"] = df_closed_orders["Total"].apply(
-            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        )
-        
-        # Remover o índice e selecionar apenas as colunas desejadas
-        df_closed_orders = df_closed_orders.reset_index(drop=True)[["Date", "Total"]]
-        
-        # Exibir a tabela sem índice e com largura otimizada para a coluna
-        st.table(df_closed_orders)
-        
-        # Exibir a soma total abaixo da tabela
+        # Exibir a soma total abaixo do gráfico
         st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     else:
         st.info("Nenhum pedido fechado encontrado.")
