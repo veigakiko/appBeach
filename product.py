@@ -5,8 +5,6 @@ from psycopg2 import OperationalError
 from datetime import datetime
 import pandas as pd
 from PIL import Image
-import requests
-from io import BytesIO
 
 #####################
 # Database Utilities
@@ -787,34 +785,6 @@ def generate_invoice_for_printer(df):
 # Login Page
 #####################
 def login_page():
-    # CSS para alterar a cor de fundo da página de login para branco
-    st.markdown(
-        """
-        <style>
-        /* Define a cor de fundo para branco */
-        body {
-            background-color: white;
-        }
-        /* Opcional: Centralizar o conteúdo do login */
-        .block-container {
-            padding-top: 100px;
-            padding-bottom: 100px;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # Carregar e exibir o logotipo
-    logo_url = "https://res.cloudinary.com/lptennis/image/upload/v1657233475/kyz4k7fcptxt7x7mu9qu.jpg"
-    try:
-        response = requests.get(logo_url)
-        response.raise_for_status()
-        logo = Image.open(BytesIO(response.content))
-        st.image(logo, use_column_width=False)  # Removido use_column_width=True para exibir em tamanho original
-    except requests.exceptions.RequestException as e:
-        st.error("Falha ao carregar o logotipo.")
-
     st.title("Beach Club")
     st.write("Por favor, insira suas credenciais para acessar o aplicativo.")
 
