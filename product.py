@@ -4,6 +4,7 @@ import psycopg2
 from psycopg2 import OperationalError
 from datetime import datetime
 import pandas as pd
+from PIL import Image
 
 #####################
 # Database Utilities
@@ -11,7 +12,7 @@ import pandas as pd
 @st.cache_resource
 def get_db_connection():
     """
-    Return a persistent database connection using psycopg2.
+    Retorna uma conexão persistente com o banco de dados usando psycopg2.
     """
     try:
         conn = psycopg2.connect(
@@ -23,12 +24,12 @@ def get_db_connection():
         )
         return conn
     except OperationalError as e:
-        st.error("Could not connect to the database. Please try again later.")
+        st.error("Não foi possível conectar ao banco de dados. Por favor, tente novamente mais tarde.")
         return None
 
 def run_query(query, values=None):
     """
-    Runs a read-only query (SELECT) and returns the fetched data.
+    Executa uma consulta de leitura (SELECT) e retorna os dados obtidos.
     """
     conn = get_db_connection()
     if conn is None:
@@ -40,12 +41,12 @@ def run_query(query, values=None):
     except Exception as e:
         if conn:
             conn.rollback()
-        st.error(f"Error executing query: {e}")
+        st.error(f"Erro ao executar a consulta: {e}")
         return []
 
 def run_insert(query, values):
     """
-    Runs an insert, update, or delete query.
+    Executa uma consulta de inserção, atualização ou deleção.
     """
     conn = get_db_connection()
     if conn is None:
@@ -58,7 +59,7 @@ def run_insert(query, values):
     except Exception as e:
         if conn:
             conn.rollback()
-        st.error(f"Error executing query: {e}")
+        st.error(f"Erro ao executar a consulta: {e}")
         return False
 
 #####################
@@ -66,7 +67,7 @@ def run_insert(query, values):
 #####################
 def load_all_data():
     """
-    Load all data used by the application and return it as a dictionary.
+    Carrega todos os dados utilizados pelo aplicativo e retorna em um dicionário.
     """
     data = {}
     try:
@@ -81,12 +82,12 @@ def load_all_data():
             'SELECT "Produto", "Quantidade", "Transação", "Data" FROM public.tb_estoque ORDER BY "Data" DESC;'
         )
     except Exception as e:
-        st.error(f"Error loading data: {e}")
+        st.error(f"Erro ao carregar os dados: {e}")
     return data
 
 def refresh_data():
     """
-    Reload all data and update the session state.
+    Recarrega todos os dados e atualiza o estado da sessão.
     """
     st.session_state.data = load_all_data()
 
@@ -95,13 +96,13 @@ def refresh_data():
 #####################
 def sidebar_navigation():
     """
-    Create a sidebar or horizontal menu for navigation using streamlit_option_menu.
+    Cria um menu lateral para navegação usando streamlit_option_menu.
     """
     with st.sidebar:
-        st.title("Boituva Beach Club")
+        st.title("Boituva Beach Club 🎾")
         selected = option_menu(
-            "Beach Menu", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
-            icons=["house", "file-text", "box", "list-task", "layers", "person", "file-invoice"],
+            "Menu Principal", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
+            icons=["house", "file-text", "box", "list-task", "layers", "file-invoice"],
             menu_icon="cast",
             default_index=0,
             styles={
@@ -119,23 +120,19 @@ def sidebar_navigation():
         )
     return selected
 
+#####################
+# Home Page
+#####################
 def home_page():
-    # Initialize summary flags when entering the Home page
-    if st.session_state.current_page == "Home":
-        if 'home_page_initialized' not in st.session_state:
-            # No need for flags since both summaries are displayed by default
-            st.session_state.home_page_initialized = True
-
-    st.title("Boituva Beach Club")
-    st.write("🎾 BeachTennis 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
-    # Removed the informational message as per user request
-
+    st.title("Boituva Beach Club 🎾")
+    st.write("📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
+    
     ############################
     # Display Open Orders Summary
     ############################
 
     st.subheader("Open Orders Summary")
-    # Query to get open orders grouped by Client and Date with total
+    # Consulta para obter pedidos em aberto agrupados por Cliente e Data (somente dia) com a soma total
     open_orders_query = """
     SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
     FROM public.vw_pedido_produto
@@ -146,27 +143,27 @@ def home_page():
     open_orders_data = run_query(open_orders_query, ('em aberto',))
 
     if open_orders_data:
-        # Create DataFrame
+        # Criar DataFrame
         df_open_orders = pd.DataFrame(open_orders_data, columns=["Client", "Date", "Total"])
         
-        # Calculate total of open orders
+        # Calcular a soma total dos pedidos em aberto
         total_open = df_open_orders["Total"].sum()
         
-        # Format 'Date' column
+        # Formatar a coluna 'Date' para exibição amigável
         df_open_orders["Date"] = pd.to_datetime(df_open_orders["Date"]).dt.strftime('%Y-%m-%d')
         
-        # Format 'Total' column as Brazilian currency
+        # Formatar a coluna 'Total' para moeda brasileira
         df_open_orders["Total"] = df_open_orders["Total"].apply(
             lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         )
         
-        # Reset index and select desired columns
+        # Remover o índice e selecionar apenas as colunas desejadas
         df_open_orders = df_open_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
         
-        # Display the DataFrame
+        # Exibir a tabela sem índice e com largura otimizada para a coluna
         st.dataframe(df_open_orders, use_container_width=True)
         
-        # Display the total below the table
+        # Exibir a soma total abaixo da tabela
         st.markdown(f"**Total Geral (Open Orders):** R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     else:
         st.info("Nenhum pedido em aberto encontrado.")
@@ -176,7 +173,7 @@ def home_page():
     ############################
 
     st.subheader("Closed Orders Summary")
-    # Query to get closed orders grouped by Date with total
+    # Consulta para obter pedidos fechados agrupados por Data (somente dia) com a soma total
     closed_orders_query = """
     SELECT DATE("Data") as Date, SUM("total") as Total
     FROM public.vw_pedido_produto
@@ -187,31 +184,34 @@ def home_page():
     closed_orders_data = run_query(closed_orders_query, ('em aberto',))
 
     if closed_orders_data:
-        # Create DataFrame
+        # Criar DataFrame
         df_closed_orders = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
         
-        # Calculate total of closed orders
+        # Calcular a soma total dos pedidos fechados
         total_closed = df_closed_orders["Total"].sum()
         
-        # Format 'Date' column
+        # Formatar a coluna 'Date' para exibição amigável
         df_closed_orders["Date"] = pd.to_datetime(df_closed_orders["Date"]).dt.strftime('%Y-%m-%d')
         
-        # Format 'Total' column as Brazilian currency
+        # Formatar a coluna 'Total' para moeda brasileira
         df_closed_orders["Total"] = df_closed_orders["Total"].apply(
             lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         )
         
-        # Reset index and select desired columns
+        # Remover o índice e selecionar apenas as colunas desejadas
         df_closed_orders = df_closed_orders.reset_index(drop=True)[["Date", "Total"]]
         
-        # Display the DataFrame
+        # Exibir a tabela sem índice e com largura otimizada para a coluna
         st.dataframe(df_closed_orders, use_container_width=True)
         
-        # Display the total below the table
+        # Exibir a soma total abaixo da tabela
         st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     else:
         st.info("Nenhum pedido fechado encontrado.")
 
+#####################
+# Orders Page
+#####################
 def orders_page():
     st.title("Orders")
     st.subheader("Register a new order")
@@ -219,12 +219,11 @@ def orders_page():
     product_data = st.session_state.data.get("products", [])
     product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
 
-    # Form to insert a new order
+    # Formulário para inserir novo pedido
     with st.form(key='order_form'):
-        # Load list of clients for the new order
+        # Carregando lista de clientes para o novo pedido
         clientes = run_query('SELECT nome_completo FROM public.tb_clientes ORDER BY nome_completo;')
         customer_list = [""] + [row[0] for row in clientes]
-
         customer_name = st.selectbox("Customer Name", customer_list, index=0)
         product = st.selectbox("Product", product_list, index=0)
         quantity = st.number_input("Quantity", min_value=1, step=1)
@@ -246,20 +245,18 @@ def orders_page():
         else:
             st.warning("Please fill in all fields correctly.")
 
-    # Display all orders
+    # Exibir todos os pedidos
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
         st.subheader("All Orders")
         columns = ["Client", "Product", "Quantity", "Date", "Status"]
         df_orders = pd.DataFrame(orders_data, columns=columns)
         
-        # Debug: Display column names
-        # st.write("Columns in df_orders:", df_orders.columns.tolist())
-
+        # Exibir a tabela de pedidos
         st.dataframe(df_orders, use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Order")
-        # Create a unique key to identify each order
+        # Criar uma chave única para identificar cada pedido
         df_orders["unique_key"] = df_orders.apply(
             lambda row: f"{row['Client']}|{row['Product']}|{row['Date'].strftime('%Y-%m-%d %H:%M:%S')}",
             axis=1
@@ -268,7 +265,7 @@ def orders_page():
         selected_key = st.selectbox("Select an order to edit/delete:", [""] + unique_keys)
 
         if selected_key:
-            # Check how many records match the unique key
+            # Verificar quantos registros correspondem à chave única
             matching_rows = df_orders[df_orders["unique_key"] == selected_key]
             if len(matching_rows) > 1:
                 st.warning("Multiple orders found with the same key. Please refine your selection.")
@@ -280,7 +277,7 @@ def orders_page():
                 original_date = selected_row["Date"]
                 original_status = selected_row["Status"]
 
-                # Form to edit the order
+                # Formulário para editar o pedido
                 with st.form(key='edit_order_form'):
                     edit_product = st.selectbox(
                         "Product",
@@ -300,7 +297,7 @@ def orders_page():
                     update_button = st.form_submit_button(label="Update Order")
                     delete_button = st.form_submit_button(label="Delete Order")
 
-                # Delete order immediately after clicking the button, without confirmation
+                # Deletar Ordem imediatamente após clicar no botão, sem confirmação
                 if delete_button:
                     delete_query = """
                     DELETE FROM public.tb_pedido
@@ -316,7 +313,7 @@ def orders_page():
                         st.error("Failed to delete the order.")
 
                 if update_button:
-                    # Update the order in the database using the combination of fields as filter
+                    # Atualiza o pedido no banco usando a combinação de campos como filtro
                     update_query = """
                     UPDATE public.tb_pedido
                     SET "Produto" = %s, "Quantidade" = %s, status = %s
@@ -334,6 +331,9 @@ def orders_page():
     else:
         st.info("No orders found.")
 
+#####################
+# Products Page
+#####################
 def products_page():
     st.title("Products")
 
@@ -362,20 +362,20 @@ def products_page():
         else:
             st.warning("Please fill in all fields correctly.")
 
-    # Display all products
+    # Exibir todos os produtos
     products_data = st.session_state.data.get("products", [])
     if products_data:
         st.subheader("All Products")
         columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
         df_products = pd.DataFrame(products_data, columns=columns)
         
-        # Debug: Display column names
+        # Depuração: Exibir nomes das colunas
         st.write("Columns in df_products:", df_products.columns.tolist())
 
         st.dataframe(df_products, use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Product")
-        # Create a unique key to identify each product
+        # Criar uma chave única para identificar cada produto
         df_products["unique_key"] = df_products.apply(
             lambda row: f"{row['Supplier']}|{row['Product']}|{row['Creation Date'].strftime('%Y-%m-%d')}",
             axis=1
@@ -384,7 +384,7 @@ def products_page():
         selected_key = st.selectbox("Select a product to edit/delete:", [""] + unique_keys)
 
         if selected_key:
-            # Check how many records match the unique key
+            # Verificar quantos registros correspondem à chave única
             matching_rows = df_products[df_products["unique_key"] == selected_key]
             if len(matching_rows) > 1:
                 st.warning("Multiple products found with the same key. Please refine your selection.")
@@ -396,7 +396,7 @@ def products_page():
                 original_unit_value = selected_row["Unit Value"]
                 original_creation_date = selected_row["Creation Date"]
 
-                # Form to edit the product
+                # Formulário para editar o produto
                 with st.form(key='edit_product_form'):
                     edit_supplier = st.text_input("Supplier", value=original_supplier, max_chars=100)
                     edit_product = st.text_input("Product", value=original_product, max_chars=100)
@@ -419,10 +419,10 @@ def products_page():
                     delete_button = st.form_submit_button(label="Delete Product")
 
                 if update_button:
-                    # Recalculate total_value if quantity or unit_value changed
+                    # Recalcular total_value se quantity ou unit_value foram alterados
                     edit_total_value = edit_quantity * edit_unit_value
 
-                    # Update the product in the database using the combination of fields as filter
+                    # Atualiza o produto no banco usando a combinação de campos como filtro
                     update_query = """
                     UPDATE public.tb_products
                     SET supplier = %s,
@@ -444,7 +444,7 @@ def products_page():
                         st.error("Failed to update the product.")
 
                 if delete_button:
-                    # Confirmation before deleting
+                    # Confirmação antes de deletar
                     confirm = st.checkbox("Are you sure you want to delete this product?")
                     if confirm:
                         delete_query = """
@@ -460,12 +460,15 @@ def products_page():
     else:
         st.info("No products found.")
 
+#####################
+# Stock Page
+#####################
 def stock_page():
     st.title("Stock")
 
     st.subheader("Add a new stock record")
 
-    # Load the list of products from tb_products table
+    # Carregar a lista de produtos da tabela tb_products
     product_data = run_query("SELECT product FROM public.tb_products ORDER BY product;")
     product_list = [row[0] for row in product_data] if product_data else ["No products available"]
 
@@ -493,20 +496,20 @@ def stock_page():
         else:
             st.warning("Please select a product and enter a quantity greater than 0.")
 
-    # Display all stock records
+    # Exibir todos os registros de estoque
     stock_data = st.session_state.data.get("stock", [])
     if stock_data:
         st.subheader("All Stock Records")
         columns = ["Product", "Quantity", "Transaction", "Date"]
         df_stock = pd.DataFrame(stock_data, columns=columns)
         
-        # Debug: Display column names
+        # Depuração: Exibir nomes das colunas
         st.write("Columns in df_stock:", df_stock.columns.tolist())
 
         st.dataframe(df_stock, use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Stock Record")
-        # Create a unique key to identify each stock record
+        # Criar uma chave única para identificar cada registro de estoque
         df_stock["unique_key"] = df_stock.apply(
             lambda row: f"{row['Product']}|{row['Transaction']}|{row['Date'].strftime('%Y-%m-%d %H:%M:%S')}",
             axis=1
@@ -515,7 +518,7 @@ def stock_page():
         selected_key = st.selectbox("Select a stock record to edit/delete:", [""] + unique_keys)
 
         if selected_key:
-            # Check how many records match the unique key
+            # Verificar quantos registros correspondem à chave única
             matching_rows = df_stock[df_stock["unique_key"] == selected_key]
             if len(matching_rows) > 1:
                 st.warning("Multiple stock records found with the same key. Please refine your selection.")
@@ -524,9 +527,9 @@ def stock_page():
                 original_product = selected_row["Product"]
                 original_quantity = selected_row["Quantity"]
                 original_transaction = selected_row["Transaction"]
-                original_date = selected_row["Date"]  # This is a datetime object
+                original_date = selected_row["Date"]  # Isso é um objeto datetime
 
-                # Form to edit the stock record
+                # Formulário para editar o registro de estoque
                 with st.form(key='edit_stock_form'):
                     edit_product = st.selectbox(
                         "Product",
@@ -552,7 +555,7 @@ def stock_page():
                 if update_button:
                     edit_datetime = datetime.combine(edit_date, datetime.min.time())
 
-                    # Update the stock record in the database using the combination of fields as filter
+                    # Atualiza o registro de estoque no banco usando a combinação de campos como filtro
                     update_query = """
                     UPDATE public.tb_estoque
                     SET "Produto" = %s, "Quantidade" = %s, "Transação" = %s, "Data" = %s
@@ -569,7 +572,7 @@ def stock_page():
                         st.error("Failed to update the stock record.")
 
                 if delete_button:
-                    # Confirmation before deleting
+                    # Confirmação antes de deletar
                     confirm = st.checkbox("Are you sure you want to delete this stock record?")
                     if confirm:
                         delete_query = """
@@ -587,24 +590,27 @@ def stock_page():
     else:
         st.info("No stock records found.")
 
+#####################
+# Clients Page
+#####################
 def clients_page():
     st.title("Clients")
 
     st.subheader("Register a New Client")
 
-    # Form with only the Full Name field
+    # Formulário com apenas o campo Full Name
     with st.form(key='client_form'):
         nome_completo = st.text_input("Full Name", max_chars=100)
         submit_client = st.form_submit_button(label="Register New Client")
 
     if submit_client:
         if nome_completo:
-            # Other default values
+            # Outros valores padrões
             data_nascimento = datetime(2000, 1, 1).date()
             genero = "Man"
             telefone = "0000-0000"
             
-            # Generate a unique email to avoid unique key conflict
+            # Gera um email único para evitar conflito de chave única
             unique_id = datetime.now().strftime("%Y%m%d%H%M%S")
             email = f"{nome_completo.replace(' ', '_').lower()}_{unique_id}@example.com"
 
@@ -621,7 +627,7 @@ def clients_page():
         else:
             st.warning("Please fill in the Full Name field.")
 
-    # Show the table of registered clients
+    # Mostrar a tabela de clientes cadastrados
     clients_data = run_query("SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro FROM public.tb_clientes ORDER BY data_cadastro DESC;")
 
     if clients_data:
@@ -631,16 +637,16 @@ def clients_page():
         st.dataframe(df_clients, use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Client")
-        # Select a client to edit
+        # Selecionar um cliente para edição
         client_emails = df_clients["Email"].unique().tolist()
         selected_email = st.selectbox("Select a client by Email:", [""] + client_emails)
 
         if selected_email:
-            # Get data of the selected client
+            # Obtém dados do cliente selecionado
             selected_client_row = df_clients[df_clients["Email"] == selected_email].iloc[0]
             original_name = selected_client_row["Full Name"]
 
-            # Form to edit the name
+            # Formulário para editar o nome
             with st.form(key='edit_client_form'):
                 edit_name = st.text_input("Full Name", value=original_name, max_chars=100)
                 col1, col2 = st.columns(2)
@@ -666,7 +672,7 @@ def clients_page():
                     st.warning("Please fill in the Full Name field.")
 
             if delete_button:
-                # Confirmation before deleting
+                # Confirmação antes de deletar
                 confirm = st.checkbox("Are you sure you want to delete this client?")
                 if confirm:
                     delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
@@ -679,6 +685,9 @@ def clients_page():
     else:
         st.info("No clients found.")
 
+#####################
+# Invoice Page
+#####################
 def invoice_page():
     st.title("Nota Fiscal")
 
@@ -795,32 +804,32 @@ def login_page():
 # Initialization
 #####################
 
-# Initialize session state for data and login
+# Inicializar o estado da sessão para dados e login
 if 'data' not in st.session_state:
     st.session_state.data = load_all_data()
 
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
-# Check if the user is logged in
+# Verificar se o usuário está logado
 if not st.session_state.logged_in:
     login_page()
 else:
     # Menu Navigation
     selected_page = sidebar_navigation()
 
-    # Detect page change and refresh data if necessary
+    # Detectar mudança de página e atualizar os dados se necessário
     if 'current_page' not in st.session_state:
         st.session_state.current_page = selected_page
-        # Data is already loaded initially
+        # Inicialmente, os dados já estão carregados
     elif selected_page != st.session_state.current_page:
-        # Page changed, reload data
+        # Página mudou, recarregar os dados
         refresh_data()
         st.session_state.current_page = selected_page
-        # Reset home page initialization flag when navigating to Home
+        # Reset home page initialization flag quando navegar para Home
         if selected_page == "Home":
             st.session_state.home_page_initialized = False
-            # Summaries will be displayed by default in home_page()
+            # As tabelas serão exibidas por padrão na home_page()
 
     # Page Routing
     if selected_page == "Home":
@@ -836,16 +845,11 @@ else:
     elif selected_page == "Nota Fiscal":
         invoice_page()
 
-    # Add logout option in the sidebar
+    # Adicionar opção de logout no sidebar
     with st.sidebar:
         if st.button("Logout"):
             # Reset all home page related session state variables
             keys_to_reset = [
-                'show_open_orders',
-                'show_closed_orders',
-                'show_status_summary',
-                'show_product_summary',
-                'show_combined_summary',
                 'home_page_initialized'
             ]
             for key in keys_to_reset:
