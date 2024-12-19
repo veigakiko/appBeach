@@ -9,7 +9,7 @@ import requests
 from io import BytesIO
 # import plotly.express as px  # Removido, já que o gráfico foi removido da Home
 
-#####################
+####################
 # Database Utilities
 #####################
 @st.cache_resource
