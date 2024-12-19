@@ -10,7 +10,7 @@ from io import BytesIO
 # import plotly.express as px  # Removido, já que o gráfico foi removido da Home
 
 #####################
-# Database Utilities 
+# Database Utilities
 #####################
 @st.cache_resource
 def get_db_connection():
@@ -128,16 +128,13 @@ def sidebar_navigation():
 #####################
 def home_page():
     # Título ajustado com emoji no início
-    st.title("🎾 Boituva Beach Club 🎾")
+    st.title("🎾Boituva Beach Club 🎾")
     # Descrição com tamanho de fonte normal
     st.write("📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     
     ############################
     # Display Open Orders Summary
     ############################
-    st.markdown("")
-    st.markdown("")
-    st.markdown("")
 
     st.markdown("**Open Orders Summary**")
     # Consulta para obter pedidos em aberto agrupados por Cliente com a soma total
@@ -722,7 +719,8 @@ def invoice_page():
             # Formatar para moeda brasileira
             formatted_total_sum = f"R$ {total_sum:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-            st.markdown(f"**Total Geral: {formatted_total_sum}**")
+            # **Remova ou comente esta linha para evitar duplicação**
+            # st.markdown(f"**Total Geral: {formatted_total_sum}**")
             
             col1, col2, col3 = st.columns(3)
 
@@ -762,7 +760,7 @@ def generate_invoice_for_printer(df):
 
     invoice_note = []
     invoice_note.append("==================================================")
-    invoice_note.append("                         NOTA FISCAL")
+    invoice_note.append("                      NOTA FISCAL                ")
     invoice_note.append("==================================================")
     invoice_note.append(f"Empresa: {company}")
     invoice_note.append(f"Endereço: {address}")
@@ -777,15 +775,15 @@ def generate_invoice_for_printer(df):
 
     for _, row in df.iterrows():
         description = f"{row['Produto'][:20]:<20}"
-        quantity = f"{row['Quantidade']:>5}"
+        quantity = f"{int(row['Quantidade']):>5}"
         total = row['total']
         total_general += total
         total_formatted = f"R$ {total:,.2f}".replace('.', ',')
         invoice_note.append(f"{description} {quantity} {total_formatted}")
 
-    formatted_general_total = f"R$ {total_general:,.2f}".replace('.', ',')
+    formatted_general_total = f"R$ {total_general:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     invoice_note.append("--------------------------------------------------")
-    invoice_note.append(f"TOTAL GERAL: {formatted_general_total:>28}")
+    invoice_note.append(f"{'TOTAL GERAL:':>30} {formatted_general_total:>10}")
     invoice_note.append("==================================================")
     invoice_note.append("OBRIGADO PELA SUA PREFERÊNCIA!")
     invoice_note.append("==================================================")
