@@ -7,6 +7,7 @@ import pandas as pd
 from PIL import Image
 import requests
 from io import BytesIO
+import plotly.graph_objects as go  # Importação do Plotly
 
 #####################
 # Database Utilities
@@ -160,7 +161,7 @@ def home_page():
         df_open_orders = df_open_orders.reset_index(drop=True)[["Client", "Total"]]
         
         # Exibir a tabela sem índice e com largura otimizada para a coluna
-        st.dataframe(df_open_orders, use_container_width=True)
+        st.table(df_open_orders)
         
         # Exibir a soma total abaixo da tabela
         st.markdown(f"**Total Geral (Open Orders):** R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
@@ -189,6 +190,27 @@ def home_page():
         # Calcular a soma total dos pedidos fechados
         total_closed = df_closed_orders["Total"].sum()
         
+        # Criar o gráfico de barras antes de formatar os totais
+        fig = go.Figure()
+        
+        fig.add_trace(go.Bar(
+            x=df_closed_orders["Date"],
+            y=df_closed_orders["Total"],
+            marker_color='indigo'
+        ))
+        
+        fig.update_layout(
+            title="Total Vendido por Dia",
+            xaxis_title="Data",
+            yaxis_title="Total Vendido (R$)",
+            autosize=False,
+            width=700,
+            height=500,
+            template="plotly_white"
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
         # Formatar a coluna 'Date' para exibição amigável
         df_closed_orders["Date"] = pd.to_datetime(df_closed_orders["Date"]).dt.strftime('%Y-%m-%d')
         
@@ -201,7 +223,7 @@ def home_page():
         df_closed_orders = df_closed_orders.reset_index(drop=True)[["Date", "Total"]]
         
         # Exibir a tabela sem índice e com largura otimizada para a coluna
-        st.dataframe(df_closed_orders, use_container_width=True)
+        st.table(df_closed_orders)
         
         # Exibir a soma total abaixo da tabela
         st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
@@ -808,7 +830,7 @@ def login_page():
         response = requests.get(logo_url)
         response.raise_for_status()
         logo = Image.open(BytesIO(response.content))
-        st.image(logo, use_column_width=False)  # Removido use_column_width=True para exibir em tamanho original
+        st.image(logo, use_column_width=False)  # Exibe em tamanho original
     except requests.exceptions.RequestException as e:
         st.error("Falha ao carregar o logotipo.")
 
