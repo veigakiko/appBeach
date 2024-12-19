@@ -1,59 +1,111 @@
-# app.py
 import streamlit as st
 from streamlit_option_menu import option_menu
+import psycopg2
+from psycopg2 import OperationalError
 from datetime import datetime
 import pandas as pd
 from PIL import Image
 import requests
 from io import BytesIO
-import plotly.express as px
-from database import run_query, run_insert, load_all_data, refresh_data
-from auth import authenticate_user
-import os
+# import plotly.express as px  # Removido, já que o gráfico será excluído
 
 #####################
-# Helper Functions
+# Database Utilities
 #####################
-
-def format_currency(value):
+@st.cache_resource
+def get_db_connection():
     """
-    Formats a number into Brazilian Real currency format.
-    """
-    return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-def generate_unique_key(row, keys):
-    """
-    Generates a unique key for a given row based on specified keys.
-    """
-    return "|".join([str(row[key]) for key in keys])
-
-def load_logo(url):
-    """
-    Loads and returns an image from a given URL.
+    Retorna uma conexão persistente com o banco de dados usando psycopg2.
     """
     try:
-        response = requests.get(url)
-        response.raise_for_status()
-        logo = Image.open(BytesIO(response.content))
-        return logo
-    except requests.exceptions.RequestException as e:
-        st.error("Falha ao carregar o logotipo.")
+        conn = psycopg2.connect(
+            host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
+            database="beachtennis",
+            user="kiko",
+            password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
+            port=5432
+        )
+        return conn
+    except OperationalError as e:
+        st.error("Não foi possível conectar ao banco de dados. Por favor, tente novamente mais tarde.")
         return None
 
-#####################
-# UI Components
-#####################
+def run_query(query, values=None):
+    """
+    Executa uma consulta de leitura (SELECT) e retorna os dados obtidos.
+    """
+    conn = get_db_connection()
+    if conn is None:
+        return []
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, values or ())
+            return cursor.fetchall()
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        st.error(f"Erro ao executar a consulta: {e}")
+        return []
 
+def run_insert(query, values):
+    """
+    Executa uma consulta de inserção, atualização ou deleção.
+    """
+    conn = get_db_connection()
+    if conn is None:
+        return False
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, values)
+        conn.commit()
+        return True
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        st.error(f"Erro ao executar a consulta: {e}")
+        return False
+
+#####################
+# Data Loading
+#####################
+def load_all_data():
+    """
+    Carrega todos os dados utilizados pelo aplicativo e retorna em um dicionário.
+    """
+    data = {}
+    try:
+        data["orders"] = run_query(
+            'SELECT "Cliente", "Produto", "Quantidade", "Data", status FROM public.tb_pedido ORDER BY "Data" DESC;'
+        )
+        data["products"] = run_query(
+            'SELECT supplier, product, quantity, unit_value, total_value, creation_date FROM public.tb_products ORDER BY creation_date DESC;'
+        )
+        data["clients"] = run_query('SELECT DISTINCT "Cliente" FROM public.tb_pedido ORDER BY "Cliente";')
+        data["stock"] = run_query(
+            'SELECT "Produto", "Quantidade", "Transação", "Data" FROM public.tb_estoque ORDER BY "Data" DESC;'
+        )
+    except Exception as e:
+        st.error(f"Erro ao carregar os dados: {e}")
+    return data
+
+def refresh_data():
+    """
+    Recarrega todos os dados e atualiza o estado da sessão.
+    """
+    st.session_state.data = load_all_data()
+
+#####################
+# Menu Navigation
+#####################
 def sidebar_navigation():
     """
-    Creates a sidebar menu for navigation.
+    Cria um menu lateral para navegação usando streamlit_option_menu.
     """
     with st.sidebar:
         st.title("Boituva Beach Club 🎾")
         selected = option_menu(
-            "Menu Principal",
-            ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
-            icons=["house", "file-text", "box", "list-task", "layers", "file-invoice"],
+            "Menu Principal", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
+            icons=["house", "file-text", "box", "list-task", "layers", "file-invoice"],  # Confirmação do ícone para Nota Fiscal
             menu_icon="cast",
             default_index=0,
             styles={
@@ -72,18 +124,26 @@ def sidebar_navigation():
     return selected
 
 #####################
-# Pages
+# Home Page
 #####################
-
 def home_page():
-    st.title("Boituva Beach Club 🎾")
-    st.write("📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
-
+    # Centralizar o título e o endereço usando HTML/CSS
+    st.markdown(
+        """
+        <div style="text-align: center;">
+            <h1>Boituva Beach Club 🎾</h1>
+            <p>📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
     ############################
     # Display Open Orders Summary
     ############################
 
     st.subheader("Open Orders Summary")
+    # Consulta para obter pedidos em aberto agrupados por Cliente com a soma total
     open_orders_query = """
     SELECT "Cliente", SUM("total") as Total
     FROM public.vw_pedido_produto
@@ -94,12 +154,25 @@ def home_page():
     open_orders_data = run_query(open_orders_query, ('em aberto',))
 
     if open_orders_data:
+        # Criar DataFrame para exibição
         df_open_orders_display = pd.DataFrame(open_orders_data, columns=["Client", "Total"])
+        
+        # Calcular a soma total dos pedidos em aberto
         total_open = df_open_orders_display["Total"].sum()
-        df_open_orders_display["Total"] = df_open_orders_display["Total"].apply(format_currency)
+        
+        # Formatar a coluna 'Total' para moeda brasileira
+        df_open_orders_display["Total"] = df_open_orders_display["Total"].apply(
+            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+        
+        # Remover o índice e selecionar apenas as colunas desejadas
         df_open_orders_display = df_open_orders_display.reset_index(drop=True)[["Client", "Total"]]
+        
+        # Exibir a tabela sem índice e com largura otimizada para a coluna
         st.table(df_open_orders_display)
-        st.markdown(f"**Total Geral (Open Orders):** {format_currency(total_open)}")
+        
+        # Exibir a soma total abaixo da tabela
+        st.markdown(f"**Total Geral (Open Orders):** R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     else:
         st.info("Nenhum pedido em aberto encontrado.")
 
@@ -108,6 +181,7 @@ def home_page():
     ############################
 
     st.subheader("Closed Orders Summary")
+    # Consulta para obter pedidos fechados agrupados por Data (somente dia) com a soma total
     closed_orders_query = """
     SELECT DATE("Data") as Date, SUM("total") as Total
     FROM public.vw_pedido_produto
@@ -118,44 +192,47 @@ def home_page():
     closed_orders_data = run_query(closed_orders_query, ('em aberto',))
 
     if closed_orders_data:
-        df_closed_orders_plot = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
-        df_closed_orders_display = df_closed_orders_plot.copy()
+        # Criar DataFrame com dados brutos para exibição
+        df_closed_orders_display = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
+        
+        # Formatar a coluna 'Date' para exibição amigável (somente dia)
         df_closed_orders_display["Date"] = pd.to_datetime(df_closed_orders_display["Date"]).dt.strftime('%Y-%m-%d')
-        df_closed_orders_display["Total"] = df_closed_orders_display["Total"].apply(format_currency)
-        total_closed = df_closed_orders_plot["Total"].sum()
+        
+        # Formatar a coluna 'Total' para moeda brasileira
+        df_closed_orders_display["Total"] = df_closed_orders_display["Total"].apply(
+            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+        
+        # Calcular a soma total dos pedidos fechados
+        total_closed = df_closed_orders_display["Total"].str.replace("R$ ", "").str.replace(".", "").str.replace(",", ".").astype(float).sum()
+        
+        # Exibir a tabela de Closed Orders Summary
         st.table(df_closed_orders_display)
-        fig = px.area(
-            df_closed_orders_plot,
-            x='Date',
-            y='Total',
-            title='Total Vendido por Dia',
-            labels={'Date': 'Data', 'Total': 'Total Vendido (R$)'},
-            template='plotly_white'
-        )
-        fig.update_layout(
-            autosize=False,
-            width=700,
-            height=500
-        )
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown(f"**Total Geral (Closed Orders):** {format_currency(total_closed)}")
+        
+        # **Removido o gráfico Plotly**
+        # Caso queira remover também a exibição da soma total abaixo do gráfico, ajuste conforme necessário.
+        
+        # Exibir a soma total abaixo da tabela
+        st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     else:
         st.info("Nenhum pedido fechado encontrado.")
 
+#####################
+# Orders Page
+#####################
 def orders_page():
     st.title("Orders")
-    st.subheader("Register a New Order")
+    st.subheader("Register a new order")
 
-    # Fetch products and clients
-    product_data = run_query('SELECT product FROM public.tb_products ORDER BY product;')
-    product_list = [row[0] for row in product_data] if product_data else ["No products available"]
+    product_data = st.session_state.data.get("products", [])
+    product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
 
-    client_data = run_query('SELECT nome_completo FROM public.tb_clientes ORDER BY nome_completo;')
-    client_list = [row[0] for row in client_data] if client_data else ["No clients available"]
-
-    # Order Registration Form
+    # Formulário para inserir novo pedido
     with st.form(key='order_form'):
-        customer_name = st.selectbox("Customer Name", client_list, index=0)
+        # Carregando lista de clientes para o novo pedido
+        clientes = run_query('SELECT nome_completo FROM public.tb_clientes ORDER BY nome_completo;')
+        customer_list = [""] + [row[0] for row in clientes]
+        customer_name = st.selectbox("Customer Name", customer_list, index=0)
         product = st.selectbox("Product", product_list, index=0)
         quantity = st.number_input("Quantity", min_value=1, step=1)
         submit_button = st.form_submit_button(label="Register Order")
@@ -163,55 +240,40 @@ def orders_page():
     if submit_button:
         if customer_name and product and quantity > 0:
             query = """
-            INSERT INTO public.tb_pedido ("Cliente", "Produto", "Quantidade", "Data", status, total)
-            VALUES (%s, %s, %s, %s, 'em aberto', (SELECT unit_value FROM public.tb_products WHERE product = %s) * %s);
+            INSERT INTO public.tb_pedido ("Cliente", "Produto", "Quantidade", "Data", "status")
+            VALUES (%s, %s, %s, %s, 'em aberto');
             """
             timestamp = datetime.now()
-            unit_value_query = 'SELECT unit_value FROM public.tb_products WHERE product = %s;'
-            unit_value = run_query(unit_value_query, (product,))
-            if unit_value:
-                total_value = unit_value[0][0] * quantity
-                success = run_insert(query, (customer_name, product, quantity, timestamp, product, quantity))
-                if success:
-                    st.success("Order registered successfully!")
-                    refresh_data()
-                else:
-                    st.error("Failed to register the order.")
+            success = run_insert(query, (customer_name, product, quantity, timestamp))
+            if success:
+                st.success("Order registered successfully!")
+                refresh_data()
             else:
-                st.error("Failed to retrieve unit value for the selected product.")
+                st.error("Failed to register the order.")
         else:
             st.warning("Please fill in all fields correctly.")
 
-    # Display All Orders with Search and Filter
-    st.subheader("All Orders")
-    search_term = st.text_input("Search by Client or Product")
-    status_filter = st.selectbox("Filter by Status", ["All", "em aberto", "Received - Debited", "Received - Credit", "Received - Pix"])
-
+    # Exibir todos os pedidos
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
-        df_orders = pd.DataFrame(orders_data, columns=["Client", "Product", "Quantity", "Date", "Status", "Total"])
-
-        if search_term:
-            df_orders = df_orders[
-                df_orders["Client"].str.contains(search_term, case=False) | 
-                df_orders["Product"].str.contains(search_term, case=False)
-            ]
-
-        if status_filter != "All":
-            df_orders = df_orders[df_orders["Status"] == status_filter]
-
+        st.subheader("All Orders")
+        columns = ["Client", "Product", "Quantity", "Date", "Status"]
+        df_orders = pd.DataFrame(orders_data, columns=columns)
+        
+        # Exibir a tabela de pedidos
         st.dataframe(df_orders, use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Order")
-        # Generate unique keys based on Client, Product, and Date
+        # Criar uma chave única para identificar cada pedido
         df_orders["unique_key"] = df_orders.apply(
-            lambda row: generate_unique_key(row, ["Client", "Product", "Date"]),
+            lambda row: f"{row['Client']}|{row['Product']}|{row['Date'].strftime('%Y-%m-%d %H:%M:%S')}",
             axis=1
         )
         unique_keys = df_orders["unique_key"].unique().tolist()
         selected_key = st.selectbox("Select an order to edit/delete:", [""] + unique_keys)
 
         if selected_key:
+            # Verificar quantos registros correspondem à chave única
             matching_rows = df_orders[df_orders["unique_key"] == selected_key]
             if len(matching_rows) > 1:
                 st.warning("Multiple orders found with the same key. Please refine your selection.")
@@ -223,7 +285,7 @@ def orders_page():
                 original_date = selected_row["Date"]
                 original_status = selected_row["Status"]
 
-                # Edit/Delete Form
+                # Formulário para editar o pedido
                 with st.form(key='edit_order_form'):
                     edit_product = st.selectbox(
                         "Product",
@@ -243,6 +305,7 @@ def orders_page():
                     update_button = st.form_submit_button(label="Update Order")
                     delete_button = st.form_submit_button(label="Delete Order")
 
+                # Deletar Ordem imediatamente após clicar no botão, sem confirmação
                 if delete_button:
                     delete_query = """
                     DELETE FROM public.tb_pedido
@@ -258,13 +321,14 @@ def orders_page():
                         st.error("Failed to delete the order.")
 
                 if update_button:
+                    # Atualiza o pedido no banco usando a combinação de campos como filtro
                     update_query = """
                     UPDATE public.tb_pedido
-                    SET "Produto" = %s, "Quantidade" = %s, status = %s, total = (SELECT unit_value FROM public.tb_products WHERE product = %s) * %s
+                    SET "Produto" = %s, "Quantidade" = %s, status = %s
                     WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
                     """
                     success = run_insert(update_query, (
-                        edit_product, edit_quantity, edit_status, edit_product, edit_quantity,
+                        edit_product, edit_quantity, edit_status,
                         original_client, original_product, original_date
                     ))
                     if success:
@@ -275,10 +339,13 @@ def orders_page():
     else:
         st.info("No orders found.")
 
+#####################
+# Products Page
+#####################
 def products_page():
     st.title("Products")
 
-    st.subheader("Add a New Product")
+    st.subheader("Add a new product")
     with st.form(key='product_form'):
         supplier = st.text_input("Supplier", max_chars=100)
         product = st.text_input("Product", max_chars=100)
@@ -303,36 +370,29 @@ def products_page():
         else:
             st.warning("Please fill in all fields correctly.")
 
-    # Display All Products with Search and Filter
-    st.subheader("All Products")
-    search_term = st.text_input("Search by Supplier or Product")
-    date_filter = st.date_input("Filter by Creation Date", value=None)
-
+    # Exibir todos os produtos
     products_data = st.session_state.data.get("products", [])
     if products_data:
-        df_products = pd.DataFrame(products_data, columns=["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"])
-
-        if search_term:
-            df_products = df_products[
-                df_products["Supplier"].str.contains(search_term, case=False) | 
-                df_products["Product"].str.contains(search_term, case=False)
-            ]
-
-        if date_filter:
-            df_products = df_products[df_products["Creation Date"] == date_filter]
+        st.subheader("All Products")
+        columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
+        df_products = pd.DataFrame(products_data, columns=columns)
+        
+        # Depuração: Exibir nomes das colunas
+        st.write("Columns in df_products:", df_products.columns.tolist())
 
         st.dataframe(df_products, use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Product")
-        # Generate unique keys based on Supplier, Product, and Creation Date
+        # Criar uma chave única para identificar cada produto
         df_products["unique_key"] = df_products.apply(
-            lambda row: generate_unique_key(row, ["Supplier", "Product", "Creation Date"]),
+            lambda row: f"{row['Supplier']}|{row['Product']}|{row['Creation Date'].strftime('%Y-%m-%d')}",
             axis=1
         )
         unique_keys = df_products["unique_key"].unique().tolist()
         selected_key = st.selectbox("Select a product to edit/delete:", [""] + unique_keys)
 
         if selected_key:
+            # Verificar quantos registros correspondem à chave única
             matching_rows = df_products[df_products["unique_key"] == selected_key]
             if len(matching_rows) > 1:
                 st.warning("Multiple products found with the same key. Please refine your selection.")
@@ -344,7 +404,7 @@ def products_page():
                 original_unit_value = selected_row["Unit Value"]
                 original_creation_date = selected_row["Creation Date"]
 
-                # Edit/Delete Form
+                # Formulário para editar o produto
                 with st.form(key='edit_product_form'):
                     edit_supplier = st.text_input("Supplier", value=original_supplier, max_chars=100)
                     edit_product = st.text_input("Product", value=original_product, max_chars=100)
@@ -367,7 +427,10 @@ def products_page():
                     delete_button = st.form_submit_button(label="Delete Product")
 
                 if update_button:
+                    # Recalcular total_value se quantity ou unit_value foram alterados
                     edit_total_value = edit_quantity * edit_unit_value
+
+                    # Atualiza o produto no banco usando a combinação de campos como filtro
                     update_query = """
                     UPDATE public.tb_products
                     SET supplier = %s,
@@ -389,6 +452,7 @@ def products_page():
                         st.error("Failed to update the product.")
 
                 if delete_button:
+                    # Confirmação antes de deletar
                     confirm = st.checkbox("Are you sure you want to delete this product?")
                     if confirm:
                         delete_query = """
@@ -404,12 +468,15 @@ def products_page():
     else:
         st.info("No products found.")
 
+#####################
+# Stock Page
+#####################
 def stock_page():
     st.title("Stock")
 
-    st.subheader("Add a New Stock Record")
+    st.subheader("Add a new stock record")
 
-    # Load product list
+    # Carregar a lista de produtos da tabela tb_products
     product_data = run_query("SELECT product FROM public.tb_products ORDER BY product;")
     product_list = [row[0] for row in product_data] if product_data else ["No products available"]
 
@@ -423,6 +490,7 @@ def stock_page():
     if submit_stock:
         if product and quantity > 0:
             current_datetime = datetime.combine(date, datetime.min.time())
+
             query = """
             INSERT INTO public.tb_estoque ("Produto", "Quantidade", "Transação", "Data")
             VALUES (%s, %s, %s, %s);
@@ -436,36 +504,29 @@ def stock_page():
         else:
             st.warning("Please select a product and enter a quantity greater than 0.")
 
-    # Display All Stock Records with Search and Filter
-    st.subheader("All Stock Records")
-    search_term = st.text_input("Search by Product or Transaction Type")
-    date_filter = st.date_input("Filter by Date", value=None)
-
+    # Exibir todos os registros de estoque
     stock_data = st.session_state.data.get("stock", [])
     if stock_data:
-        df_stock = pd.DataFrame(stock_data, columns=["Product", "Quantity", "Transaction", "Date"])
-
-        if search_term:
-            df_stock = df_stock[
-                df_stock["Product"].str.contains(search_term, case=False) | 
-                df_stock["Transaction"].str.contains(search_term, case=False)
-            ]
-
-        if date_filter:
-            df_stock = df_stock[df_stock["Date"] == date_filter]
+        st.subheader("All Stock Records")
+        columns = ["Product", "Quantity", "Transaction", "Date"]
+        df_stock = pd.DataFrame(stock_data, columns=columns)
+        
+        # Depuração: Exibir nomes das colunas
+        st.write("Columns in df_stock:", df_stock.columns.tolist())
 
         st.dataframe(df_stock, use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Stock Record")
-        # Generate unique keys based on Product, Transaction, and Date
+        # Criar uma chave única para identificar cada registro de estoque
         df_stock["unique_key"] = df_stock.apply(
-            lambda row: generate_unique_key(row, ["Product", "Transaction", "Date"]),
+            lambda row: f"{row['Product']}|{row['Transaction']}|{row['Date'].strftime('%Y-%m-%d %H:%M:%S')}",
             axis=1
         )
         unique_keys = df_stock["unique_key"].unique().tolist()
         selected_key = st.selectbox("Select a stock record to edit/delete:", [""] + unique_keys)
 
         if selected_key:
+            # Verificar quantos registros correspondem à chave única
             matching_rows = df_stock[df_stock["unique_key"] == selected_key]
             if len(matching_rows) > 1:
                 st.warning("Multiple stock records found with the same key. Please refine your selection.")
@@ -474,9 +535,9 @@ def stock_page():
                 original_product = selected_row["Product"]
                 original_quantity = selected_row["Quantity"]
                 original_transaction = selected_row["Transaction"]
-                original_date = selected_row["Date"]
+                original_date = selected_row["Date"]  # Isso é um objeto datetime
 
-                # Edit/Delete Form
+                # Formulário para editar o registro de estoque
                 with st.form(key='edit_stock_form'):
                     edit_product = st.selectbox(
                         "Product",
@@ -501,6 +562,8 @@ def stock_page():
 
                 if update_button:
                     edit_datetime = datetime.combine(edit_date, datetime.min.time())
+
+                    # Atualiza o registro de estoque no banco usando a combinação de campos como filtro
                     update_query = """
                     UPDATE public.tb_estoque
                     SET "Produto" = %s, "Quantidade" = %s, "Transação" = %s, "Data" = %s
@@ -517,6 +580,7 @@ def stock_page():
                         st.error("Failed to update the stock record.")
 
                 if delete_button:
+                    # Confirmação antes de deletar
                     confirm = st.checkbox("Are you sure you want to delete this stock record?")
                     if confirm:
                         delete_query = """
@@ -534,26 +598,31 @@ def stock_page():
     else:
         st.info("No stock records found.")
 
+#####################
+# Clients Page
+#####################
 def clients_page():
     st.title("Clients")
 
     st.subheader("Register a New Client")
 
+    # Formulário com apenas o campo Full Name
     with st.form(key='client_form'):
         nome_completo = st.text_input("Full Name", max_chars=100)
         submit_client = st.form_submit_button(label="Register New Client")
 
     if submit_client:
         if nome_completo:
-            # Default values
+            # Outros valores padrões
             data_nascimento = datetime(2000, 1, 1).date()
             genero = "Man"
             telefone = "0000-0000"
-            endereco = "Endereço padrão"
-
-            # Generate a unique email
+            
+            # Gera um email único para evitar conflito de chave única
             unique_id = datetime.now().strftime("%Y%m%d%H%M%S")
             email = f"{nome_completo.replace(' ', '_').lower()}_{unique_id}@example.com"
+
+            endereco = "Endereço padrão"
 
             query = """
             INSERT INTO public.tb_clientes (nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro)
@@ -563,78 +632,55 @@ def clients_page():
             if success:
                 st.success("Client registered successfully!")
                 refresh_data()
-            else:
-                st.error("Failed to register the client.")
         else:
             st.warning("Please fill in the Full Name field.")
 
-    # Display All Clients with Search and Filter
-    st.subheader("All Clients")
-    search_term = st.text_input("Search by Full Name or Email")
-    date_filter = st.date_input("Filter by Registration Date", value=None)
-
+    # Mostrar a tabela de clientes cadastrados
     clients_data = run_query("SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro FROM public.tb_clientes ORDER BY data_cadastro DESC;")
+
     if clients_data:
-        df_clients = pd.DataFrame(clients_data, columns=["Full Name", "Birth Date", "Gender", "Phone", "Email", "Address", "Register Date"])
-
-        if search_term:
-            df_clients = df_clients[
-                df_clients["Full Name"].str.contains(search_term, case=False) | 
-                df_clients["Email"].str.contains(search_term, case=False)
-            ]
-
-        if date_filter:
-            df_clients = df_clients[df_clients["Register Date"].dt.date == date_filter]
-
+        st.subheader("All Clients")
+        columns = ["Full Name", "Birth Date", "Gender", "Phone", "Email", "Address", "Register Date"]
+        df_clients = pd.DataFrame(clients_data, columns=columns)
         st.dataframe(df_clients, use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Client")
-        # Select client by Email
+        # Selecionar um cliente para edição
         client_emails = df_clients["Email"].unique().tolist()
         selected_email = st.selectbox("Select a client by Email:", [""] + client_emails)
 
         if selected_email:
+            # Obtém dados do cliente selecionado
             selected_client_row = df_clients[df_clients["Email"] == selected_email].iloc[0]
             original_name = selected_client_row["Full Name"]
-            original_birth_date = selected_client_row["Birth Date"]
-            original_gender = selected_client_row["Gender"]
-            original_phone = selected_client_row["Phone"]
-            original_address = selected_client_row["Address"]
 
-            # Edit/Delete Form
+            # Formulário para editar o nome
             with st.form(key='edit_client_form'):
                 edit_name = st.text_input("Full Name", value=original_name, max_chars=100)
-                edit_birth_date = st.date_input("Birth Date", value=original_birth_date)
-                edit_gender = st.selectbox("Gender", ["Man", "Woman", "Other"], index=["Man", "Woman", "Other"].index(original_gender) if original_gender in ["Man", "Woman", "Other"] else 0)
-                edit_phone = st.text_input("Phone", value=original_phone)
-                edit_address = st.text_input("Address", value=original_address, max_chars=200)
-
-                update_button = st.form_submit_button(label="Update Client")
-                delete_button = st.form_submit_button(label="Delete Client")
+                col1, col2 = st.columns(2)
+                with col1:
+                    update_button = st.form_submit_button(label="Update Client")
+                with col2:
+                    delete_button = st.form_submit_button(label="Delete Client")
 
             if update_button:
-                if edit_name and edit_phone and edit_address:
+                if edit_name:
                     update_query = """
                     UPDATE public.tb_clientes
-                    SET nome_completo = %s,
-                        data_nascimento = %s,
-                        genero = %s,
-                        telefone = %s,
-                        endereco = %s
+                    SET nome_completo = %s
                     WHERE email = %s;
                     """
-                    success = run_insert(update_query, (
-                        edit_name, edit_birth_date, edit_gender, edit_phone, edit_address, selected_email
-                    ))
+                    success = run_insert(update_query, (edit_name, selected_email))
                     if success:
                         st.success("Client updated successfully!")
                         refresh_data()
                     else:
                         st.error("Failed to update the client.")
                 else:
-                    st.warning("Please fill in all fields correctly.")
+                    st.warning("Please fill in the Full Name field.")
 
             if delete_button:
+                # Confirmação antes de deletar
                 confirm = st.checkbox("Are you sure you want to delete this client?")
                 if confirm:
                     delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
@@ -647,6 +693,9 @@ def clients_page():
     else:
         st.info("No clients found.")
 
+#####################
+# Invoice Page
+#####################
 def invoice_page():
     st.title("Nota Fiscal")
 
@@ -667,10 +716,10 @@ def invoice_page():
 
         if invoice_data:
             df = pd.DataFrame(invoice_data, columns=["Produto", "Quantidade", "total"])
-            generate_invoice_pdf(df)
+            generate_invoice_for_printer(df)
 
             total_sum = df["total"].sum()
-            st.markdown(f"**Total Geral: {format_currency(total_sum)}**")
+            st.markdown(f"**Total Geral: R$ {total_sum:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
             col1, col2, col3 = st.columns(3)
 
@@ -701,118 +750,155 @@ def process_payment(client, payment_status):
     else:
         st.error("Erro ao atualizar o status.")
 
-def generate_invoice_pdf(df):
-    """
-    Generates a PDF invoice and provides a download link.
-    """
-    from reportlab.lib.pagesizes import A4
-    from reportlab.pdfgen import canvas
-    from reportlab.lib.units import mm
-
+def generate_invoice_for_printer(df):
     company = "Boituva Beach Club"
     address = "Avenida do Trabalhador 1879"
     city = "Boituva - SP 18552-100"
     cnpj = "05.365.434/0001-09"
     phone = "(13) 99154-5481"
 
-    invoice_filename = f"invoice_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+    invoice_note = []
+    invoice_note.append("==================================================")
+    invoice_note.append("                         NOTA FISCAL")
+    invoice_note.append("==================================================")
+    invoice_note.append(f"Empresa: {company}")
+    invoice_note.append(f"Endereço: {address}")
+    invoice_note.append(f"Cidade: {city}")
+    invoice_note.append(f"CNPJ: {cnpj}")
+    invoice_note.append(f"Telefone: {phone}")
+    invoice_note.append("--------------------------------------------------")
+    invoice_note.append("DESCRIÇÃO             QTD     TOTAL")
+    invoice_note.append("--------------------------------------------------")
 
-    c = canvas.Canvas(invoice_filename, pagesize=A4)
-    width, height = A4
+    total_general = 0
 
-    # Company Details
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, height - 50, company)
-    c.setFont("Helvetica", 10)
-    c.drawString(50, height - 65, address)
-    c.drawString(50, height - 80, city)
-    c.drawString(50, height - 95, f"CNPJ: {cnpj}")
-    c.drawString(50, height - 110, f"Telefone: {phone}")
-
-    # Invoice Title
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(200, height - 150, "NOTA FISCAL")
-
-    # Table Headers
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, height - 180, "DESCRIÇÃO")
-    c.drawString(300, height - 180, "QTD")
-    c.drawString(400, height - 180, "TOTAL")
-
-    # Table Content
-    c.setFont("Helvetica", 12)
-    y = height - 200
     for _, row in df.iterrows():
         description = f"{row['Produto'][:20]:<20}"
-        quantity = f"{row['Quantidade']}"
-        total = format_currency(row['total'])
-        c.drawString(50, y, description)
-        c.drawString(300, y, quantity)
-        c.drawString(400, y, total)
-        y -= 20
+        quantity = f"{row['Quantidade']:>5}"
+        total = row['total']
+        total_general += total
+        total_formatted = f"R$ {total:,.2f}".replace(".", ",")
+        invoice_note.append(f"{description} {quantity} {total_formatted}")
 
-    # Total
-    total_sum = df["total"].sum()
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(300, y - 20, "TOTAL GERAL:")
-    c.drawString(400, y - 20, format_currency(total_sum))
+    formatted_general_total = f"R$ {total_general:,.2f}".replace(".", ",")
+    invoice_note.append("--------------------------------------------------")
+    invoice_note.append(f"TOTAL GERAL: {formatted_general_total:>28}")
+    invoice_note.append("==================================================")
+    invoice_note.append("OBRIGADO PELA SUA PREFERÊNCIA!")
+    invoice_note.append("==================================================")
 
-    # Thank You Note
-    c.setFont("Helvetica", 12)
-    c.drawString(200, y - 60, "OBRIGADO PELA SUA PREFERÊNCIA!")
+    st.text("\n".join(invoice_note))
 
-    c.save()
+#####################
+# Login Page
+#####################
+def login_page():
+    # CSS para alterar a cor de fundo da página de login para branco
+    st.markdown(
+        """
+        <style>
+        /* Define a cor de fundo para branco */
+        body {
+            background-color: white;
+        }
+        /* Opcional: Centralizar o conteúdo do login */
+        .block-container {
+            padding-top: 100px;
+            padding-bottom: 100px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
-    # Provide download link
-    with open(invoice_filename, "rb") as pdf_file:
-        PDFbyte = pdf_file.read()
-        st.download_button(
-            label="Download Invoice",
-            data=PDFbyte,
-            file_name=invoice_filename,
-            mime="application/pdf"
-        )
+    # Carregar e exibir o logotipo
+    logo_url = "https://res.cloudinary.com/lptennis/image/upload/v1657233475/kyz4k7fcptxt7x7mu9qu.jpg"
+    try:
+        response = requests.get(logo_url)
+        response.raise_for_status()
+        logo = Image.open(BytesIO(response.content))
+        st.image(logo, use_column_width=False)  # Exibe em tamanho original
+    except requests.exceptions.RequestException as e:
+        st.error("Falha ao carregar o logotipo.")
+
+    # Centralizar o título e a descrição na página de login
+    st.markdown(
+        """
+        <div style="text-align: center;">
+            <h1>Beach Club</h1>
+            <p>Por favor, insira suas credenciais para acessar o aplicativo.</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    with st.form(key='login_form'):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submit_login = st.form_submit_button(label="Login")
+
+    if submit_login:
+        if username == "" and password == "":
+            st.session_state.logged_in = True
+            st.success("Login bem-sucedido!")
+        else:
+            st.error("Nome de usuário ou senha incorretos.")
 
 #####################
 # Initialization
 #####################
 
-def main():
-    # Initialize session state
-    if 'data' not in st.session_state:
-        st.session_state.data = load_all_data()
+# Inicializar o estado da sessão para dados e login
+if 'data' not in st.session_state:
+    st.session_state.data = load_all_data()
 
-    if 'logged_in' not in st.session_state:
-        st.session_state.logged_in = False
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
 
-    # Authentication
-    if not st.session_state.logged_in:
-        if authenticate_user():
-            st.session_state.logged_in = True
-            refresh_data()
-    else:
-        # Sidebar Navigation
-        selected_page = sidebar_navigation()
+# Verificar se o usuário está logado
+if not st.session_state.logged_in:
+    login_page()
+else:
+    # Menu Navigation
+    selected_page = sidebar_navigation()
 
-        # Page Routing
+    # Detectar mudança de página e atualizar os dados se necessário
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = selected_page
+        # Inicialmente, os dados já estão carregados
+    elif selected_page != st.session_state.current_page:
+        # Página mudou, recarregar os dados
+        refresh_data()
+        st.session_state.current_page = selected_page
+        # Reset home page initialization flag quando navegar para Home
         if selected_page == "Home":
-            home_page()
-        elif selected_page == "Orders":
-            orders_page()
-        elif selected_page == "Products":
-            products_page()
-        elif selected_page == "Stock":
-            stock_page()
-        elif selected_page == "Clients":
-            clients_page()
-        elif selected_page == "Nota Fiscal":
-            invoice_page()
+            st.session_state.home_page_initialized = False
+            # As tabelas serão exibidas por padrão na home_page()
 
-        # Logout Button
-        with st.sidebar:
-            if st.button("Logout"):
-                st.session_state.logged_in = False
-                st.experimental_rerun()
+    # Page Routing
+    if selected_page == "Home":
+        home_page()
+    elif selected_page == "Orders":
+        orders_page()
+    elif selected_page == "Products":
+        products_page()
+    elif selected_page == "Stock":
+        stock_page()
+    elif selected_page == "Clients":
+        clients_page()
+    elif selected_page == "Nota Fiscal":
+        invoice_page()
 
-if __name__ == "__main__":
-    main()
+    # Adicionar opção de logout no sidebar
+    with st.sidebar:
+        if st.button("Logout"):
+            # Reset all home page related session state variables
+            keys_to_reset = [
+                'home_page_initialized'
+            ]
+            for key in keys_to_reset:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.session_state.logged_in = False
+            st.success("Desconectado com sucesso!")
+            st.experimental_rerun()
