@@ -105,7 +105,7 @@ def sidebar_navigation():
         st.title("Boituva Beach Club 🎾")
         selected = option_menu(
             "Menu Principal", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
-            icons=["house", "file-text", "box", "list-task", "layers", "file-invoice"],
+            icons=["house", "file-text", "box", "list-task", "layers", "receipt"],  # Alterado "file-invoice" para "receipt"
             menu_icon="cast",
             default_index=0,
             styles={
