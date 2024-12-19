@@ -102,7 +102,7 @@ def sidebar_navigation():
     Cria um menu lateral para navegação usando streamlit_option_menu.
     """
     with st.sidebar:
-        st.title("Boituva Beach Club 🎾")
+        st.title("🎾Boituva Beach Club🎾")
         selected = option_menu(
             "Menu Principal", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
             icons=["house", "file-text", "box", "list-task", "layers", "file-invoice"],  # Confirmação do ícone para Nota Fiscal
