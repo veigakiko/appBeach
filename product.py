@@ -5,6 +5,8 @@ from psycopg2 import OperationalError
 from datetime import datetime
 import pandas as pd
 from PIL import Image
+import requests
+from io import BytesIO
 
 #####################
 # Database Utilities
@@ -785,6 +787,15 @@ def generate_invoice_for_printer(df):
 # Login Page
 #####################
 def login_page():
+    # Carregar e exibir o logotipo
+    logo_url = "https://res.cloudinary.com/lptennis/image/upload/v1657233475/kyz4k7fcptxt7x7mu9qu.jpg"
+    response = requests.get(logo_url)
+    if response.status_code == 200:
+        logo = Image.open(BytesIO(response.content))
+        st.image(logo, use_column_width=True)
+    else:
+        st.error("Falha ao carregar o logotipo.")
+
     st.title("Beach Club")
     st.write("Por favor, insira suas credenciais para acessar o aplicativo.")
 
