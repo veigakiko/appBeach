@@ -4,6 +4,10 @@ import psycopg2
 from psycopg2 import OperationalError
 from datetime import datetime
 import pandas as pd
+from PIL import Image
+import requests
+from io import BytesIO
+import plotly.express as px  # Importação do Plotly Express
 
 #####################
 # Database Utilities
@@ -11,7 +15,7 @@ import pandas as pd
 @st.cache_resource
 def get_db_connection():
     """
-    Return a persistent database connection using psycopg2.
+    Retorna uma conexão persistente com o banco de dados usando psycopg2.
     """
     try:
         conn = psycopg2.connect(
@@ -23,12 +27,12 @@ def get_db_connection():
         )
         return conn
     except OperationalError as e:
-        st.error("Could not connect to the database. Please try again later.")
+        st.error("Não foi possível conectar ao banco de dados. Por favor, tente novamente mais tarde.")
         return None
 
 def run_query(query, values=None):
     """
-    Runs a read-only query (SELECT) and returns the fetched data.
+    Executa uma consulta de leitura (SELECT) e retorna os dados obtidos.
     """
     conn = get_db_connection()
     if conn is None:
@@ -40,12 +44,12 @@ def run_query(query, values=None):
     except Exception as e:
         if conn:
             conn.rollback()
-        st.error(f"Error executing query: {e}")
+        st.error(f"Erro ao executar a consulta: {e}")
         return []
 
 def run_insert(query, values):
     """
-    Runs an insert, update, or delete query.
+    Executa uma consulta de inserção, atualização ou deleção.
     """
     conn = get_db_connection()
     if conn is None:
@@ -58,7 +62,7 @@ def run_insert(query, values):
     except Exception as e:
         if conn:
             conn.rollback()
-        st.error(f"Error executing query: {e}")
+        st.error(f"Erro ao executar a consulta: {e}")
         return False
 
 #####################
@@ -66,7 +70,7 @@ def run_insert(query, values):
 #####################
 def load_all_data():
     """
-    Load all data used by the application and return it as a dictionary.
+    Carrega todos os dados utilizados pelo aplicativo e retorna em um dicionário.
     """
     data = {}
     try:
@@ -81,12 +85,12 @@ def load_all_data():
             'SELECT "Produto", "Quantidade", "Transação", "Data" FROM public.tb_estoque ORDER BY "Data" DESC;'
         )
     except Exception as e:
-        st.error(f"Error loading data: {e}")
+        st.error(f"Erro ao carregar os dados: {e}")
     return data
 
 def refresh_data():
     """
-    Reload all data and update the session state.
+    Recarrega todos os dados e atualiza o estado da sessão.
     """
     st.session_state.data = load_all_data()
 
@@ -95,13 +99,13 @@ def refresh_data():
 #####################
 def sidebar_navigation():
     """
-    Create a sidebar or horizontal menu for navigation using streamlit_option_menu.
+    Cria um menu lateral para navegação usando streamlit_option_menu.
     """
     with st.sidebar:
-        st.title("Boituva Beach Club")
+        st.title("Boituva Beach Club 🎾")
         selected = option_menu(
-            "Beach Menu", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
-            icons=["house", "file-text", "box", "list-task", "layers", "person", "file-invoice"],
+            "Menu Principal", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
+            icons=["house", "file-text", "box", "list-task", "layers", "file-invoice"],
             menu_icon="cast",
             default_index=0,
             styles={
@@ -119,247 +123,114 @@ def sidebar_navigation():
         )
     return selected
 
+#####################
+# Home Page
+#####################
 def home_page():
-    st.title("Boituva Beach Club")
-    st.write("🎾 BeachTennis 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
-    st.info("Os dados são atualizados automaticamente ao navegar entre as páginas.")
+    st.title("Boituva Beach Club 🎾")
+    st.write("📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     
     ############################
-    # Botões para exibir as tabelas
+    # Display Open Orders Summary
     ############################
 
-    # Criar colunas para botões alinhados horizontalmente
-    col1, col2, col3, col4, col5 = st.columns(5)
+    st.subheader("Open Orders Summary")
+    # Consulta para obter pedidos em aberto agrupados por Cliente com a soma total
+    open_orders_query = """
+    SELECT "Cliente", SUM("total") as Total
+    FROM public.vw_pedido_produto
+    WHERE status = %s
+    GROUP BY "Cliente"
+    ORDER BY "Cliente" DESC;
+    """
+    open_orders_data = run_query(open_orders_query, ('em aberto',))
 
-    # Botão para mostrar pedidos em aberto
-    with col1:
-        if st.button("Pedidos"):
-            st.session_state.show_open_orders = True
-        else:
-            st.session_state.show_open_orders = False
-    
-    # Botão para mostrar pedidos fechados
-    with col2:
-        if st.button("Pagos"):
-            st.session_state.show_closed_orders = True
-        else:
-            st.session_state.show_closed_orders = False
-    
-    # Botão para mostrar resumo por status
-    with col3:
-        if st.button("Status"):
-            st.session_state.show_status_summary = True
-        else:
-            st.session_state.show_status_summary = False
-    
-    # Botão para mostrar resumo por produto
-    with col4:
-        if st.button("Produto"):
-            st.session_state.show_product_summary = True
-        else:
-            st.session_state.show_product_summary = False
-    
-    # Botão para mostrar resumo combinado de produto e estoque
-    with col5:
-        if st.button("Estoque"):
-            st.session_state.show_combined_summary = True
-        else:
-            st.session_state.show_combined_summary = False
-
-    # Exibir as tabelas fora das colunas, dependendo do que o usuário selecionou
-
-    if st.session_state.get('show_open_orders', False):
-        st.subheader("Open Orders Summary")
-        # Consulta para obter pedidos em aberto agrupados por Cliente e Data (somente dia) com a soma total
-        open_orders_query = """
-        SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
-        FROM public.vw_pedido_produto
-        WHERE status = %s
-        GROUP BY "Cliente", DATE("Data")
-        ORDER BY "Cliente", DATE("Data") DESC;
-        """
-        open_orders_data = run_query(open_orders_query, ('em aberto',))
-
-        if open_orders_data:
-            # Criar DataFrame
-            df_open_orders = pd.DataFrame(open_orders_data, columns=["Client", "Date", "Total"])
-            
-            # Calcular a soma total dos pedidos em aberto
-            total_open = df_open_orders["Total"].sum()
-            
-            # Formatar a coluna 'Date' para exibição amigável
-            df_open_orders["Date"] = pd.to_datetime(df_open_orders["Date"]).dt.strftime('%Y-%m-%d')
-            
-            # Formatar a coluna 'Total' para moeda brasileira
-            df_open_orders["Total"] = df_open_orders["Total"].apply(
-                lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            )
-            
-            # Remover o índice e selecionar apenas as colunas desejadas
-            df_open_orders = df_open_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
-            
-            # Exibir a tabela sem índice e com largura otimizada para a coluna
-            st.dataframe(df_open_orders, use_container_width=True)
-            
-            # Exibir a soma total abaixo da tabela
-            st.markdown(f"**Total Geral (Open Orders):** R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        else:
-            st.info("Nenhum pedido em aberto encontrado.")
-    
-  
-    
-    if st.session_state.get('show_closed_orders', False):
-        st.subheader("Closed Orders Summary")
-        # Consulta para obter pedidos fechados agrupados por Cliente e Data (somente dia) com a soma total
-        closed_orders_query = """
-        SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
-        FROM public.vw_pedido_produto
-        WHERE status != %s
-        GROUP BY "Cliente", DATE("Data")
-        ORDER BY "Cliente", DATE("Data") DESC;
-        """
-        closed_orders_data = run_query(closed_orders_query, ('em aberto',))
-
-        if closed_orders_data:
-            # Criar DataFrame
-            df_closed_orders = pd.DataFrame(closed_orders_data, columns=["Client", "Date", "Total"])
-            
-            # Calcular a soma total dos pedidos fechados
-            total_closed = df_closed_orders["Total"].sum()
-            
-            # Formatar a coluna 'Date' para exibição amigável
-            df_closed_orders["Date"] = pd.to_datetime(df_closed_orders["Date"]).dt.strftime('%Y-%m-%d')
-            
-            # Formatar a coluna 'Total' para moeda brasileira
-            df_closed_orders["Total"] = df_closed_orders["Total"].apply(
-                lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            )
-            
-            # Remover o índice e selecionar apenas as colunas desejadas
-            df_closed_orders = df_closed_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
-            
-            # Exibir a tabela sem índice e com largura otimizada para a coluna
-            st.dataframe(df_closed_orders, use_container_width=True)
-            
-            # Exibir a soma total abaixo da tabela
-            st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        else:
-            st.info("Nenhum pedido fechado encontrado.")
-    
-  
-    
-    if st.session_state.get('show_status_summary', False):
-        st.subheader("Status Summary")
-        # Consulta para obter soma total agrupada por Status
-        status_summary_query = """
-        SELECT status, SUM("total") as Total
-        FROM public.vw_pedido_produto
-        GROUP BY status
-        ORDER BY status;
-        """
-        status_summary_data = run_query(status_summary_query)
-
-        if status_summary_data:
-            # Criar DataFrame
-            df_status_summary = pd.DataFrame(status_summary_data, columns=["Status", "Total"])
-
-            # Formatar a coluna 'Total' para moeda brasileira
-            df_status_summary["Total"] = df_status_summary["Total"].apply(
-                lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            )
-            
-            # Remover o índice e selecionar apenas as colunas desejadas
-            df_status_summary = df_status_summary.reset_index(drop=True)[["Status", "Total"]]
-            
-            # Exibir a tabela sem índice e com largura otimizada para a coluna
-            st.dataframe(df_status_summary, use_container_width=True)
-        else:
-            st.info("Nenhum pedido encontrado para resumo por status.")
-    
-
-    
-    if st.session_state.get('show_product_summary', False):
-        st.subheader("Product Summary")
-        # Consulta para obter soma total agrupada por Produto
-        product_summary_query = """
-        SELECT "Produto", SUM("Quantidade") as Quantity, SUM("total") as Total
-        FROM public.vw_pedido_produto
-        GROUP BY "Produto"
-        ORDER BY "Produto";
-        """
-        product_summary_data = run_query(product_summary_query)
-
-        if product_summary_data:
-            # Criar DataFrame
-            df_product_summary = pd.DataFrame(product_summary_data, columns=["Product", "Quantity", "Total"])
-
-            # Formatar a coluna 'Total' para moeda brasileira
-            df_product_summary["Total"] = df_product_summary["Total"].apply(
-                lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            )
-
-            # Formatar a coluna 'Quantity' para número inteiro com separadores de milhares, se necessário
-            df_product_summary["Quantity"] = df_product_summary["Quantity"].apply(
-                lambda x: f"{int(x):,}".replace(",", ".")
-            )
-            
-            # Remover o índice e selecionar apenas as colunas desejadas
-            df_product_summary = df_product_summary.reset_index(drop=True)[["Product", "Quantity", "Total"]]
-            
-            # Exibir a tabela sem índice e com largura otimizada para a coluna
-            st.dataframe(df_product_summary, use_container_width=True)
-        else:
-            st.info("Nenhum pedido encontrado para resumo por produto.")
-    
-
-    
-    if st.session_state.get('show_combined_summary', False):
-        st.subheader("Combined Product and Stock Summary")
+    if open_orders_data:
+        # Criar DataFrame para exibição
+        df_open_orders_display = pd.DataFrame(open_orders_data, columns=["Client", "Total"])
         
-        # Consultas para obter dados de resumo combinado (produto e estoque)
-        combined_product_query = """
-        SELECT "Produto", SUM("Quantidade") as Summary_Quantity, SUM("total") as Summary_Total
-        FROM public.vw_pedido_produto
-        GROUP BY "Produto"
-        ORDER BY "Produto";
-        """
-        combined_product_data = run_query(combined_product_query)
+        # Calcular a soma total dos pedidos em aberto
+        total_open = df_open_orders_display["Total"].sum()
         
-        stock_records_query = """
-        SELECT "Produto", SUM("Quantidade") as Stock_Quantity
-        FROM public.tb_estoque
-        GROUP BY "Produto"
-        ORDER BY "Produto";
-        """
-        stock_records_data = run_query(stock_records_query)
+        # Formatar a coluna 'Total' para moeda brasileira
+        df_open_orders_display["Total"] = df_open_orders_display["Total"].apply(
+            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
         
-        if combined_product_data and stock_records_data:
-            # Criar DataFrames
-            df_product_summary_combined = pd.DataFrame(combined_product_data, columns=["Product", "Summary_Quantity", "Summary_Total"])
-            df_stock_records = pd.DataFrame(stock_records_data, columns=["Product", "Stock_Quantity"])
-            
-            # Realizar merge dos DataFrames com base na coluna 'Product'
-            df_combined = pd.merge(df_product_summary_combined, df_stock_records, on="Product", how="left")
-            
-            # Preencher valores NaN em 'Stock_Quantity' com 0
-            df_combined["Stock_Quantity"] = df_combined["Stock_Quantity"].fillna(0).astype(int)
-            
-            # Calcular 'Estoque_Atual' = 'Total em Estoque' - 'Total Vendido'
-            df_combined["Estoque_Atual"] = df_combined["Stock_Quantity"] - df_combined["Summary_Quantity"]
-            
-            # Reformatar as colunas para exibição
-            df_combined["Summary_Quantity"] = df_combined["Summary_Quantity"].apply(lambda x: f"{x:,}".replace(",", "."))
-            df_combined["Stock_Quantity"] = df_combined["Stock_Quantity"].apply(lambda x: f"{x:,}".replace(",", "."))
-            df_combined["Estoque_Atual"] = df_combined["Estoque_Atual"].apply(lambda x: f"{x:,}".replace(",", "."))
-            
-            # Selecionar as colunas na ordem desejada
-            df_combined = df_combined[["Product", "Summary_Quantity", "Stock_Quantity", "Estoque_Atual"]]
-            
-            # Exibir a tabela combinada
-            st.dataframe(df_combined, use_container_width=True)
-        else:
-            st.info("Dados insuficientes para criar o resumo combinado de Produto e Estoque.")
+        # Remover o índice e selecionar apenas as colunas desejadas
+        df_open_orders_display = df_open_orders_display.reset_index(drop=True)[["Client", "Total"]]
+        
+        # Exibir a tabela sem índice e com largura otimizada para a coluna
+        st.table(df_open_orders_display)
+        
+        # Exibir a soma total abaixo da tabela
+        st.markdown(f"**Total Geral (Open Orders):** R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    else:
+        st.info("Nenhum pedido em aberto encontrado.")
 
+    ############################
+    # Display Closed Orders Summary
+    ############################
+
+    st.subheader("Closed Orders Summary")
+    # Consulta para obter pedidos fechados agrupados por Data (somente dia) com a soma total
+    closed_orders_query = """
+    SELECT DATE("Data") as Date, SUM("total") as Total
+    FROM public.vw_pedido_produto
+    WHERE status != %s
+    GROUP BY DATE("Data")
+    ORDER BY DATE("Data") DESC;
+    """
+    closed_orders_data = run_query(closed_orders_query, ('em aberto',))
+
+    if closed_orders_data:
+        # Criar DataFrame com dados brutos para plotagem
+        df_closed_orders_plot = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
+        
+        # Criar DataFrame para exibição com formatação
+        df_closed_orders_display = df_closed_orders_plot.copy()
+        
+        # Formatar a coluna 'Date' para exibição amigável (somente dia)
+        df_closed_orders_display["Date"] = pd.to_datetime(df_closed_orders_display["Date"]).dt.strftime('%Y-%m-%d')
+        
+        # Formatar a coluna 'Total' para moeda brasileira
+        df_closed_orders_display["Total"] = df_closed_orders_display["Total"].apply(
+            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+        
+        # Calcular a soma total dos pedidos fechados
+        total_closed = df_closed_orders_plot["Total"].sum()
+        
+        # Exibir a tabela de Closed Orders Summary
+        st.table(df_closed_orders_display)
+        
+        # Criar o gráfico de área abaixo da tabela
+        fig = px.area(
+            df_closed_orders_plot,
+            x='Date',
+            y='Total',
+            title='Total Vendido por Dia',
+            labels={'Date': 'Data', 'Total': 'Total Vendido (R$)'},
+            template='plotly_white'
+        )
+        
+        fig.update_layout(
+            autosize=False,
+            width=700,
+            height=500
+        )
+        
+        # Exibir o gráfico
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Exibir a soma total abaixo do gráfico
+        st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    else:
+        st.info("Nenhum pedido fechado encontrado.")
+
+#####################
+# Orders Page
+#####################
 def orders_page():
     st.title("Orders")
     st.subheader("Register a new order")
@@ -372,7 +243,6 @@ def orders_page():
         # Carregando lista de clientes para o novo pedido
         clientes = run_query('SELECT nome_completo FROM public.tb_clientes ORDER BY nome_completo;')
         customer_list = [""] + [row[0] for row in clientes]
-
         customer_name = st.selectbox("Customer Name", customer_list, index=0)
         product = st.selectbox("Product", product_list, index=0)
         quantity = st.number_input("Quantity", min_value=1, step=1)
@@ -401,14 +271,11 @@ def orders_page():
         columns = ["Client", "Product", "Quantity", "Date", "Status"]
         df_orders = pd.DataFrame(orders_data, columns=columns)
         
-        # Depuração: Exibir nomes das colunas
-        # st.write("Columns in df_orders:", df_orders.columns.tolist())
-
+        # Exibir a tabela de pedidos
         st.dataframe(df_orders, use_container_width=True)
 
         st.subheader("Edit or Delete an Existing Order")
         # Criar uma chave única para identificar cada pedido
-        # Formate a data para string no mesmo formato do banco de dados
         df_orders["unique_key"] = df_orders.apply(
             lambda row: f"{row['Client']}|{row['Product']}|{row['Date'].strftime('%Y-%m-%d %H:%M:%S')}",
             axis=1
@@ -483,6 +350,9 @@ def orders_page():
     else:
         st.info("No orders found.")
 
+#####################
+# Products Page
+#####################
 def products_page():
     st.title("Products")
 
@@ -549,8 +419,19 @@ def products_page():
                 with st.form(key='edit_product_form'):
                     edit_supplier = st.text_input("Supplier", value=original_supplier, max_chars=100)
                     edit_product = st.text_input("Product", value=original_product, max_chars=100)
-                    edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
-                    edit_unit_value = st.number_input("Unit Value", min_value=0.0, step=0.01, format="%.2f", value=float(original_unit_value))
+                    edit_quantity = st.number_input(
+                        "Quantity",
+                        min_value=1,
+                        step=1,
+                        value=int(original_quantity)
+                    )
+                    edit_unit_value = st.number_input(
+                        "Unit Value",
+                        min_value=0.0,
+                        step=0.01,
+                        format="%.2f",
+                        value=float(original_unit_value)
+                    )
                     edit_creation_date = st.date_input("Creation Date", value=original_creation_date)
 
                     update_button = st.form_submit_button(label="Update Product")
@@ -598,6 +479,9 @@ def products_page():
     else:
         st.info("No products found.")
 
+#####################
+# Stock Page
+#####################
 def stock_page():
     st.title("Stock")
 
@@ -725,6 +609,9 @@ def stock_page():
     else:
         st.info("No stock records found.")
 
+#####################
+# Clients Page
+#####################
 def clients_page():
     st.title("Clients")
 
@@ -817,6 +704,9 @@ def clients_page():
     else:
         st.info("No clients found.")
 
+#####################
+# Invoice Page
+#####################
 def invoice_page():
     st.title("Nota Fiscal")
 
@@ -840,7 +730,7 @@ def invoice_page():
             generate_invoice_for_printer(df)
 
             total_sum = df["total"].sum()
-            st.subheader(f"Total Geral: R$ {total_sum:,.2f}")
+            st.markdown(f"**Total Geral: R$ {total_sum:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
             col1, col2, col3 = st.columns(3)
 
@@ -914,6 +804,34 @@ def generate_invoice_for_printer(df):
 # Login Page
 #####################
 def login_page():
+    # CSS para alterar a cor de fundo da página de login para branco
+    st.markdown(
+        """
+        <style>
+        /* Define a cor de fundo para branco */
+        body {
+            background-color: white;
+        }
+        /* Opcional: Centralizar o conteúdo do login */
+        .block-container {
+            padding-top: 100px;
+            padding-bottom: 100px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Carregar e exibir o logotipo
+    logo_url = "https://res.cloudinary.com/lptennis/image/upload/v1657233475/kyz4k7fcptxt7x7mu9qu.jpg"
+    try:
+        response = requests.get(logo_url)
+        response.raise_for_status()
+        logo = Image.open(BytesIO(response.content))
+        st.image(logo, use_column_width=False)  # Exibe em tamanho original
+    except requests.exceptions.RequestException as e:
+        st.error("Falha ao carregar o logotipo.")
+
     st.title("Beach Club")
     st.write("Por favor, insira suas credenciais para acessar o aplicativo.")
 
@@ -955,6 +873,10 @@ else:
         # Página mudou, recarregar os dados
         refresh_data()
         st.session_state.current_page = selected_page
+        # Reset home page initialization flag quando navegar para Home
+        if selected_page == "Home":
+            st.session_state.home_page_initialized = False
+            # As tabelas serão exibidas por padrão na home_page()
 
     # Page Routing
     if selected_page == "Home":
@@ -973,6 +895,13 @@ else:
     # Adicionar opção de logout no sidebar
     with st.sidebar:
         if st.button("Logout"):
+            # Reset all home page related session state variables
+            keys_to_reset = [
+                'home_page_initialized'
+            ]
+            for key in keys_to_reset:
+                if key in st.session_state:
+                    del st.session_state[key]
             st.session_state.logged_in = False
             st.success("Desconectado com sucesso!")
             st.experimental_rerun()
