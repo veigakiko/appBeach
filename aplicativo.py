@@ -102,7 +102,7 @@ def sidebar_navigation():
     Cria um menu lateral para navegação usando streamlit_option_menu.
     """
     with st.sidebar:
-        st.title("🎾Boituva Beach Club🎾")
+        st.title("Beach Club")
         selected = option_menu(
             "Menu Principal", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
             icons=["house", "file-text", "box", "list-task", "layers", "file-invoice"],  # Confirmação do ícone para Nota Fiscal
@@ -131,7 +131,7 @@ def home_page():
     st.markdown(
         """
         <div style="text-align: center;">
-            <h1>Boituva Beach Club 🎾</h1>
+            <h1>🎾 Boituva Beach Club 🎾</h1>
             <p>📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC</p>
         </div>
         """,
