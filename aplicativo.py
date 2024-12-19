@@ -120,15 +120,8 @@ def sidebar_navigation():
     return selected
 
 def home_page():
-    # Center the descriptive text and adjust spacing
-    st.markdown(
-        """
-        <div style="text-align: center; margin-top: -50px;">
-            <h1 style="font-size: 24px;">🎾 Boituva Beach Club 🎾 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC</h1>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.title("Boituva Beach Club")
+    st.write("🎾 BeachTennis 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     st.info("Os dados são atualizados automaticamente ao navegar entre as páginas.")
     
     ############################
@@ -144,28 +137,28 @@ def home_page():
             st.session_state.show_open_orders = True
         else:
             st.session_state.show_open_orders = False
-
+    
     # Botão para mostrar pedidos fechados
     with col2:
         if st.button("Pagos"):
             st.session_state.show_closed_orders = True
         else:
             st.session_state.show_closed_orders = False
-
+    
     # Botão para mostrar resumo por status
     with col3:
         if st.button("Status"):
             st.session_state.show_status_summary = True
         else:
             st.session_state.show_status_summary = False
-
+    
     # Botão para mostrar resumo por produto
     with col4:
         if st.button("Produto"):
             st.session_state.show_product_summary = True
         else:
             st.session_state.show_product_summary = False
-
+    
     # Botão para mostrar resumo combinado de produto e estoque
     with col5:
         if st.button("Estoque"):
@@ -176,13 +169,7 @@ def home_page():
     # Exibir as tabelas fora das colunas, dependendo do que o usuário selecionou
 
     if st.session_state.get('show_open_orders', False):
-        # Adjust the subheader font size
-        st.markdown(
-            """
-            <h3 style='font-size:24px;'>Open Orders Summary</h3>
-            """,
-            unsafe_allow_html=True
-        )
+        st.subheader("Open Orders Summary")
         # Consulta para obter pedidos em aberto agrupados por Cliente e Data (somente dia) com a soma total
         open_orders_query = """
         SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
@@ -214,22 +201,15 @@ def home_page():
             # Exibir a tabela sem índice e com largura otimizada para a coluna
             st.dataframe(df_open_orders, use_container_width=True)
             
-            # Exibir a soma total abaixo da tabela com o mesmo tamanho de fonte
-            st.markdown(
-                f"<p style='font-size:24px;'><b>Total Geral (Open Orders):</b> R$ {total_open:,.2f}</p>",
-                unsafe_allow_html=True
-            )
+            # Exibir a soma total abaixo da tabela
+            st.markdown(f"**Total Geral (Open Orders):** R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
         else:
             st.info("Nenhum pedido em aberto encontrado.")
-
+    
+  
+    
     if st.session_state.get('show_closed_orders', False):
-        # Adjust the subheader font size
-        st.markdown(
-            """
-            <h3 style='font-size:24px;'>Closed Orders Summary</h3>
-            """,
-            unsafe_allow_html=True
-        )
+        st.subheader("Closed Orders Summary")
         # Consulta para obter pedidos fechados agrupados por Cliente e Data (somente dia) com a soma total
         closed_orders_query = """
         SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
@@ -261,14 +241,13 @@ def home_page():
             # Exibir a tabela sem índice e com largura otimizada para a coluna
             st.dataframe(df_closed_orders, use_container_width=True)
             
-            # Exibir a soma total abaixo da tabela com o mesmo tamanho de fonte
-            st.markdown(
-                f"<p style='font-size:24px;'><b>Total Geral (Closed Orders):</b> R$ {total_closed:,.2f}</p>",
-                unsafe_allow_html=True
-            )
+            # Exibir a soma total abaixo da tabela
+            st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
         else:
             st.info("Nenhum pedido fechado encontrado.")
-
+    
+  
+    
     if st.session_state.get('show_status_summary', False):
         st.subheader("Status Summary")
         # Consulta para obter soma total agrupada por Status
@@ -296,7 +275,9 @@ def home_page():
             st.dataframe(df_status_summary, use_container_width=True)
         else:
             st.info("Nenhum pedido encontrado para resumo por status.")
+    
 
+    
     if st.session_state.get('show_product_summary', False):
         st.subheader("Product Summary")
         # Consulta para obter soma total agrupada por Produto
@@ -329,7 +310,9 @@ def home_page():
             st.dataframe(df_product_summary, use_container_width=True)
         else:
             st.info("Nenhum pedido encontrado para resumo por produto.")
+    
 
+    
     if st.session_state.get('show_combined_summary', False):
         st.subheader("Combined Product and Stock Summary")
         
@@ -931,15 +914,7 @@ def generate_invoice_for_printer(df):
 # Login Page
 #####################
 def login_page():
-    # Center the logo image
-    st.markdown(
-        """
-        <div style="text-align: center;">
-            <img src="https://your-logo-url.com/logo.png" alt="Logo" width="200">
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.title("Beach Club")
     st.write("Por favor, insira suas credenciais para acessar o aplicativo.")
 
     with st.form(key='login_form'):
