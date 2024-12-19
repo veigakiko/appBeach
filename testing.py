@@ -771,23 +771,28 @@ def generate_invoice_for_printer(df):
     invoice_note.append("DESCRIÇÃO             QTD     TOTAL")
     invoice_note.append("--------------------------------------------------")
 
+    # Agrupar os dados por 'Produto', somando 'Quantidade' e 'total'
+    grouped_df = df.groupby('Produto').agg({'Quantidade': 'sum', 'total': 'sum'}).reset_index()
+
     total_general = 0
 
-    for _, row in df.iterrows():
-        description = f"{row['Produto'][:20]:<20}"
-        quantity = f"{int(row['Quantidade']):>5}"
+    for _, row in grouped_df.iterrows():
+        description = f"{row['Produto'][:20]:<20}"  # Limitar a descrição a 20 caracteres
+        quantity = f"{int(row['Quantidade']):>5}"   # Garantir que a quantidade seja um inteiro
         total = row['total']
         total_general += total
-        total_formatted = f"R$ {total:,.2f}".replace('.', ',')
+        total_formatted = f"R$ {total:,.2f}".replace('.', ',')  # Formatar para moeda brasileira
         invoice_note.append(f"{description} {quantity} {total_formatted}")
 
-    formatted_general_total = f"R$ {total_general:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     invoice_note.append("--------------------------------------------------")
+    # Alinhar o texto 'TOTAL GERAL:' à direita e o valor total também à direita
+    formatted_general_total = f"R$ {total_general:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     invoice_note.append(f"{'TOTAL GERAL:':>30} {formatted_general_total:>10}")
     invoice_note.append("==================================================")
     invoice_note.append("OBRIGADO PELA SUA PREFERÊNCIA!")
     invoice_note.append("==================================================")
 
+    # Exibir a Nota Fiscal como texto
     st.text("\n".join(invoice_note))
 
 #####################
