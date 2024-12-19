@@ -7,7 +7,8 @@ import pandas as pd
 from PIL import Image
 import requests
 from io import BytesIO
-import plotly.express as px  # Importação do Plotly Express
+import matplotlib.pyplot as plt  # Importação do Matplotlib
+import numpy as np  # Importação do NumPy
 
 #####################
 # Database Utilities
@@ -19,11 +20,11 @@ def get_db_connection():
     """
     try:
         conn = psycopg2.connect(
-            host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
-            database="beachtennis",
-            user="kiko",
-            password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
-            port=5432
+            host=st.secrets["db_host"],
+            database=st.secrets["db_name"],
+            user=st.secrets["db_user"],
+            password=st.secrets["db_password"],
+            port=st.secrets["db_port"]
         )
         return conn
     except OperationalError as e:
@@ -187,6 +188,9 @@ def home_page():
         # Criar DataFrame com dados brutos para plotagem
         df_closed_orders_plot = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
         
+        # Garantir que a coluna "Total" seja numérica
+        df_closed_orders_plot["Total"] = pd.to_numeric(df_closed_orders_plot["Total"], errors='coerce')
+        
         # Criar DataFrame para exibição com formatação
         df_closed_orders_display = df_closed_orders_plot.copy()
         
@@ -195,36 +199,45 @@ def home_page():
         
         # Formatar a coluna 'Total' para moeda brasileira
         df_closed_orders_display["Total"] = df_closed_orders_display["Total"].apply(
-            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if pd.notnull(x) else "R$ 0,00"
         )
         
-        # Calcular a soma total dos pedidos fechados
+        # Calcular a soma total dos pedidos fechados, ignorando NaN
         total_closed = df_closed_orders_plot["Total"].sum()
         
         # Exibir a tabela de Closed Orders Summary
         st.table(df_closed_orders_display)
         
-        # Criar o gráfico de área abaixo da tabela
-        fig = px.area(
-            df_closed_orders_plot,
-            x='Date',
-            y='Total',
-            title='Total Vendido por Dia',
-            labels={'Date': 'Data', 'Total': 'Total Vendido (R$)'},
-            template='plotly_white'
-        )
+        # Criar o gráfico de barras abaixo da tabela usando Matplotlib
+        fig, ax = plt.subplots(figsize=(10, 6))  # Definir o tamanho da figura conforme necessário
         
-        fig.update_layout(
-            autosize=False,
-            width=700,
-            height=500
-        )
+        ax.bar(df_closed_orders_plot["Date"], df_closed_orders_plot["Total"], color='indigo', edgecolor="white", linewidth=0.7)
         
-        # Exibir o gráfico
-        st.plotly_chart(fig, use_container_width=True)
+        ax.set_xlabel("Data")
+        ax.set_ylabel("Total Vendido (R$)")
+        ax.set_title("Total Vendido por Dia")
+        
+        # Rotacionar os rótulos do eixo x para melhor legibilidade
+        plt.xticks(rotation=45, ha='right')
+        
+        # Ajustar limites se necessário, garantindo que total_closed seja um número
+        if pd.notnull(total_closed) and isinstance(total_closed, (int, float)):
+            ax.set_ylim(0, total_closed * 1.1)  # Ajusta o limite y para 10% acima do valor máximo
+        else:
+            ax.set_ylim(0, 10)  # Valor padrão caso total_closed seja inválido
+        
+        plt.tight_layout()  # Ajusta o layout para evitar sobreposição
+        
+        # Exibir o gráfico no Streamlit
+        st.pyplot(fig)
         
         # Exibir a soma total abaixo do gráfico
-        st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        if pd.notnull(total_closed):
+            total_closed_formatted = f"R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        else:
+            total_closed_formatted = "R$ 0,00"
+        
+        st.markdown(f"**Total Geral (Closed Orders):** {total_closed_formatted}")
     else:
         st.info("Nenhum pedido fechado encontrado.")
 
@@ -242,7 +255,7 @@ def orders_page():
     with st.form(key='order_form'):
         # Carregando lista de clientes para o novo pedido
         clientes = run_query('SELECT nome_completo FROM public.tb_clientes ORDER BY nome_completo;')
-        customer_list = [""] + [row[0] for row in clientes]
+        customer_list = [""] + [row[0] for row in clientes] if clientes else ["No clients available"]
         customer_name = st.selectbox("Customer Name", customer_list, index=0)
         product = st.selectbox("Product", product_list, index=0)
         quantity = st.number_input("Quantity", min_value=1, step=1)
