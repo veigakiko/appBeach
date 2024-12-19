@@ -10,7 +10,7 @@ from io import BytesIO
 # import plotly.express as px  # Removido, já que o gráfico foi removido da Home
 
 #####################
-# Database Utilities
+# Database Utilities 
 #####################
 @st.cache_resource
 def get_db_connection():
