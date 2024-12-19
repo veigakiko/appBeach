@@ -7,8 +7,7 @@ import pandas as pd
 from PIL import Image
 import requests
 from io import BytesIO
-import matplotlib.pyplot as plt  # Importação do Matplotlib
-import numpy as np  # Importação do NumPy
+import plotly.express as px  # Importação do Plotly Express
 
 #####################
 # Database Utilities
@@ -16,7 +15,7 @@ import numpy as np  # Importação do NumPy
 @st.cache_resource
 def get_db_connection():
     """
-    Return a persistent database connection using psycopg2.
+    Retorna uma conexão persistente com o banco de dados usando psycopg2.
     """
     try:
         conn = psycopg2.connect(
@@ -28,7 +27,7 @@ def get_db_connection():
         )
         return conn
     except OperationalError as e:
-        st.error("Could not connect to the database. Please try again later.")
+        st.error("Não foi possível conectar ao banco de dados. Por favor, tente novamente mais tarde.")
         return None
 
 def run_query(query, values=None):
@@ -205,25 +204,24 @@ def home_page():
         # Exibir a tabela de Closed Orders Summary
         st.table(df_closed_orders_display)
         
-        # Criar o gráfico de barras abaixo da tabela usando Matplotlib
-        fig, ax = plt.subplots(figsize=(10, 6))  # Definir o tamanho da figura conforme necessário
+        # Criar o gráfico de área abaixo da tabela
+        fig = px.area(
+            df_closed_orders_plot,
+            x='Date',
+            y='Total',
+            title='Total Vendido por Dia',
+            labels={'Date': 'Data', 'Total': 'Total Vendido (R$)'},
+            template='plotly_white'
+        )
         
-        ax.bar(df_closed_orders_plot["Date"], df_closed_orders_plot["Total"], color='indigo', edgecolor="white", linewidth=0.7)
+        fig.update_layout(
+            autosize=False,
+            width=700,
+            height=500
+        )
         
-        ax.set_xlabel("Data")
-        ax.set_ylabel("Total Vendido (R$)")
-        ax.set_title("Total Vendido por Dia")
-        
-        # Rotacionar os rótulos do eixo x para melhor legibilidade
-        plt.xticks(rotation=45, ha='right')
-        
-        # Ajustar limites se necessário
-        ax.set_ylim(0, df_closed_orders_plot["Total"].max() * 1.1)  # Ajusta o limite y para 10% acima do valor máximo
-        
-        plt.tight_layout()  # Ajusta o layout para evitar sobreposição
-        
-        # Exibir o gráfico no Streamlit
-        st.pyplot(fig)
+        # Exibir o gráfico
+        st.plotly_chart(fig, use_container_width=True)
         
         # Exibir a soma total abaixo do gráfico
         st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
