@@ -7,7 +7,7 @@ import pandas as pd
 from PIL import Image
 import requests
 from io import BytesIO
-import plotly.graph_objects as go  # Importação do Plotly
+import plotly.express as px  # Importação do Plotly Express
 
 #####################
 # Database Utilities
@@ -204,28 +204,21 @@ def home_page():
         # Exibir a tabela de Closed Orders Summary
         st.table(df_closed_orders_display)
         
-        # Criar o gráfico de barras abaixo da tabela
-        fig = go.Figure()
-        
-        fig.add_trace(go.Bar(
-            x=df_closed_orders_plot["Date"],
-            y=df_closed_orders_plot["Total"],
-            marker_color='indigo'
-        ))
-        
-        fig.update_layout(
-            title="Total Vendido por Dia",
-            xaxis_title="Data",
-            yaxis_title="Total Vendido (R$)",
-            autosize=False,
-            width=700,
-            height=500,
-            template="plotly_white"
+        # Criar o gráfico de área abaixo da tabela
+        fig = px.area(
+            df_closed_orders_plot,
+            x='Date',
+            y='Total',
+            title='Total Vendido por Dia',
+            labels={'Date': 'Data', 'Total': 'Total Vendido (R$)'},
+            template='plotly_white'
         )
         
-        # Atualizar os eixos para garantir margens adequadas
-        fig.update_yaxes(automargin=True)
-        fig.update_xaxes(automargin=True)
+        fig.update_layout(
+            autosize=False,
+            width=700,
+            height=500
+        )
         
         # Exibir o gráfico
         st.plotly_chart(fig, use_container_width=True)
