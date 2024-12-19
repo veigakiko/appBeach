@@ -122,13 +122,13 @@ def sidebar_navigation():
 def home_page():
     # Initialize summary flags when entering the Home page
     if st.session_state.current_page == "Home":
-        if 'initialized_home_page' not in st.session_state:
+        if 'home_page_initialized' not in st.session_state:
             st.session_state.show_open_orders = True
             st.session_state.show_closed_orders = False
             st.session_state.show_status_summary = False
             st.session_state.show_product_summary = False
             st.session_state.show_combined_summary = False
-            st.session_state.initialized_home_page = True
+            st.session_state.home_page_initialized = True
 
     st.title("Boituva Beach Club")
     st.write("🎾 BeachTennis 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
@@ -149,7 +149,7 @@ def home_page():
             st.session_state.show_status_summary = False
             st.session_state.show_product_summary = False
             st.session_state.show_combined_summary = False
-            st.session_state.initialized_home_page = True  # Reset initialization flag
+            st.session_state.home_page_initialized = True  # Reset initialization flag
 
     # Botão para mostrar pedidos fechados
     with col2:
@@ -159,7 +159,7 @@ def home_page():
             st.session_state.show_status_summary = False
             st.session_state.show_product_summary = False
             st.session_state.show_combined_summary = False
-            st.session_state.initialized_home_page = True
+            st.session_state.home_page_initialized = True
 
     # Botão para mostrar resumo por status
     with col3:
@@ -169,7 +169,7 @@ def home_page():
             st.session_state.show_status_summary = True
             st.session_state.show_product_summary = False
             st.session_state.show_combined_summary = False
-            st.session_state.initialized_home_page = True
+            st.session_state.home_page_initialized = True
 
     # Botão para mostrar resumo por produto
     with col4:
@@ -179,7 +179,7 @@ def home_page():
             st.session_state.show_status_summary = False
             st.session_state.show_product_summary = True
             st.session_state.show_combined_summary = False
-            st.session_state.initialized_home_page = True
+            st.session_state.home_page_initialized = True
 
     # Botão para mostrar resumo combinado de produto e estoque
     with col5:
@@ -189,7 +189,7 @@ def home_page():
             st.session_state.show_status_summary = False
             st.session_state.show_product_summary = False
             st.session_state.show_combined_summary = True
-            st.session_state.initialized_home_page = True
+            st.session_state.home_page_initialized = True
 
     # Exibir as tabelas fora das colunas, dependendo do que o usuário selecionou
 
@@ -361,7 +361,7 @@ def home_page():
             # Preencher valores NaN em 'Stock_Quantity' com 0
             df_combined["Stock_Quantity"] = df_combined["Stock_Quantity"].fillna(0).astype(int)
             
-            # Calcular 'Estoque_Atual' = 'Stock_Quantity' - 'Summary_Quantity'
+            # Calcular 'Estoque_Atual' = 'Total em Estoque' - 'Total Vendido'
             df_combined["Estoque_Atual"] = df_combined["Stock_Quantity"] - df_combined["Summary_Quantity"]
             
             # Reformatar as colunas para exibição
@@ -869,7 +869,7 @@ def invoice_page():
 
             total_sum = df["total"].sum()
             st.subheader(f"Total Geral: R$ {total_sum:,.2f}")
-            st.markdown(f"**Total Geral: R$ {total_sum:,.2f}**")
+            st.markdown(f"**Total Geral: R$ {total_sum:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
             col1, col2, col3 = st.columns(3)
 
@@ -927,7 +927,7 @@ def generate_invoice_for_printer(df):
         quantity = f"{row['Quantidade']:>5}"
         total = row['total']
         total_general += total
-        total_formatted = f"R$ {total:,.2f}".replace('.', ',')
+        total_formatted = f"R$ {total:,.2f}".replace(',', ',')
         invoice_note.append(f"{description} {quantity} {total_formatted}")
 
     formatted_general_total = f"R$ {total_general:,.2f}".replace('.', ',')
@@ -984,19 +984,10 @@ else:
         # Página mudou, recarregar os dados
         refresh_data()
         st.session_state.current_page = selected_page
-        # Reset home page initialization flag if navigating away from Home
-        if selected_page != "Home":
-            keys_to_reset_home = [
-                'show_open_orders',
-                'show_closed_orders',
-                'show_status_summary',
-                'show_product_summary',
-                'show_combined_summary',
-                'initialized_home_page'
-            ]
-            for key in keys_to_reset_home:
-                if key in st.session_state:
-                    del st.session_state[key]
+        # Reset home page initialization flag when navigating to Home
+        if selected_page == "Home":
+            st.session_state.home_page_initialized = False
+            # Flags will be initialized in home_page()
 
     # Page Routing
     if selected_page == "Home":
@@ -1022,7 +1013,7 @@ else:
                 'show_status_summary',
                 'show_product_summary',
                 'show_combined_summary',
-                'initialized_home_page'
+                'home_page_initialized'
             ]
             for key in keys_to_reset:
                 if key in st.session_state:
