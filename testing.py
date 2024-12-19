@@ -136,6 +136,8 @@ def home_page():
     # Display Open Orders Summary
     ############################
     st.markdown("")
+    st.markdown("")
+    st.markdown("")
 
     st.markdown("**Open Orders Summary**")
     # Consulta para obter pedidos em aberto agrupados por Cliente com a soma total
