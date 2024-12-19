@@ -128,13 +128,14 @@ def sidebar_navigation():
 #####################
 def home_page():
     # Título ajustado com emoji no início
-    st.title("🎾Boituva Beach Club 🎾")
+    st.title("🎾 Boituva Beach Club 🎾")
     # Descrição com tamanho de fonte normal
     st.write("📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     
     ############################
     # Display Open Orders Summary
     ############################
+    st.markdown("")
 
     st.markdown("**Open Orders Summary**")
     # Consulta para obter pedidos em aberto agrupados por Cliente com a soma total
