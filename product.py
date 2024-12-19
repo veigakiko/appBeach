@@ -100,7 +100,7 @@ def sidebar_navigation():
     with st.sidebar:
         st.title("Boituva Beach Club")
         selected = option_menu(
-            "Beach Menu", ["Home 🎾", "🎾 Orders", "🎾 Products", "🎾 Stock", "🎾 Clients", "🎾 Nota Fiscal"],
+            "Beach Menu", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
             icons=["house", "file-text", "box", "list-task", "layers", "person", "file-invoice"],
             menu_icon="cast",
             default_index=0,
