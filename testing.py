@@ -136,7 +136,6 @@ def home_page():
     # Display Open Orders Summary
     ############################
 
-    # Substitui st.subheader por st.markdown com negrito para ajustar o tamanho da fonte
     st.markdown("**Open Orders Summary**")
     # Consulta para obter pedidos em aberto agrupados por Cliente com a soma total
     open_orders_query = """
@@ -155,19 +154,20 @@ def home_page():
         # Calcular a soma total dos pedidos em aberto
         total_open = df_open_orders_display["Total"].sum()
         
-        # Formatar a coluna 'Total' para moeda brasileira
-        df_open_orders_display["Total"] = df_open_orders_display["Total"].apply(
+        # Formatar a coluna 'Total_display' para moeda brasileira
+        df_open_orders_display["Total_display"] = df_open_orders_display["Total"].apply(
             lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         )
         
-        # Remover o índice e selecionar apenas as colunas desejadas
-        df_open_orders_display = df_open_orders_display.reset_index(drop=True)[["Client", "Total"]]
+        # Selecionar apenas as colunas para exibição
+        df_display = df_open_orders_display[["Client", "Total_display"]]
         
         # Exibir a tabela sem índice e com largura otimizada para a coluna
-        st.table(df_open_orders_display)
+        st.table(df_display)
         
-        # Exibir a soma total abaixo da tabela
-        st.markdown(f"**Total Geral (Open Orders):** R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        # Formatar o total geral para moeda brasileira
+        formatted_total_open = f"R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        st.markdown(f"**Total Geral (Open Orders):** {formatted_total_open}")
     else:
         st.info("Nenhum pedido em aberto encontrado.")
 
@@ -175,7 +175,6 @@ def home_page():
     # Display Closed Orders Summary
     ############################
 
-    # Substitui st.subheader por st.markdown com negrito para ajustar o tamanho da fonte
     st.markdown("**Closed Orders Summary**")
     # Consulta para obter pedidos fechados agrupados por Data (somente dia) com a soma total
     closed_orders_query = """
@@ -191,22 +190,26 @@ def home_page():
         # Criar DataFrame para exibição com formatação
         df_closed_orders_display = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
         
-        # Formatar a coluna 'Date' para exibição amigável (somente dia)
-        df_closed_orders_display["Date"] = pd.to_datetime(df_closed_orders_display["Date"]).dt.strftime('%Y-%m-%d')
+        # Calcular a soma total dos pedidos fechados antes da formatação
+        total_closed = df_closed_orders_display["Total"].sum()
         
-        # Formatar a coluna 'Total' para moeda brasileira
-        df_closed_orders_display["Total"] = df_closed_orders_display["Total"].apply(
+        # Formatar a coluna 'Total_display' para moeda brasileira
+        df_closed_orders_display["Total_display"] = df_closed_orders_display["Total"].apply(
             lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         )
         
-        # Calcular a soma total dos pedidos fechados
-        total_closed = df_closed_orders_display["Total"].replace("R$ ", "").replace(".", "").replace(",", ".").astype(float).sum()
+        # Formatar a coluna 'Date' para exibição amigável (somente dia)
+        df_closed_orders_display["Date"] = pd.to_datetime(df_closed_orders_display["Date"]).dt.strftime('%Y-%m-%d')
+        
+        # Selecionar apenas as colunas para exibição
+        df_display = df_closed_orders_display[["Date", "Total_display"]]
         
         # Exibir a tabela de Closed Orders Summary
-        st.table(df_closed_orders_display)
+        st.table(df_display)
         
-        # Exibir a soma total abaixo da tabela (já que o gráfico foi removido)
-        st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        # Formatar o total geral para moeda brasileira
+        formatted_total_closed = f"R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        st.markdown(f"**Total Geral (Closed Orders):** {formatted_total_closed}")
     else:
         st.info("Nenhum pedido fechado encontrado.")
 
