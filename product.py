@@ -124,7 +124,7 @@ def home_page():
     if st.session_state.current_page == "Home":
         if 'home_page_initialized' not in st.session_state:
             st.session_state.show_open_orders = True
-            st.session_state.show_closed_orders = False
+            st.session_state.show_closed_orders = True  # Set to True to display by default
             st.session_state.show_status_summary = False
             st.session_state.show_product_summary = False
             st.session_state.show_combined_summary = False
@@ -132,7 +132,8 @@ def home_page():
 
     st.title("Boituva Beach Club")
     st.write("🎾 BeachTennis 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
-    st.info("Os dados são atualizados automaticamente ao navegar entre as páginas.")
+    # Removed the following line as per user request
+    # st.info("Os dados são atualizados automaticamente ao navegar entre as páginas.")
     
     ############################
     # Botões para exibir as tabelas
@@ -233,19 +234,19 @@ def home_page():
 
     if st.session_state.get('show_closed_orders', False):
         st.subheader("Closed Orders Summary")
-        # Consulta para obter pedidos fechados agrupados por Cliente e Data (somente dia) com a soma total
+        # Consulta para obter pedidos fechados agrupados por Data (somente dia) com a soma total
         closed_orders_query = """
-        SELECT "Cliente", DATE("Data") as Date, SUM("total") as Total
+        SELECT DATE("Data") as Date, SUM("total") as Total
         FROM public.vw_pedido_produto
         WHERE status != %s
-        GROUP BY "Cliente", DATE("Data")
-        ORDER BY "Cliente", DATE("Data") DESC;
+        GROUP BY DATE("Data")
+        ORDER BY DATE("Data") DESC;
         """
         closed_orders_data = run_query(closed_orders_query, ('em aberto',))
 
         if closed_orders_data:
             # Criar DataFrame
-            df_closed_orders = pd.DataFrame(closed_orders_data, columns=["Client", "Date", "Total"])
+            df_closed_orders = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
             
             # Calcular a soma total dos pedidos fechados
             total_closed = df_closed_orders["Total"].sum()
@@ -259,7 +260,7 @@ def home_page():
             )
             
             # Remover o índice e selecionar apenas as colunas desejadas
-            df_closed_orders = df_closed_orders.reset_index(drop=True)[["Client", "Date", "Total"]]
+            df_closed_orders = df_closed_orders.reset_index(drop=True)[["Date", "Total"]]
             
             # Exibir a tabela sem índice e com largura otimizada para a coluna
             st.dataframe(df_closed_orders, use_container_width=True)
@@ -927,7 +928,7 @@ def generate_invoice_for_printer(df):
         quantity = f"{row['Quantidade']:>5}"
         total = row['total']
         total_general += total
-        total_formatted = f"R$ {total:,.2f}".replace(',', ',')
+        total_formatted = f"R$ {total:,.2f}".replace('.', ',')
         invoice_note.append(f"{description} {quantity} {total_formatted}")
 
     formatted_general_total = f"R$ {total_general:,.2f}".replace('.', ',')
