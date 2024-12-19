@@ -7,7 +7,7 @@ import pandas as pd
 from PIL import Image
 import requests
 from io import BytesIO
-import plotly.express as px  # Importação do Plotly Express
+# import plotly.express as px  # Removido, já que o gráfico foi removido da Home
 
 #####################
 # Database Utilities
@@ -127,12 +127,10 @@ def sidebar_navigation():
 # Home Page
 #####################
 def home_page():
-    # Combina o título e a descrição em uma única linha para reduzir o espaçamento
-    st.markdown("""
-        <div style="text-align: center; font-size: 24px; font-weight: bold;">
-            Boituva Beach Club 🎾 📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC
-        </div>
-        """, unsafe_allow_html=True)
+    # Título ajustado com emoji no início
+    st.title("🎾Boituva Beach Club 🎾")
+    # Descrição com tamanho de fonte normal
+    st.write("📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     
     ############################
     # Display Open Orders Summary
@@ -190,11 +188,8 @@ def home_page():
     closed_orders_data = run_query(closed_orders_query, ('em aberto',))
 
     if closed_orders_data:
-        # Criar DataFrame com dados brutos para plotagem
-        df_closed_orders_plot = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
-        
         # Criar DataFrame para exibição com formatação
-        df_closed_orders_display = df_closed_orders_plot.copy()
+        df_closed_orders_display = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
         
         # Formatar a coluna 'Date' para exibição amigável (somente dia)
         df_closed_orders_display["Date"] = pd.to_datetime(df_closed_orders_display["Date"]).dt.strftime('%Y-%m-%d')
@@ -205,11 +200,13 @@ def home_page():
         )
         
         # Calcular a soma total dos pedidos fechados
-        total_closed = df_closed_orders_plot["Total"].sum()
+        total_closed = df_closed_orders_display["Total"].sum()
         
         # Exibir a tabela de Closed Orders Summary
         st.table(df_closed_orders_display)
         
+        # REMOVIDO: Gráfico de área
+        """
         # Criar o gráfico de área abaixo da tabela
         fig = px.area(
             df_closed_orders_plot,
@@ -228,8 +225,9 @@ def home_page():
         
         # Exibir o gráfico
         st.plotly_chart(fig, use_container_width=True)
+        """
         
-        # Exibir a soma total abaixo do gráfico
+        # Exibir a soma total abaixo do gráfico (agora logo abaixo da tabela)
         st.markdown(f"**Total Geral (Closed Orders):** R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     else:
         st.info("Nenhum pedido fechado encontrado.")
