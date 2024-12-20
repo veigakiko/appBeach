@@ -470,9 +470,16 @@ def products_page():
 def stock_page():
     st.title("Stock")
     st.subheader("Add a new stock record")
-    st.write("Esta página foi projetada para registrar apenas entradas de produtos no estoque de forma prática e organizada.")
-    st.write("Este sistema foi projetado para registrar exclusivamente as entradas de produtos no estoque. sso garante maior controle e rastreabilidade das adições ao estoque.")
+    st.write("""
+Esta página foi projetada para registrar **apenas entradas de produtos no estoque** de forma prática e organizada.  
 
+Com este sistema, você poderá monitorar todas as adições ao estoque com maior controle e rastreabilidade.  
+O registro exclusivo de entradas permite garantir uma gestão eficiente, evitando inconsistências e oferecendo um histórico claro de movimentações no estoque.  
+
+Mantenha seus dados atualizados para assegurar uma operação mais eficiente e confiável.
+""")
+
+    
     # Carregar a lista de produtos da tabela tb_products
     product_data = run_query("SELECT product FROM public.tb_products ORDER BY product;")
     product_list = [row[0] for row in product_data] if product_data else ["No products available"]
