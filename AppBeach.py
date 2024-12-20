@@ -469,8 +469,10 @@ def products_page():
 #####################
 def stock_page():
     st.title("Stock")
+    
 
     st.subheader("Add a new stock record")
+     st.write("Esta página foi projetada para facilitar a gestão e o monitoramento do estoque. Aqui, você pode registrar todas as entradas de produtos no estoque de forma prática e organizada.")
 
     # Carregar a lista de produtos da tabela tb_products
     product_data = run_query("SELECT product FROM public.tb_products ORDER BY product;")
