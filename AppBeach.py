@@ -486,7 +486,7 @@ O registro exclusivo de entradas permite garantir uma gestão eficiente, evitand
     with st.form(key='stock_form'):
         product = st.selectbox("Product", product_list)
         quantity = st.number_input("Quantity", min_value=1, step=1)
-        transaction = st.selectbox("Transaction Type", ["Entrada", "Saída"])
+        transaction = st.selectbox("Transaction Type", ["Entrada"])
         date = st.date_input("Date", value=datetime.now().date())
         submit_stock = st.form_submit_button(label="Register")
 
