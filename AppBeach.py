@@ -472,11 +472,10 @@ def stock_page():
     st.subheader("Add a new stock record")
     st.write("""
 Esta página foi projetada para registrar **apenas entradas de produtos no estoque** de forma prática e organizada.  
-
 Com este sistema, você poderá monitorar todas as adições ao estoque com maior controle e rastreabilidade.  
 O registro exclusivo de entradas permite garantir uma gestão eficiente, evitando inconsistências e oferecendo um histórico claro de movimentações no estoque.  
 
-Mantenha seus dados atualizados para assegurar uma operação mais eficiente e confiável.
+
 """)
 
     
