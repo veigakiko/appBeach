@@ -836,7 +836,7 @@ def login_page():
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
-        if username == "" and password == "":
+        if username == "admin" and password == "adminbeach":
             st.session_state.logged_in = True
             st.success("Login bem-sucedido!")
         else:
