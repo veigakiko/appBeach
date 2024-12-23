@@ -799,7 +799,7 @@ def login_page():
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
-        if username == "admin" and password == "adminbeach":
+        if username == "admin" and password == "adminbeach123":
             st.session_state.logged_in = True
             st.session_state.username = "admin"
             st.success("Login bem-sucedido!")
