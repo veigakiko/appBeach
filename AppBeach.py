@@ -7,7 +7,7 @@ import pandas as pd
 from PIL import Image
 import requests
 from io import BytesIO
-# import plotly.express as px  # Removido, já que o gráfico foi removido da Home
+# import plotly.express as px  # Removed since the chart was removed from Home
 
 ####################
 # Database Utilities
@@ -105,7 +105,7 @@ def sidebar_navigation():
         st.title("Boituva Beach Club 🎾")
         selected = option_menu(
             "Menu Principal", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
-            icons=["house", "file-text", "box", "list-task", "layers", "receipt"],  # Alterado "file-invoice" para "receipt"
+            icons=["house", "file-text", "box", "list-task", "layers", "receipt"],
             menu_icon="cast",
             default_index=0,
             styles={
@@ -127,9 +127,7 @@ def sidebar_navigation():
 # Home Page
 #####################
 def home_page():
-    # Título ajustado com emoji no início
     st.title("🎾Boituva Beach Club 🎾")
-    # Descrição com tamanho de fonte normal
     st.write("📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     
     # Só exibe estes resumos se for o admin
@@ -137,7 +135,6 @@ def home_page():
         ############################
         # Display Open Orders Summary
         ############################
-
         st.markdown("**Open Orders Summary**")
         open_orders_query = """
         SELECT "Cliente", SUM("total") as Total
@@ -147,15 +144,14 @@ def home_page():
         ORDER BY "Cliente" DESC;
         """
         open_orders_data = run_query(open_orders_query, ('em aberto',))
-
         if open_orders_data:
             df_open_orders_display = pd.DataFrame(open_orders_data, columns=["Client", "Total"])
             total_open = df_open_orders_display["Total"].sum()
             df_open_orders_display["Total_display"] = df_open_orders_display["Total"].apply(
                 lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
-            df_display = df_open_orders_display[["Client", "Total_display"]]
-            st.table(df_display)
+            df_display_open = df_open_orders_display[["Client", "Total_display"]]
+            st.table(df_display_open)
             formatted_total_open = f"R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             st.markdown(f"**Total Geral (Open Orders):** {formatted_total_open}")
         else:
@@ -164,7 +160,6 @@ def home_page():
         ############################
         # Display Closed Orders Summary
         ############################
-
         st.markdown("**Closed Orders Summary**")
         closed_orders_query = """
         SELECT DATE("Data") as Date, SUM("total") as Total
@@ -174,7 +169,6 @@ def home_page():
         ORDER BY DATE("Data") DESC;
         """
         closed_orders_data = run_query(closed_orders_query, ('em aberto',))
-
         if closed_orders_data:
             df_closed_orders_display = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
             total_closed = df_closed_orders_display["Total"].sum()
@@ -182,31 +176,31 @@ def home_page():
                 lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
             df_closed_orders_display["Date"] = pd.to_datetime(df_closed_orders_display["Date"]).dt.strftime('%Y-%m-%d')
-            df_display = df_closed_orders_display[["Date", "Total_display"]]
-            st.table(df_display)
+            df_display_closed = df_closed_orders_display[["Date", "Total_display"]]
+            st.table(df_display_closed)
             formatted_total_closed = f"R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             st.markdown(f"**Total Geral (Closed Orders):** {formatted_total_closed}")
         else:
             st.info("Nenhum pedido fechado encontrado.")
 
-        # NEW CODE: "Stock vs. Orders Summary" for ADMIN ONLY
+        ############################
+        # Stock vs. Orders Summary
+        ############################
         st.markdown("## Stock vs. Orders Summary")
         try:
-            # 1) Build a dataframe from the All Stock Records
+            # Build a dataframe from the All Stock Records
             stock_data = st.session_state.data.get("stock", [])
             df_stock = pd.DataFrame(stock_data, columns=["Produto", "Quantidade", "Transação", "Data"])
-            # Group by product and sum the quantity
             df_stock_group = df_stock.groupby("Produto", as_index=False)["Quantidade"].sum()
             df_stock_group.rename(columns={"Produto": "Product", "Quantidade": "Stock_Quantity"}, inplace=True)
 
-            # 2) Build a dataframe from the All Orders
+            # Build a dataframe from the All Orders
             orders_data = st.session_state.data.get("orders", [])
             df_orders = pd.DataFrame(orders_data, columns=["Client", "Product", "Quantity", "Date", "Status"])
-            # Group by product and sum the quantity
             df_orders_group = df_orders.groupby("Product", as_index=False)["Quantity"].sum()
             df_orders_group.rename(columns={"Product": "Product_orders", "Quantity": "Orders_Quantity"}, inplace=True)
 
-            # 3) Merge the two DataFrames
+            # Merge
             df_merged = pd.merge(
                 df_stock_group,
                 df_orders_group,
@@ -215,16 +209,17 @@ def home_page():
                 how="outer"
             )
 
-            # Replace any NaNs with 0 for calculations
+            # Fill NaN with 0
             df_merged["Stock_Quantity"] = df_merged["Stock_Quantity"].fillna(0)
             df_merged["Orders_Quantity"] = df_merged["Orders_Quantity"].fillna(0)
 
-            # 4) Add new column: Total_in_STOCK = Stock_Quantity - Orders_Quantity
+            # Add column Stock_Quantity - Orders_Quantity
             df_merged["Total_in_STOCK"] = df_merged["Stock_Quantity"] - df_merged["Orders_Quantity"]
 
             st.dataframe(df_merged)
         except Exception as e:
             st.error(f"Erro ao gerar o resumo Stock vs. Orders: {e}")
+
 
 #####################
 # Orders Page
@@ -236,7 +231,7 @@ def orders_page():
     product_data = st.session_state.data.get("products", [])
     product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
 
-    # Formulário para inserir novo pedido
+    # New order form
     with st.form(key='order_form'):
         clientes = run_query('SELECT nome_completo FROM public.tb_clientes ORDER BY nome_completo;')
         customer_list = [""] + [row[0] for row in clientes]
@@ -261,7 +256,7 @@ def orders_page():
         else:
             st.warning("Please fill in all fields correctly.")
 
-    # Exibir todos os pedidos
+    # Display all orders
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
         st.subheader("All Orders")
@@ -373,6 +368,7 @@ def products_page():
         else:
             st.warning("Please fill in all fields correctly.")
 
+    # Display all products
     products_data = st.session_state.data.get("products", [])
     if products_data:
         st.subheader("All Products")
@@ -475,6 +471,7 @@ Com este sistema, você poderá monitorar todas as adições ao estoque com maio
 O registro exclusivo de entradas permite garantir uma gestão eficiente, evitando inconsistências e oferecendo um histórico claro de movimentações no estoque.  
 """)
 
+    # Load product list from tb_products
     product_data = run_query("SELECT product FROM public.tb_products ORDER BY product;")
     product_list = [row[0] for row in product_data] if product_data else ["No products available"]
 
@@ -501,6 +498,7 @@ O registro exclusivo de entradas permite garantir uma gestão eficiente, evitand
         else:
             st.warning("Please select a product and enter a quantity greater than 0.")
 
+    # Display all stock records
     stock_data = st.session_state.data.get("stock", [])
     if stock_data:
         st.subheader("All Stock Records")
@@ -529,7 +527,7 @@ O registro exclusivo de entradas permite garantir uma gestão eficiente, evitand
                     original_product = selected_row["Product"]
                     original_quantity = selected_row["Quantity"]
                     original_transaction = selected_row["Transaction"]
-                    original_date = selected_row["Date"]  # Isso é um objeto datetime
+                    original_date = selected_row["Date"]
 
                     with st.form(key='edit_stock_form'):
                         edit_product = st.selectbox(
@@ -619,6 +617,7 @@ def clients_page():
         else:
             st.warning("Please fill in the Full Name field.")
 
+    # Display all clients
     clients_data = run_query("SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro FROM public.tb_clientes ORDER BY data_cadastro DESC;")
     if clients_data:
         st.subheader("All Clients")
@@ -700,7 +699,8 @@ def invoice_page():
             total_sum = df["total"].sum()
             formatted_total_sum = f"R$ {total_sum:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-            col1, col2, col3 = st.columns(3)
+            # Now we have 4 columns: Debit, Credit, Pix, Cash
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
                 if st.button("Debit", key="debit_button"):
                     process_payment(selected_client, "Received - Debited")
@@ -710,6 +710,10 @@ def invoice_page():
             with col3:
                 if st.button("Pix", key="pix_button"):
                     process_payment(selected_client, "Received - Pix")
+            # NEW CODE: Add a "Cash" option
+            with col4:
+                if st.button("Cash", key="cash_button"):
+                    process_payment(selected_client, "Received - Cash")
         else:
             st.info("Não há pedidos em aberto para o cliente selecionado.")
     else:
@@ -752,7 +756,7 @@ def generate_invoice_for_printer(df):
     total_general = 0
 
     for _, row in grouped_df.iterrows():
-        description = f"{row['Produto'][:20]:<20}" 
+        description = f"{row['Produto'][:20]:<20}"  # Limit to 20 chars
         quantity = f"{int(row['Quantidade']):>5}"
         total = row['total']
         total_general += total
