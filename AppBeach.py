@@ -48,7 +48,7 @@ def run_query(query, values=None):
 
 def run_insert(query, values):
     """
-    Executa uma consulta de inserção, atualização ou deleção.
+    Executa uma consulta de inserção, atualização ou deleção (INSERT, UPDATE ou DELETE).
     """
     conn = get_db_connection()
     if conn is None:
@@ -129,11 +129,11 @@ def home_page():
     st.title("🎾Boituva Beach Club 🎾")
     st.write("📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     
-    # Exibe estes resumos somente se o usuário for "admin"
+    # Só exibe estes resumos se o user for admin
     if st.session_state.get("username") == "admin":
-        #--------------------------
-        # Open Orders Summary
-        #--------------------------
+        ############################
+        # Display Open Orders Summary
+        ############################
         st.markdown("**Open Orders Summary**")
         open_orders_query = """
         SELECT "Cliente", SUM("total") as Total
@@ -156,9 +156,9 @@ def home_page():
         else:
             st.info("Nenhum pedido em aberto encontrado.")
 
-        #--------------------------
-        # Closed Orders Summary
-        #--------------------------
+        ############################
+        # Display Closed Orders Summary
+        ############################
         st.markdown("**Closed Orders Summary**")
         closed_orders_query = """
         SELECT DATE("Data") as Date, SUM("total") as Total
@@ -182,38 +182,22 @@ def home_page():
         else:
             st.info("Nenhum pedido fechado encontrado.")
 
-        #--------------------------
-        # Stock vs. Orders Summary
-        #--------------------------
+        # NEW CODE: Using the VIEW "vw_stock_vs_orders_summary"
         st.markdown("## Stock vs. Orders Summary")
         try:
-            # 1) Stock data
-            stock_data = st.session_state.data.get("stock", [])
-            df_stock = pd.DataFrame(stock_data, columns=["Produto", "Quantidade", "Transação", "Data"])
-            df_stock_group = df_stock.groupby("Produto", as_index=False)["Quantidade"].sum()
-            df_stock_group.rename(columns={"Produto": "Product", "Quantidade": "Stock_Quantity"}, inplace=True)
-
-            # 2) Orders data
-            orders_data = st.session_state.data.get("orders", [])
-            df_orders = pd.DataFrame(orders_data, columns=["Client", "Product", "Quantity", "Date", "Status"])
-            df_orders_group = df_orders.groupby("Product", as_index=False)["Quantity"].sum()
-            df_orders_group.rename(columns={"Product": "Product_orders", "Quantity": "Orders_Quantity"}, inplace=True)
-
-            # 3) Merge
-            df_merged = pd.merge(
-                df_stock_group,
-                df_orders_group,
-                left_on="Product",
-                right_on="Product_orders",
-                how="outer"
-            )
-            df_merged["Stock_Quantity"] = df_merged["Stock_Quantity"].fillna(0)
-            df_merged["Orders_Quantity"] = df_merged["Orders_Quantity"].fillna(0)
-
-            # 4) Add Total_in_STOCK
-            df_merged["Total_in_STOCK"] = df_merged["Stock_Quantity"] - df_merged["Orders_Quantity"]
-
-            st.dataframe(df_merged)
+            stock_vs_orders_query = """
+                SELECT product, stock_quantity, orders_quantity, total_in_stock
+                FROM public.vw_stock_vs_orders_summary
+            """
+            stock_vs_orders_data = run_query(stock_vs_orders_query)
+            if stock_vs_orders_data:
+                df_stock_vs_orders = pd.DataFrame(
+                    stock_vs_orders_data, 
+                    columns=["Product", "Stock_Quantity", "Orders_Quantity", "Total_in_STOCK"]
+                )
+                st.dataframe(df_stock_vs_orders)
+            else:
+                st.info("Não há dados na view vw_stock_vs_orders_summary.")
         except Exception as e:
             st.error(f"Erro ao gerar o resumo Stock vs. Orders: {e}")
 
@@ -227,7 +211,6 @@ def orders_page():
     product_data = st.session_state.data.get("products", [])
     product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
 
-    # Form to insert new order
     with st.form(key='order_form'):
         clientes = run_query('SELECT nome_completo FROM public.tb_clientes ORDER BY nome_completo;')
         customer_list = [""] + [row[0] for row in clientes]
@@ -252,7 +235,6 @@ def orders_page():
         else:
             st.warning("Please fill in all fields correctly.")
 
-    # Display all orders
     orders_data = st.session_state.data.get("orders", [])
     if orders_data:
         st.subheader("All Orders")
@@ -260,7 +242,7 @@ def orders_page():
         df_orders = pd.DataFrame(orders_data, columns=columns)
         st.dataframe(df_orders, use_container_width=True)
 
-        # Only admin can Edit/Delete
+        # Admin-only edit/delete
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Order")
             df_orders["unique_key"] = df_orders.apply(
@@ -294,8 +276,13 @@ def orders_page():
                             step=1,
                             value=int(original_quantity)
                         )
-                        edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix"]
-                        edit_status_index = edit_status_list.index(original_status) if original_status in edit_status_list else 0
+                        edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix", "Received - Cash"]
+                        # Keep the same index if possible
+                        if original_status in edit_status_list:
+                            edit_status_index = edit_status_list.index(original_status)
+                        else:
+                            edit_status_index = 0
+
                         edit_status = st.selectbox("Status", edit_status_list, index=edit_status_index)
 
                         update_button = st.form_submit_button(label="Update Order")
@@ -364,7 +351,6 @@ def products_page():
         else:
             st.warning("Please fill in all fields correctly.")
 
-    # Display all products
     products_data = st.session_state.data.get("products", [])
     if products_data:
         st.subheader("All Products")
@@ -374,7 +360,7 @@ def products_page():
         st.write("Columns in df_products:", df_products.columns.tolist())
         st.dataframe(df_products, use_container_width=True)
 
-        # Only admin can Edit/Delete
+        # Admin-only edit/delete
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Product")
             df_products["unique_key"] = df_products.apply(
@@ -464,7 +450,7 @@ def stock_page():
     st.write("""
 Esta página foi projetada para registrar **apenas entradas de produtos no estoque** de forma prática e organizada.  
 Com este sistema, você poderá monitorar todas as adições ao estoque com maior controle e rastreabilidade.  
-O registro exclusivo de entradas permite garantir uma gestão eficiente, evitando inconsistências e oferecendo um histórico claro de movimentações no estoque.
+O registro exclusivo de entradas permite garantir uma gestão eficiente, evitando inconsistências e oferecendo um histórico claro de movimentações no estoque.  
 """)
 
     product_data = run_query("SELECT product FROM public.tb_products ORDER BY product;")
@@ -493,17 +479,15 @@ O registro exclusivo de entradas permite garantir uma gestão eficiente, evitand
         else:
             st.warning("Please select a product and enter a quantity greater than 0.")
 
-    # Display all stock records
     stock_data = st.session_state.data.get("stock", [])
     if stock_data:
         st.subheader("All Stock Records")
         columns = ["Product", "Quantity", "Transaction", "Date"]
         df_stock = pd.DataFrame(stock_data, columns=columns)
-
         st.write("Columns in df_stock:", df_stock.columns.tolist())
         st.dataframe(df_stock, use_container_width=True)
 
-        # Only admin can Edit/Delete
+        # Admin-only edit/delete
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Stock Record")
             df_stock["unique_key"] = df_stock.apply(
@@ -620,7 +604,7 @@ def clients_page():
         df_clients = pd.DataFrame(clients_data, columns=columns)
         st.dataframe(df_clients, use_container_width=True)
 
-        # Only admin can Edit/Delete
+        # Admin-only edit/delete
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Client")
             client_emails = df_clients["Email"].unique().tolist()
@@ -691,7 +675,6 @@ def invoice_page():
             df = pd.DataFrame(invoice_data, columns=["Produto", "Quantidade", "total"])
             generate_invoice_for_printer(df)
 
-            # Payment buttons
             col1, col2, col3, col4 = st.columns(4)
             with col1:
                 if st.button("Debit", key="debit_button"):
@@ -703,7 +686,6 @@ def invoice_page():
                 if st.button("Pix", key="pix_button"):
                     process_payment(selected_client, "Received - Pix")
             with col4:
-                # New: Cash payment option
                 if st.button("Cash", key="cash_button"):
                     process_payment(selected_client, "Received - Cash")
         else:
@@ -768,7 +750,6 @@ def generate_invoice_for_printer(df):
 # Login Page
 #####################
 def login_page():
-    # Set background color
     st.markdown(
         """
         <style>
@@ -784,7 +765,6 @@ def login_page():
         unsafe_allow_html=True
     )
 
-    # Load and display logo
     logo_url = "https://res.cloudinary.com/lptennis/image/upload/v1657233475/kyz4k7fcptxt7x7mu9qu.jpg"
     try:
         response = requests.get(logo_url)
@@ -803,7 +783,7 @@ def login_page():
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
-        # Check two possible users: admin or caixa
+        # Two users: admin / caixa
         if username == "admin" and password == "adminbeach":
             st.session_state.logged_in = True
             st.session_state.username = "admin"
@@ -837,7 +817,7 @@ else:
         if selected_page == "Home":
             st.session_state.home_page_initialized = False
 
-    # Routing
+    # Page Routing
     if selected_page == "Home":
         home_page()
     elif selected_page == "Orders":
