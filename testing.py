@@ -150,7 +150,7 @@ def home_page():
                 lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
             df_display_open = df_open_orders_display[["Client", "Total_display"]]
-            st.table(df_display_open)
+            st.dataframe(df_display_open, use_container_width=True)
             formatted_total_open = f"R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             st.markdown(f"**Total Geral (Open Orders):** {formatted_total_open}")
         else:
@@ -176,7 +176,7 @@ def home_page():
             )
             df_closed_orders_display["Date"] = pd.to_datetime(df_closed_orders_display["Date"]).dt.strftime('%Y-%m-%d')
             df_display_closed = df_closed_orders_display[["Date", "Total_display"]]
-            st.table(df_display_closed)
+            st.dataframe(df_display_closed, use_container_width=True)
             formatted_total_closed = f"R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             st.markdown(f"**Total Geral (Closed Orders):** {formatted_total_closed}")
         else:
@@ -192,12 +192,11 @@ def home_page():
             """
             stock_vs_orders_data = run_query(stock_vs_orders_query)
             if stock_vs_orders_data:
-                # Only Product and Total_in_STOCK columns
                 df_stock_vs_orders = pd.DataFrame(
                     stock_vs_orders_data, 
                     columns=["Product", "Total_in_STOCK"]
                 )
-                st.dataframe(df_stock_vs_orders)
+                st.dataframe(df_stock_vs_orders, use_container_width=True)
             else:
                 st.info("Não há dados na view vw_stock_vs_orders_summary.")
         except Exception as e:
@@ -244,7 +243,6 @@ def orders_page():
         df_orders = pd.DataFrame(orders_data, columns=columns)
         st.dataframe(df_orders, use_container_width=True)
 
-        # Admin-only edit/delete
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Order")
             df_orders["unique_key"] = df_orders.apply(
@@ -358,7 +356,9 @@ def products_page():
         columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
         df_products = pd.DataFrame(products_data, columns=columns)
 
-        st.write("Columns in df_products:", df_products.columns.tolist())
+        # Removed the debug print here
+        # st.write("Columns in df_products:", df_products.columns.tolist())
+
         st.dataframe(df_products, use_container_width=True)
 
         if st.session_state.get("username") == "admin":
@@ -485,7 +485,9 @@ O registro exclusivo de entradas permite garantir uma gestão eficiente, evitand
         columns = ["Product", "Quantity", "Transaction", "Date"]
         df_stock = pd.DataFrame(stock_data, columns=columns)
 
-        st.write("Columns in df_stock:", df_stock.columns.tolist())
+        # Removed the debug print here
+        # st.write("Columns in df_stock:", df_stock.columns.tolist())
+
         st.dataframe(df_stock, use_container_width=True)
 
         if st.session_state.get("username") == "admin":
@@ -603,7 +605,6 @@ def clients_page():
         df_clients = pd.DataFrame(clients_data, columns=columns)
         st.dataframe(df_clients, use_container_width=True)
 
-        # Admin-only edit/delete
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Client")
             client_emails = df_clients["Email"].unique().tolist()
@@ -781,9 +782,7 @@ def login_page():
         password = st.text_input("Password", type="password")
         submit_login = st.form_submit_button(label="Login")
 
-    # ADJUSTED: Force a rerun immediately after successful login
     if submit_login:
-        # Two users: admin / caixa
         if username == "admin" and password == "adminbeach":
             st.session_state.logged_in = True
             st.session_state.username = "admin"
