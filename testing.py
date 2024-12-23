@@ -129,11 +129,8 @@ def home_page():
     st.title("🎾Boituva Beach Club 🎾")
     st.write("📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     
-    # Só exibe estes resumos se o user for admin
     if st.session_state.get("username") == "admin":
-        ############################
-        # Display Open Orders Summary
-        ############################
+        # Open Orders Summary
         st.markdown("**Open Orders Summary**")
         open_orders_query = """
         SELECT "Cliente", SUM("total") as Total
@@ -156,9 +153,7 @@ def home_page():
         else:
             st.info("Nenhum pedido em aberto encontrado.")
 
-        ############################
-        # Display Closed Orders Summary
-        ############################
+        # Closed Orders Summary
         st.markdown("**Closed Orders Summary**")
         closed_orders_query = """
         SELECT DATE("Data") as Date, SUM("total") as Total
@@ -182,7 +177,7 @@ def home_page():
         else:
             st.info("Nenhum pedido fechado encontrado.")
 
-        # Use the VIEW "vw_stock_vs_orders_summary"
+        # Stock vs. Orders Summary
         st.markdown("## Stock vs. Orders Summary")
         try:
             stock_vs_orders_query = """
@@ -356,8 +351,7 @@ def products_page():
         columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
         df_products = pd.DataFrame(products_data, columns=columns)
 
-        # Removed the debug print here
-        # st.write("Columns in df_products:", df_products.columns.tolist())
+        # Removed debug print here
 
         st.dataframe(df_products, use_container_width=True)
 
@@ -485,8 +479,7 @@ O registro exclusivo de entradas permite garantir uma gestão eficiente, evitand
         columns = ["Product", "Quantity", "Transaction", "Date"]
         df_stock = pd.DataFrame(stock_data, columns=columns)
 
-        # Removed the debug print here
-        # st.write("Columns in df_stock:", df_stock.columns.tolist())
+        # Removed debug print here
 
         st.dataframe(df_stock, use_container_width=True)
 
@@ -598,56 +591,79 @@ def clients_page():
         else:
             st.warning("Please fill in the Full Name field.")
 
-    clients_data = run_query("SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro FROM public.tb_clientes ORDER BY data_cadastro DESC;")
+    # Show only Full Name and Register Date columns
+    clients_data = run_query("SELECT nome_completo, data_cadastro FROM public.tb_clientes ORDER BY data_cadastro DESC;")
     if clients_data:
         st.subheader("All Clients")
-        columns = ["Full Name", "Birth Date", "Gender", "Phone", "Email", "Address", "Register Date"]
+        columns = ["Full Name", "Register Date"]
         df_clients = pd.DataFrame(clients_data, columns=columns)
+        
+        # Only display 'Full Name' + 'Register Date'
         st.dataframe(df_clients, use_container_width=True)
 
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Client")
-            client_emails = df_clients["Email"].unique().tolist()
-            selected_email = st.selectbox("Select a client by Email:", [""] + client_emails)
+            # Since we only have Full Name + Register Date in the table,
+            # we must fetch the relevant unique identifier for editing/deleting
+            # Typically, you'd have an email or ID. Let's assume we still
+            # want to select by Full Name (less robust, but works for demonstration)
+            
+            # Let's collect distinct Full Names from the DF
+            full_names_list = df_clients["Full Name"].unique().tolist()
+            selected_full_name = st.selectbox("Select a client by Full Name:", [""] + full_names_list)
+            
+            if selected_full_name:
+                # We need to look up the original client email or ID
+                # For demonstration, let's do a quick query to find that client's email
+                matching_email_query = """
+                    SELECT email 
+                    FROM public.tb_clientes
+                    WHERE nome_completo = %s
+                    ORDER BY data_cadastro DESC
+                    LIMIT 1;
+                """
+                result_email = run_query(matching_email_query, (selected_full_name,))
+                if result_email:
+                    client_email = result_email[0][0]  # email in first row
+                    # proceed with edit/delete
+                    original_name = selected_full_name  # from the DF
 
-            if selected_email:
-                selected_client_row = df_clients[df_clients["Email"] == selected_email].iloc[0]
-                original_name = selected_client_row["Full Name"]
+                    with st.form(key='edit_client_form'):
+                        edit_name = st.text_input("Full Name", value=original_name, max_chars=100)
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            update_button = st.form_submit_button(label="Update Client")
+                        with col2:
+                            delete_button = st.form_submit_button(label="Delete Client")
 
-                with st.form(key='edit_client_form'):
-                    edit_name = st.text_input("Full Name", value=original_name, max_chars=100)
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        update_button = st.form_submit_button(label="Update Client")
-                    with col2:
-                        delete_button = st.form_submit_button(label="Delete Client")
-
-                if update_button:
-                    if edit_name:
-                        update_query = """
-                        UPDATE public.tb_clientes
-                        SET nome_completo = %s
-                        WHERE email = %s;
-                        """
-                        success = run_insert(update_query, (edit_name, selected_email))
-                        if success:
-                            st.success("Client updated successfully!")
-                            refresh_data()
+                    if update_button:
+                        if edit_name:
+                            update_query = """
+                            UPDATE public.tb_clientes
+                            SET nome_completo = %s
+                            WHERE email = %s;
+                            """
+                            success = run_insert(update_query, (edit_name, client_email))
+                            if success:
+                                st.success("Client updated successfully!")
+                                refresh_data()
+                            else:
+                                st.error("Failed to update the client.")
                         else:
-                            st.error("Failed to update the client.")
-                    else:
-                        st.warning("Please fill in the Full Name field.")
+                            st.warning("Please fill in the Full Name field.")
 
-                if delete_button:
-                    confirm = st.checkbox("Are you sure you want to delete this client?")
-                    if confirm:
-                        delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
-                        success = run_insert(delete_query, (selected_email,))
-                        if success:
-                            st.success("Client deleted successfully!")
-                            refresh_data()
-                        else:
-                            st.error("Failed to delete the client.")
+                    if delete_button:
+                        confirm = st.checkbox("Are you sure you want to delete this client?")
+                        if confirm:
+                            delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
+                            success = run_insert(delete_query, (client_email,))
+                            if success:
+                                st.success("Client deleted successfully!")
+                                refresh_data()
+                            else:
+                                st.error("Failed to delete the client.")
+                else:
+                    st.warning("Could not find this client's email in the database.")
     else:
         st.info("No clients found.")
 
