@@ -182,7 +182,7 @@ def home_page():
         else:
             st.info("Nenhum pedido fechado encontrado.")
 
-        # NEW CODE: Using the VIEW "vw_stock_vs_orders_summary"
+        # View "vw_stock_vs_orders_summary"
         st.markdown("## Stock vs. Orders Summary")
         try:
             stock_vs_orders_query = """
@@ -216,7 +216,7 @@ def home_page():
             st.info("Nenhum produto vendido encontrado.")
 
         ##################################################
-        # Display the vw_cliente_sum_total view (NEW)
+        # Display the vw_cliente_sum_total view
         ##################################################
         st.markdown("**Sum by Client (vw_cliente_sum_total)**")
         client_sum_query = """
@@ -229,6 +229,21 @@ def home_page():
             st.table(df_client_sum)
         else:
             st.info("Nenhum dado encontrado na vw_cliente_sum_total.")
+
+        ############################################################
+        # NEW: Display vw_total_por_tipo_pagamento (Payment Type)
+        ############################################################
+        st.markdown("**Sum by Payment Type (vw_total_por_tipo_pagamento)**")
+        payment_type_query = """
+            SELECT payment_type, total_sold
+            FROM public.vw_total_por_tipo_pagamento;
+        """
+        payment_type_data = run_query(payment_type_query)
+        if payment_type_data:
+            df_payment_type = pd.DataFrame(payment_type_data, columns=["Payment_Type", "Total_Sold"])
+            st.table(df_payment_type)
+        else:
+            st.info("Nenhum dado encontrado na vw_total_por_tipo_pagamento.")
 
     else:
         st.info("Bem-vindo(a) ao Boituva Beach Club!")
