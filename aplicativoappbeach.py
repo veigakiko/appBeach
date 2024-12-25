@@ -815,35 +815,7 @@ def login_page():
         else:
             st.error("Nome de usuário ou senha incorretos.")
 
-    # ----------------
-    # 2) REGISTRATION FORM
-    # ----------------
-    st.markdown("---")
-    st.subheader("Register a New User")
-    st.write("Preencha os campos para criar um novo usuário.")
-
-    with st.form(key='register_form'):
-        reg_username = st.text_input("New Username")
-        reg_password = st.text_input("New Password", type="password")
-        reg_email = st.text_input("Email")
-        submit_register = st.form_submit_button(label="Register")
-
-    if submit_register:
-        # If all fields are filled in
-        if reg_username and reg_password and reg_email:
-            # Insert into your DB table "public.username_login"
-            register_query = """
-                INSERT INTO public.username_login (username, "password", email)
-                VALUES (%s, %s, %s);
-            """
-            success = run_insert(register_query, (reg_username, reg_password, reg_email))
-            if success:
-                st.success("User registered successfully! You can now log in with your new credentials.")
-            else:
-                st.error("Failed to register user. Please check if the user already exists or if there's a DB error.")
-        else:
-            st.warning("Please fill in all required fields (Username, Password, Email) before registering.")
-
+    
 #####################
 # Initialization
 #####################
