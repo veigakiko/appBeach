@@ -353,8 +353,7 @@ def orders_page():
                         """
                         success = run_insert(
                             update_query,
-                            (edit_product, edit_quantity, edit_status,
-                             original_client, original_product, original_date),
+                            (edit_product, edit_quantity, edit_status, original_client, original_product, original_date),
                             table_name="tb_pedido",
                             action_description=f"Atualizando pedido para {original_client}"
                         )
@@ -804,6 +803,7 @@ def invoice_page():
     else:
         st.warning("Por favor, selecione um cliente.")
 
+
 def process_payment(client, payment_status):
     query = """
     UPDATE public.tb_pedido
@@ -821,6 +821,7 @@ def process_payment(client, payment_status):
         refresh_data()
     else:
         st.error("Falha ao atualizar o status.")
+
 
 def generate_invoice_for_printer(df):
     company = "Boituva Beach Club"
@@ -910,9 +911,10 @@ def reports_page():
         st.info("Nenhum dado encontrado na vw_total_por_tipo_pagamento.")
 
 # URL para o vídeo de fundo
+# Substitua esta URL pela URL correta do seu vídeo hospedado
 video_url = (
-    "https://github.com/veigakiko/appBeach/raw/refs/heads/main/"
-    "20241224_0437_Vibrant%20Beach%20Tennis_remix_01jfvsjewve73t9bq6sb9hcc2q.mp4"
+    "https://www.w3schools.com/howto/rain.mp4"  # Vídeo de teste
+    # "https://raw.githubusercontent.com/veigakiko/appBeach/main/20241224_0437_Vibrant%20Beach%20Tennis_remix_01jfvsjewve73t9bq6sb9hcc2q.mp4"
 )
 
 def login_page():
