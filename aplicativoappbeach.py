@@ -4,9 +4,6 @@ import psycopg2
 from psycopg2 import OperationalError
 from datetime import datetime, date
 import pandas as pd
-from PIL import Image
-import requests
-from io import BytesIO
 from dotenv import load_dotenv
 import os
 
@@ -72,6 +69,7 @@ def run_insert(query, values):
 #####################
 # Data Loading
 #####################
+@st.cache_data
 def load_all_data():
     """
     Carrega todos os dados utilizados pelo aplicativo e retorna em um dicionário.
@@ -108,7 +106,8 @@ def sidebar_navigation():
     with st.sidebar:
         st.title("Boituva Beach Club 🎾")
         selected = option_menu(
-            "Menu Principal", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
+            "Menu Principal",
+            ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
             icons=["house", "file-text", "box", "list-task", "layers", "receipt"],
             menu_icon="cast",
             default_index=0,
@@ -789,45 +788,50 @@ def login_page():
 #####################
 # Initialization
 #####################
-if 'data' not in st.session_state:
-    st.session_state.data = load_all_data()
+def main():
+    # Inicialização do estado da sessão
+    if 'data' not in st.session_state:
+        st.session_state.data = load_all_data()
 
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
 
-if not st.session_state.logged_in:
-    login_page()
-else:
-    selected_page = sidebar_navigation()
+    if not st.session_state.logged_in:
+        login_page()
+    else:
+        selected_page = sidebar_navigation()
 
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = selected_page
-    elif selected_page != st.session_state.current_page:
-        refresh_data()
-        st.session_state.current_page = selected_page
+        if 'current_page' not in st.session_state:
+            st.session_state.current_page = selected_page
+        elif selected_page != st.session_state.current_page:
+            refresh_data()
+            st.session_state.current_page = selected_page
+            if selected_page == "Home":
+                st.session_state.home_page_initialized = False
+
+        # Page Routing
         if selected_page == "Home":
-            st.session_state.home_page_initialized = False
+            home_page()
+        elif selected_page == "Orders":
+            orders_page()
+        elif selected_page == "Products":
+            products_page()
+        elif selected_page == "Stock":
+            stock_page()
+        elif selected_page == "Clients":
+            clients_page()
+        elif selected_page == "Nota Fiscal":
+            invoice_page()
 
-    # Page Routing
-    if selected_page == "Home":
-        home_page()
-    elif selected_page == "Orders":
-        orders_page()
-    elif selected_page == "Products":
-        products_page()
-    elif selected_page == "Stock":
-        stock_page()
-    elif selected_page == "Clients":
-        clients_page()
-    elif selected_page == "Nota Fiscal":
-        invoice_page()
+        with st.sidebar:
+            if st.button("Logout", key="logout_button"):
+                keys_to_reset = ['home_page_initialized']
+                for key in keys_to_reset:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                st.session_state.logged_in = False
+                st.success("Desconectado com sucesso!")
+                st.experimental_rerun()
 
-    with st.sidebar:
-        if st.button("Logout", key="logout_button"):
-            keys_to_reset = ['home_page_initialized']
-            for key in keys_to_reset:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.session_state.logged_in = False
-            st.success("Desconectado com sucesso!")
-            st.experimental_rerun()
+if __name__ == "__main__":
+    main()
