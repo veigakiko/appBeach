@@ -760,21 +760,21 @@ def generate_invoice_for_printer(df):
 # Login Page
 #####################
 def login_page():
-    # Definição do formulário de login
-    with st.form(key='login_form'):
+    # Cria o formulário
+    with st.form(key="login_form"):
         st.header("Beach Club")
         username = st.text_input("Nome de Usuário", key="login_username")
         password = st.text_input("Senha", type="password", key="login_password")
-        # Botão de submissão dentro do contexto do formulário
-        submit_login = st.form_submit_button(label="Login", key="login_submit_button")
+        submit_login = st.form_submit_button(label="Login")  # Botão de submissão
 
-    # Processamento após submissão
+    # Processa a submissão
     if submit_login:
         admin_username = os.getenv("ADMIN_USERNAME", "admin")
         admin_password = os.getenv("ADMIN_PASSWORD", "adminbeach")
         caixa_username = os.getenv("CAIXA_USERNAME", "caixa")
         caixa_password = os.getenv("CAIXA_PASSWORD", "caixabeach")
 
+        # Valida credenciais
         if username == admin_username and password == admin_password:
             st.session_state.logged_in = True
             st.session_state.username = "admin"
@@ -787,6 +787,7 @@ def login_page():
             st.experimental_rerun()
         else:
             st.error("Nome de usuário ou senha incorretos.")
+
 
 
 #####################
