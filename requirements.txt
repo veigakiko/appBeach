@@ -10,8 +10,3 @@ altair==5.5.0
 plotly
 requests
 matplotlib
-streamlit-option-menu==1.3.0
-plotly==5.15.0
-requests==2.31.0
-matplotlib==3.7.2
-python-dotenv==1.0.0
