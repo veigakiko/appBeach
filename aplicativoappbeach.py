@@ -7,10 +7,11 @@ import pandas as pd
 from PIL import Image
 import requests
 from io import BytesIO
+import bcrypt
 
 ####################
 # Database Utilities
-#####################
+####################
 @st.cache_resource
 def get_db_connection():
     """
@@ -45,6 +46,9 @@ def run_query(query, values=None):
             conn.rollback()
         st.error(f"Erro ao executar a consulta: {e}")
         return []
+    finally:
+        if conn:
+            conn.close()
 
 def run_insert(query, values):
     """
@@ -63,6 +67,9 @@ def run_insert(query, values):
             conn.rollback()
         st.error(f"Erro ao executar a consulta: {e}")
         return False
+    finally:
+        if conn:
+            conn.close()
 
 #####################
 # Data Loading
@@ -146,6 +153,7 @@ def home_page():
         if open_orders_data:
             df_open_orders_display = pd.DataFrame(open_orders_data, columns=["Client", "Total"])
             total_open = df_open_orders_display["Total"].sum()
+            # Formatar totais como Real Brasileiro
             df_open_orders_display["Total_display"] = df_open_orders_display["Total"].apply(
                 lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
@@ -171,6 +179,7 @@ def home_page():
         if closed_orders_data:
             df_closed_orders_display = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
             total_closed = df_closed_orders_display["Total"].sum()
+            # Formatar totais como Real Brasileiro
             df_closed_orders_display["Total_display"] = df_closed_orders_display["Total"].apply(
                 lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
@@ -182,7 +191,9 @@ def home_page():
         else:
             st.info("Nenhum pedido fechado encontrado.")
 
+        ############################
         # View "vw_stock_vs_orders_summary"
+        ############################
         st.markdown("## Stock vs. Orders Summary")
         try:
             stock_vs_orders_query = """
@@ -201,7 +212,9 @@ def home_page():
         except Exception as e:
             st.error(f"Erro ao gerar o resumo Stock vs. Orders: {e}")
 
+        ############################
         # Total Sold by Product (using vw_total_sold)
+        ############################
         st.markdown("**Total Sold by Product**")
         total_sold_query = """
             SELECT "Produto", total_sold
@@ -776,14 +789,16 @@ def generate_invoice_for_printer(df):
     total_general = 0
 
     for _, row in grouped_df.iterrows():
-        description = f"{row['Produto'][:20]:<20}"  # limit to 20 chars
+        description = f"{row['Produto'][:20]:<20}"  # limita a 20 caracteres
         quantity = f"{int(row['Quantidade']):>5}"
         total = row['total']
         total_general += total
+        # Formatar como Real Brasileiro
         total_formatted = f"R$ {total:,.2f}".replace('.', ',')
         invoice_note.append(f"{description} {quantity} {total_formatted}")
 
     invoice_note.append("--------------------------------------------------")
+    # Formatar total_general como Real Brasileiro
     formatted_general_total = f"R$ {total_general:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     invoice_note.append(f"{'TOTAL GERAL:':>30} {formatted_general_total:>10}")
     invoice_note.append("==================================================")
@@ -823,23 +838,72 @@ def login_page():
     st.title("Beach Club")
     st.write("Por favor, insira suas credenciais para acessar o aplicativo.")
 
+    # ----------------
+    # 1) LOGIN FORM
+    # ----------------
     with st.form(key='login_form'):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
-        # Two users: admin / caixa
-        if username == "admin" and password == "adminbeach":
-            st.session_state.logged_in = True
-            st.session_state.username = "admin"
-            st.success("Login bem-sucedido!")
-        elif username == "caixa" and password == "caixabeach":
-            st.session_state.logged_in = True
-            st.session_state.username = "caixa"
-            st.success("Login bem-sucedido!")
+        # Fetch the stored hashed password for the given username
+        login_query = """
+        SELECT "password" FROM public.username_login
+        WHERE username = %s;
+        """
+        login_data = run_query(login_query, (username,))
+        if login_data:
+            stored_hashed_password = login_data[0][0]
+            # Verify the entered password against the stored hashed password
+            if bcrypt.checkpw(password.encode('utf-8'), stored_hashed_password.encode('utf-8')):
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                st.success("Login bem-sucedido!")
+                st.experimental_rerun()
+            else:
+                st.error("Nome de usuário ou senha incorretos.")
         else:
             st.error("Nome de usuário ou senha incorretos.")
+
+    # ----------------
+    # 2) REGISTRATION FORM
+    # ----------------
+    st.markdown("---")
+    st.subheader("Register a New User")
+    st.write("Preencha os campos para criar um novo usuário.")
+
+    with st.form(key='register_form'):
+        reg_username = st.text_input("New Username")
+        reg_password = st.text_input("New Password", type="password")
+        reg_email = st.text_input("Email")
+        submit_register = st.form_submit_button(label="Register")
+
+    if submit_register:
+        # If all fields are filled in
+        if reg_username and reg_password and reg_email:
+            # Check if user already exists
+            check_user_query = """
+            SELECT username FROM public.username_login WHERE username = %s;
+            """
+            existing_user = run_query(check_user_query, (reg_username,))
+            if existing_user:
+                st.error("Username já existe. Por favor, escolha outro.")
+            else:
+                # Hash the password
+                hashed_password = bcrypt.hashpw(reg_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                # Insert into your DB table "public.username_login"
+                register_query = """
+                    INSERT INTO public.username_login (username, "password", email)
+                    VALUES (%s, %s, %s);
+                """
+                success = run_insert(register_query, (reg_username, hashed_password, reg_email))
+                if success:
+                    st.success("User registered successfully! You can now log in with your new credentials.")
+                else:
+                    st.error("Failed to register user. Please check if the user already exists or if there's a DB error.")
+        else:
+            st.warning("Please fill in all required fields (Username, Password, Email) before registering.")
 
 #####################
 # Initialization
