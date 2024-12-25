@@ -24,3 +24,12 @@ pandas
 pillow
 requests
 python-dotenv
+streamlit
+streamlit_option_menu
+psycopg2-binary
+pandas
+pillow
+requests
+bcrypt
+python-dotenv
+
