@@ -910,47 +910,89 @@ def reports_page():
     else:
         st.info("Nenhum dado encontrado na vw_total_por_tipo_pagamento.")
 
-# Removido o vídeo de fundo da página de login
+# URL para o vídeo de fundo
+# Substitua esta URL pela URL correta do seu vídeo hospedado
+video_url = (
+    "https://www.w3schools.com/howto/rain.mp4"  # Vídeo de teste
+    # "https://raw.githubusercontent.com/veigakiko/appBeach/main/20241224_0437_Vibrant%20Beach%20Tennis_remix_01jfvsjewve73t9bq6sb9hcc2q.mp4"
+)
+
+import streamlit as st
+
+# URL de um vídeo de teste que permite embedding
+video_url = "https://www.w3schools.com/howto/rain.mp4"  # Vídeo de teste
+
+import streamlit as st
 
 def login_page():
     """
-    Renderiza a página de login sem vídeo de fundo.
+    Renderiza a página de login com um vídeo de fundo usando iframe.
     """
-    # CSS personalizado para o formulário de login
-    page_style = """
-    <style>
-    /* Centralizar o formulário */
-    .login-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-    }
+    # URL do vídeo de fundo (corrija conforme necessário)
+    video_url = "https://streamable.com/e/96jd85"  # URL corrigida sem o '?'
 
-    /* Estilos para o formulário */
-    .login-box {
-        background: rgba(255, 255, 255, 0.95);
+    # CSS personalizado para posicionar o iframe como fundo e o formulário sobre ele
+    page_bg_img = f"""
+    <style>
+    /* Remover margens e padding padrão */
+    body {{
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        height: 100vh;
+        overflow: hidden;
+    }}
+
+    /* Container do vídeo de fundo */
+    .background {{
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        overflow: hidden;
+    }}
+
+    /* Estilos para o iframe */
+    .background iframe {{
+        width: 100%;
+        height: 100%;
+        border: none;
+    }}
+
+    /* Container do formulário de login */
+    .login-container {{
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(255, 255, 255, 0.85);
         padding: 40px;
         border-radius: 10px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         max-width: 400px;
         width: 90%;
-    }
+    }}
 
     /* Estilos para os títulos */
-    .login-box h1 {
+    .login-container h1 {{
         text-align: center;
         margin-bottom: 20px;
-    }
+    }}
     </style>
+
+    <!-- Embed do vídeo de fundo -->
+    <div class="background">
+        <iframe src="{video_url}" allow="fullscreen" allowfullscreen></iframe>
+    </div>
+
+    <!-- Container do formulário de login -->
+    <div class="login-container">
     """
 
-    # Adiciona o CSS personalizado ao Streamlit
-    st.markdown(page_style, unsafe_allow_html=True)
-
-    # Container do formulário de login
-    st.markdown('<div class="login-container">', unsafe_allow_html=True)
-    st.markdown('<div class="login-box">', unsafe_allow_html=True)
+    # Adiciona o HTML acima ao Streamlit
+    st.markdown(page_bg_img, unsafe_allow_html=True)
 
     # Formulário de login dentro do container
     with st.form(key="login_form"):
@@ -969,8 +1011,8 @@ def login_page():
         else:
             st.error("Usuário ou senha incorretos.")
 
-    # Fecha os divs do container do formulário
-    st.markdown("</div></div>", unsafe_allow_html=True)
+    # Fecha o div do container do formulário
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # Inicialização do estado da sessão
 if "logged_in" not in st.session_state:
