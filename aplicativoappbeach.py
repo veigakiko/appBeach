@@ -129,8 +129,11 @@ def home_page():
     st.title("🎾Boituva Beach Club 🎾")
     st.write("📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     
+    # Só exibe estes resumos se o user for admin
     if st.session_state.get("username") == "admin":
-        # 1) Open Orders Summary
+        ############################
+        # Display Open Orders Summary
+        ############################
         st.markdown("**Open Orders Summary**")
         open_orders_query = """
         SELECT "Cliente", SUM("total") as Total
@@ -147,16 +150,15 @@ def home_page():
                 lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
             df_display_open = df_open_orders_display[["Client", "Total_display"]]
-            # Hide index
-            st.dataframe(df_display_open.style.hide_index(), use_container_width=True)
-
-            # Show total sum
+            st.table(df_display_open)
             formatted_total_open = f"R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             st.markdown(f"**Total Geral (Open Orders):** {formatted_total_open}")
         else:
             st.info("Nenhum pedido em aberto encontrado.")
 
-        # 2) Closed Orders Summary
+        ############################
+        # Display Closed Orders Summary
+        ############################
         st.markdown("**Closed Orders Summary**")
         closed_orders_query = """
         SELECT DATE("Data") as Date, SUM("total") as Total
@@ -174,48 +176,44 @@ def home_page():
             )
             df_closed_orders_display["Date"] = pd.to_datetime(df_closed_orders_display["Date"]).dt.strftime('%Y-%m-%d')
             df_display_closed = df_closed_orders_display[["Date", "Total_display"]]
-            # Hide index
-            st.dataframe(df_display_closed.style.hide_index(), use_container_width=True)
-
-            # Show total sum
+            st.table(df_display_closed)
             formatted_total_closed = f"R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             st.markdown(f"**Total Geral (Closed Orders):** {formatted_total_closed}")
         else:
             st.info("Nenhum pedido fechado encontrado.")
 
-        # 3) Stock vs. Orders Summary
+        # NEW CODE: Using the VIEW "vw_stock_vs_orders_summary"
         st.markdown("## Stock vs. Orders Summary")
         try:
             stock_vs_orders_query = """
-                SELECT product, total_in_stock
+                SELECT product, stock_quantity, orders_quantity, total_in_stock
                 FROM public.vw_stock_vs_orders_summary
-                ORDER BY total_in_stock DESC
             """
             stock_vs_orders_data = run_query(stock_vs_orders_query)
             if stock_vs_orders_data:
-                df_stock_vs_orders = pd.DataFrame(stock_vs_orders_data, columns=["Product", "Total_in_STOCK"])
-                # Hide index
-                st.dataframe(df_stock_vs_orders.style.hide_index(), use_container_width=True)
+                df_stock_vs_orders = pd.DataFrame(
+                    stock_vs_orders_data, 
+                    columns=["Product", "Stock_Quantity", "Orders_Quantity", "Total_in_STOCK"]
+                )
+                st.dataframe(df_stock_vs_orders)
             else:
                 st.info("Não há dados na view vw_stock_vs_orders_summary.")
         except Exception as e:
             st.error(f"Erro ao gerar o resumo Stock vs. Orders: {e}")
 
-        # 4) Total Sold by Product (Using vw_total_sold)
+        # NEW FUNCTIONALITY: Total Sold by Product (using vw_total_sold)
         st.markdown("**Total Sold by Product**")
-        sold_query = """
+        total_sold_query = """
             SELECT "Produto", total_sold
-            FROM public.vw_total_sold;
+            FROM public.vw_total_sold
+            ORDER BY total_sold DESC;
         """
-        sold_data = run_query(sold_query)
-        if sold_data:
-            df_sold = pd.DataFrame(sold_data, columns=["Product", "Total_Sold"])
-            # Hide index
-            st.dataframe(df_sold.style.hide_index(), use_container_width=True)
+        total_sold_data = run_query(total_sold_query)
+        if total_sold_data:
+            df_total_sold = pd.DataFrame(total_sold_data, columns=["Product", "Total_Sold"])
+            st.table(df_total_sold)
         else:
             st.info("Nenhum produto vendido encontrado.")
-    else:
-        st.info("Bem-vindo(a) ao Boituva Beach Club!")
 
 #####################
 # Orders Page
@@ -258,6 +256,7 @@ def orders_page():
         df_orders = pd.DataFrame(orders_data, columns=columns)
         st.dataframe(df_orders, use_container_width=True)
 
+        # Admin-only edit/delete
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Order")
             df_orders["unique_key"] = df_orders.apply(
@@ -292,6 +291,7 @@ def orders_page():
                             value=int(original_quantity)
                         )
                         edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix", "Received - Cash"]
+                        # Keep the same index if possible
                         if original_status in edit_status_list:
                             edit_status_index = edit_status_list.index(original_status)
                         else:
@@ -370,8 +370,11 @@ def products_page():
         st.subheader("All Products")
         columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
         df_products = pd.DataFrame(products_data, columns=columns)
+
+        st.write("Columns in df_products:", df_products.columns.tolist())
         st.dataframe(df_products, use_container_width=True)
 
+        # Admin-only edit/delete
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Product")
             df_products["unique_key"] = df_products.apply(
@@ -461,7 +464,7 @@ def stock_page():
     st.write("""
 Esta página foi projetada para registrar **apenas entradas de produtos no estoque** de forma prática e organizada.  
 Com este sistema, você poderá monitorar todas as adições ao estoque com maior controle e rastreabilidade.  
-O registro exclusivo de entradas permite garantir uma gestão eficiente, evitando inconsistências e oferecendo um histórico claro de movimentações no estoque.
+O registro exclusivo de entradas permite garantir uma gestão eficiente, evitando inconsistências e oferecendo um histórico claro de movimentações no estoque.  
 """)
 
     product_data = run_query("SELECT product FROM public.tb_products ORDER BY product;")
@@ -495,8 +498,10 @@ O registro exclusivo de entradas permite garantir uma gestão eficiente, evitand
         st.subheader("All Stock Records")
         columns = ["Product", "Quantity", "Transaction", "Date"]
         df_stock = pd.DataFrame(stock_data, columns=columns)
+        st.write("Columns in df_stock:", df_stock.columns.tolist())
         st.dataframe(df_stock, use_container_width=True)
 
+        # Admin-only edit/delete
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Stock Record")
             df_stock["unique_key"] = df_stock.apply(
@@ -605,68 +610,58 @@ def clients_page():
         else:
             st.warning("Please fill in the Full Name field.")
 
-    # Show only Full Name and Register Date columns
-    clients_data = run_query("SELECT nome_completo, data_cadastro FROM public.tb_clientes ORDER BY data_cadastro DESC;")
+    # Display all clients
+    clients_data = run_query("SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro FROM public.tb_clientes ORDER BY data_cadastro DESC;")
     if clients_data:
         st.subheader("All Clients")
-        columns = ["Full Name", "Register Date"]
+        columns = ["Full Name", "Birth Date", "Gender", "Phone", "Email", "Address", "Register Date"]
         df_clients = pd.DataFrame(clients_data, columns=columns)
         st.dataframe(df_clients, use_container_width=True)
 
+        # Admin-only edit/delete
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Client")
-            full_names_list = df_clients["Full Name"].unique().tolist()
-            selected_full_name = st.selectbox("Select a client by Full Name:", [""] + full_names_list)
-            
-            if selected_full_name:
-                matching_email_query = """
-                    SELECT email 
-                    FROM public.tb_clientes
-                    WHERE nome_completo = %s
-                    ORDER BY data_cadastro DESC
-                    LIMIT 1;
-                """
-                result_email = run_query(matching_email_query, (selected_full_name,))
-                if result_email:
-                    client_email = result_email[0][0]
-                    original_name = selected_full_name
+            client_emails = df_clients["Email"].unique().tolist()
+            selected_email = st.selectbox("Select a client by Email:", [""] + client_emails)
 
-                    with st.form(key='edit_client_form'):
-                        edit_name = st.text_input("Full Name", value=original_name, max_chars=100)
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            update_button = st.form_submit_button(label="Update Client")
-                        with col2:
-                            delete_button = st.form_submit_button(label="Delete Client")
+            if selected_email:
+                selected_client_row = df_clients[df_clients["Email"] == selected_email].iloc[0]
+                original_name = selected_client_row["Full Name"]
 
-                    if update_button:
-                        if edit_name:
-                            update_query = """
-                            UPDATE public.tb_clientes
-                            SET nome_completo = %s
-                            WHERE email = %s;
-                            """
-                            success = run_insert(update_query, (edit_name, client_email))
-                            if success:
-                                st.success("Client updated successfully!")
-                                refresh_data()
-                            else:
-                                st.error("Failed to update the client.")
+                with st.form(key='edit_client_form'):
+                    edit_name = st.text_input("Full Name", value=original_name, max_chars=100)
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        update_button = st.form_submit_button(label="Update Client")
+                    with col2:
+                        delete_button = st.form_submit_button(label="Delete Client")
+
+                if update_button:
+                    if edit_name:
+                        update_query = """
+                        UPDATE public.tb_clientes
+                        SET nome_completo = %s
+                        WHERE email = %s;
+                        """
+                        success = run_insert(update_query, (edit_name, selected_email))
+                        if success:
+                            st.success("Client updated successfully!")
+                            refresh_data()
                         else:
-                            st.warning("Please fill in the Full Name field.")
+                            st.error("Failed to update the client.")
+                    else:
+                        st.warning("Please fill in the Full Name field.")
 
-                    if delete_button:
-                        confirm = st.checkbox("Are you sure you want to delete this client?")
-                        if confirm:
-                            delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
-                            success = run_insert(delete_query, (client_email,))
-                            if success:
-                                st.success("Client deleted successfully!")
-                                refresh_data()
-                            else:
-                                st.error("Failed to delete the client.")
-                else:
-                    st.warning("Could not find this client's email in the database.")
+                if delete_button:
+                    confirm = st.checkbox("Are you sure you want to delete this client?")
+                    if confirm:
+                        delete_query = "DELETE FROM public.tb_clientes WHERE email = %s;"
+                        success = run_insert(delete_query, (selected_email,))
+                        if success:
+                            st.success("Client deleted successfully!")
+                            refresh_data()
+                        else:
+                            st.error("Failed to delete the client.")
     else:
         st.info("No clients found.")
 
@@ -749,7 +744,7 @@ def generate_invoice_for_printer(df):
     total_general = 0
 
     for _, row in grouped_df.iterrows():
-        description = f"{row['Produto'][:20]:<20}"
+        description = f"{row['Produto'][:20]:<20}"  # limit to 20 chars
         quantity = f"{int(row['Quantidade']):>5}"
         total = row['total']
         total_general += total
@@ -802,16 +797,15 @@ def login_page():
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
-        if username == "admin" and password == "adminbeach123":
+        # Two users: admin / caixa
+        if username == "admin" and password == "adminbeach":
             st.session_state.logged_in = True
             st.session_state.username = "admin"
             st.success("Login bem-sucedido!")
-            st.experimental_rerun()
         elif username == "caixa" and password == "caixabeach":
             st.session_state.logged_in = True
             st.session_state.username = "caixa"
             st.success("Login bem-sucedido!")
-            st.experimental_rerun()
         else:
             st.error("Nome de usuário ou senha incorretos.")
 
@@ -837,6 +831,7 @@ else:
         if selected_page == "Home":
             st.session_state.home_page_initialized = False
 
+    # Page Routing
     if selected_page == "Home":
         home_page()
     elif selected_page == "Orders":
