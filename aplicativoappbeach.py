@@ -15,7 +15,7 @@ load_dotenv()
 
 ####################
 # Database Utilities
-#####################
+####################
 @st.cache_resource
 def get_db_connection():
     """
@@ -23,11 +23,12 @@ def get_db_connection():
     """
     try:
         conn = psycopg2.connect(
-            host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
-            database="beachtennis",
-            user="kiko",
-            password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
-            port=5432
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            port=os.getenv("DB_PORT")
+            # sslmode='require'  # Descomente se necessário
         )
         return conn
     except OperationalError as e:
@@ -395,7 +396,7 @@ def products_page():
                             min_value=1,
                             step=1,
                             value=int(original_quantity),
-                            key="edit_product_quantity"
+                            key="edit_product_quantity_input"
                         )
                         edit_unit_value = st.number_input(
                             "Valor Unitário",
@@ -818,13 +819,13 @@ def login_page():
         background-color: #145a7c;
     }}
     </style>
-    
+
     <!-- Vídeo de fundo -->
     <video autoplay muted loop class="background-video">
         <source src="{video_url}" type="video/mp4">
         Seu navegador não suporta o elemento de vídeo.
     </video>
-    
+
     <!-- Container do formulário de login -->
     <div class="login-container">
     """
@@ -835,9 +836,9 @@ def login_page():
     # Conteúdo do formulário de login dentro do container
     with st.form(key='login_form'):
         st.markdown("<h1>Beach Club</h1>", unsafe_allow_html=True)
-        username = st.text_input("Nome de Usuário")
-        password = st.text_input("Senha", type="password")
-        submit_login = st.form_submit_button(label="Login", key="submit_login_button")
+        username = st.text_input("Nome de Usuário", key="login_username")
+        password = st.text_input("Senha", type="password", key="login_password")
+        submit_login = st.form_submit_button(label="Login", key="login_submit_button")
 
     if submit_login:
         admin_username = os.getenv("ADMIN_USERNAME")
