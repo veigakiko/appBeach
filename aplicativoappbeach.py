@@ -27,9 +27,10 @@ def get_db_connection():
             port=5432
         )
         return conn
-    except OperationalError as e:
+    except OperationalError:
         st.error("Não foi possível conectar ao banco de dados. Por favor, tente novamente mais tarde.")
         return None
+
 
 def run_query(query, values=None):
     """
@@ -47,6 +48,7 @@ def run_query(query, values=None):
             conn.rollback()
         st.error(f"Error executing the query: {e}")
         return []
+
 
 def run_insert(query, values, table_name="", action_description=""):
     """
@@ -74,6 +76,7 @@ def run_insert(query, values, table_name="", action_description=""):
         st.error(f"Error executing the query: {e}")
         return False
 
+
 def log_action(username, action_type, table_name, description):
     """
     Insert a log record into tb_audit_logs.
@@ -92,6 +95,7 @@ def log_action(username, action_type, table_name, description):
         except Exception as e:
             conn.rollback()
             st.error(f"Failed to log audit action: {e}")
+
 
 def _get_sql_verb(query):
     """
@@ -126,6 +130,7 @@ def load_all_data():
     except Exception as e:
         st.error(f"Error loading data: {e}")
     return data
+
 
 def refresh_data():
     """
@@ -239,7 +244,10 @@ def orders_page():
 
         filtered_data = run_query(base_query, tuple(values))
         if filtered_data:
-            df_orders_filtered = pd.DataFrame(filtered_data, columns=["Client", "Product", "Quantity", "Date", "Status"])
+            df_orders_filtered = pd.DataFrame(
+                filtered_data,
+                columns=["Client", "Product", "Quantity", "Date", "Status"]
+            )
             st.dataframe(df_orders_filtered, use_container_width=True)
         else:
             st.info("No orders found for the selected filters.")
@@ -322,7 +330,9 @@ def orders_page():
                             "Received - Cash"
                         ]
                         edit_status_index = (
-                            edit_status_list.index(original_status) if original_status in edit_status_list else 0
+                            edit_status_list.index(original_status)
+                            if original_status in edit_status_list
+                            else 0
                         )
                         edit_status = st.selectbox("Status", edit_status_list, index=edit_status_index)
 
@@ -395,7 +405,8 @@ def products_page():
         if supplier and product and quantity > 0 and unit_value >= 0:
             total_value = quantity * unit_value
             query = """
-            INSERT INTO public.tb_products (supplier, product, quantity, unit_value, total_value, creation_date)
+            INSERT INTO public.tb_products 
+            (supplier, product, quantity, unit_value, total_value, creation_date)
             VALUES (%s, %s, %s, %s, %s, %s);
             """
             success = run_insert(
@@ -670,7 +681,7 @@ def clients_page():
 
     if submit_client:
         if full_name:
-            # For simplicity, we insert default or placeholder values for other fields
+            # Para simplicidade, inserimos valores padrão/placeholder para outros campos
             data_nascimento = datetime(2000, 1, 1).date()
             genero = "Man"
             telefone = "0000-0000"
@@ -695,7 +706,7 @@ def clients_page():
         else:
             st.warning("Please enter the Full Name.")
 
-    # Display all clients
+    # Exibe todos os clientes
     clients_data = run_query(
         """
         SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro
@@ -812,6 +823,7 @@ def invoice_page():
     else:
         st.warning("Please select a client.")
 
+
 def process_payment(client, payment_status):
     query = """
     UPDATE public.tb_pedido
@@ -829,6 +841,7 @@ def process_payment(client, payment_status):
         refresh_data()
     else:
         st.error("Failed to update status.")
+
 
 def generate_invoice_for_printer(df):
     company = "Boituva Beach Club"
@@ -917,7 +930,7 @@ def reports_page():
     else:
         st.info("No data found in vw_total_por_tipo_pagamento.")
 
-# URL to the hosted video file
+# URL para o vídeo de fundo
 video_url = (
     "https://github.com/veigakiko/appBeach/raw/refs/heads/main/"
     "20241224_0437_Vibrant%20Beach%20Tennis_remix_01jfvsjewve73t9bq6sb9hcc2q.mp4"
@@ -991,56 +1004,53 @@ def login_page():
         else:
             st.error("Incorrect username or password.")
 
-# Ensure this is part of the app's flow
+#####################
+# APP MAIN SECTION
+#####################
+# 1) Inicialização das variáveis de sessão
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
-
-if not st.session_state.logged_in:
-    login_page()
-
-#####################
-# Initialization & Main App
-#####################
-if 'data' not in st.session_state:
+if "data" not in st.session_state:
     st.session_state.data = load_all_data()
 
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-
+# 2) Fluxo de login
 if not st.session_state.logged_in:
     login_page()
-else:
-    selected_page = sidebar_navigation()
+    st.stop()  # impede que o resto do script seja executado sem login
 
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = selected_page
-    elif selected_page != st.session_state.current_page:
-        refresh_data()
-        st.session_state.current_page = selected_page
+# Se chegou aqui, significa que o usuário está logado
+selected_page = sidebar_navigation()
 
-    # Page routing
-    if selected_page == "Home":
-        home_page()
-    elif selected_page == "Orders":
-        orders_page()
-    elif selected_page == "Products":
-        products_page()
-    elif selected_page == "Stock":
-        stock_page()
-    elif selected_page == "Clients":
-        clients_page()
-    elif selected_page == "Invoice":
-        invoice_page()
-    elif selected_page == "Reports":
-        reports_page()
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = selected_page
+elif selected_page != st.session_state.current_page:
+    refresh_data()
+    st.session_state.current_page = selected_page
 
-    # Logout
-    with st.sidebar:
-        if st.button("Logout"):
-            keys_to_reset = ['home_page_initialized']
-            for key in keys_to_reset:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.session_state.logged_in = False
-            st.success("Logged out successfully!")
-            st.experimental_rerun()
+# 3) Roteamento de páginas
+if selected_page == "Home":
+    home_page()
+elif selected_page == "Orders":
+    orders_page()
+elif selected_page == "Products":
+    products_page()
+elif selected_page == "Stock":
+    stock_page()
+elif selected_page == "Clients":
+    clients_page()
+elif selected_page == "Invoice":
+    invoice_page()
+elif selected_page == "Reports":
+    reports_page()
+
+# 4) Botão de Logout
+with st.sidebar:
+    if st.button("Logout"):
+        # Se quiser remover quaisquer variáveis de sessão, faça aqui
+        keys_to_reset = ['home_page_initialized']
+        for key in keys_to_reset:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.session_state.logged_in = False
+        st.success("Logged out successfully!")
+        st.experimental_rerun()
