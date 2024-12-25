@@ -8,10 +8,9 @@ from PIL import Image
 import requests
 from io import BytesIO
 import altair as alt
-import streamlit as st
 from pathlib import Path
 
-####################
+#####################
 # Database Utilities
 #####################
 @st.cache_resource
@@ -144,7 +143,8 @@ def sidebar_navigation():
     with st.sidebar:
         st.title("Boituva Beach Club 🎾")
         selected = option_menu(
-            "Main Menu", ["Home", "Orders", "Products", "Stock", "Clients", "Invoice", "Reports"],
+            "Main Menu",
+            ["Home", "Orders", "Products", "Stock", "Clients", "Invoice", "Reports"],
             icons=["house", "file-text", "box", "list-task", "layers", "receipt", "bar-chart"],
             menu_icon="cast",
             default_index=0
@@ -205,7 +205,6 @@ def orders_page():
     st.title("Orders")
 
     st.subheader("Search Orders / Filter")
-    # Basic filters
     clients_data = st.session_state.data.get("clients", [])
     client_names = ["All"] + [r[0] for r in clients_data]
     selected_client = st.selectbox("Filter by Client", client_names, index=0)
@@ -250,7 +249,6 @@ def orders_page():
     product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
 
     with st.form(key='order_form'):
-        # Reload client names for the new order form
         clientes = st.session_state.data.get("clients", [])
         customer_list = [""] + [row[0] for row in clientes]
         customer_name = st.selectbox("Customer Name", customer_list, index=0)
@@ -313,9 +311,19 @@ def orders_page():
                             product_list,
                             index=product_list.index(original_product) if original_product in product_list else 0
                         )
-                        edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
-                        edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix", "Received - Cash"]
-                        edit_status_index = edit_status_list.index(original_status) if original_status in edit_status_list else 0
+                        edit_quantity = st.number_input(
+                            "Quantity", min_value=1, step=1, value=int(original_quantity)
+                        )
+                        edit_status_list = [
+                            "em aberto",
+                            "Received - Debited",
+                            "Received - Credit",
+                            "Received - Pix",
+                            "Received - Cash"
+                        ]
+                        edit_status_index = (
+                            edit_status_list.index(original_status) if original_status in edit_status_list else 0
+                        )
                         edit_status = st.selectbox("Status", edit_status_list, index=edit_status_index)
 
                         col_edit, col_delete = st.columns(2)
@@ -349,8 +357,14 @@ def orders_page():
                         """
                         success = run_insert(
                             update_query,
-                            (edit_product, edit_quantity, edit_status,
-                             original_client, original_product, original_date),
+                            (
+                                edit_product,
+                                edit_quantity,
+                                edit_status,
+                                original_client,
+                                original_product,
+                                original_date
+                            ),
                             table_name="tb_pedido",
                             action_description=f"Updating order for {original_client}"
                         )
@@ -428,7 +442,9 @@ def products_page():
                     with st.form(key='edit_product_form'):
                         edit_supplier = st.text_input("Supplier", value=original_supplier, max_chars=100)
                         edit_product = st.text_input("Product", value=original_product, max_chars=100)
-                        edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
+                        edit_quantity = st.number_input(
+                            "Quantity", min_value=1, step=1, value=int(original_quantity)
+                        )
                         edit_unit_value = st.number_input(
                             "Unit Value",
                             min_value=0.0,
@@ -458,8 +474,17 @@ def products_page():
                         """
                         success = run_insert(
                             update_query,
-                            (edit_supplier, edit_product, edit_quantity, edit_unit_value, edit_total_value, edit_creation_date,
-                             original_supplier, original_product, original_creation_date),
+                            (
+                                edit_supplier,
+                                edit_product,
+                                edit_quantity,
+                                edit_unit_value,
+                                edit_total_value,
+                                edit_creation_date,
+                                original_supplier,
+                                original_product,
+                                original_creation_date
+                            ),
                             table_name="tb_products",
                             action_description=f"Updating product: {original_product}"
                         )
@@ -497,10 +522,12 @@ def stock_page():
     st.title("Stock")
 
     st.subheader("Register a New Stock Entry")
-    st.write("""
-This page is designed to log **only product arrivals (Entrada)** into stock.  
-If you need to track removals or returns, you can add the 'Saída' transaction as well.
-""")
+    st.write(
+        """
+        This page is designed to log **only product arrivals (Entrada)** into stock.  
+        If you need to track removals or returns, you can add the 'Saída' transaction as well.
+        """
+    )
 
     product_data = run_query("SELECT product FROM public.tb_products ORDER BY product;")
     product_list = [row[0] for row in product_data] if product_data else ["No products available"]
@@ -565,9 +592,14 @@ If you need to track removals or returns, you can add the 'Saída' transaction a
                             product_list,
                             index=product_list.index(original_product) if original_product in product_list else 0
                         )
-                        edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
-                        edit_transaction = st.selectbox("Transaction Type", ["Entrada", "Saída"],
-                            index=["Entrada", "Saída"].index(original_transaction) if original_transaction in ["Entrada", "Saída"] else 0
+                        edit_quantity = st.number_input(
+                            "Quantity", min_value=1, step=1, value=int(original_quantity)
+                        )
+                        edit_transaction = st.selectbox(
+                            "Transaction Type",
+                            ["Entrada", "Saída"],
+                            index=["Entrada", "Saída"].index(original_transaction)
+                            if original_transaction in ["Entrada", "Saída"] else 0
                         )
                         edit_date = st.date_input("Date", value=original_date.date())
 
@@ -586,8 +618,15 @@ If you need to track removals or returns, you can add the 'Saída' transaction a
                         """
                         success = run_insert(
                             update_query,
-                            (edit_product, edit_quantity, edit_transaction, edit_datetime,
-                             original_product, original_transaction, original_date),
+                            (
+                                edit_product,
+                                edit_quantity,
+                                edit_transaction,
+                                edit_datetime,
+                                original_product,
+                                original_transaction,
+                                original_date
+                            ),
                             table_name="tb_estoque",
                             action_description=f"Updating stock record for product {original_product}"
                         )
@@ -640,7 +679,8 @@ def clients_page():
             endereco = "Default Address"
 
             query = """
-            INSERT INTO public.tb_clientes (nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro)
+            INSERT INTO public.tb_clientes 
+            (nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro)
             VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP);
             """
             success = run_insert(
@@ -656,11 +696,13 @@ def clients_page():
             st.warning("Please enter the Full Name.")
 
     # Display all clients
-    clients_data = run_query("""
+    clients_data = run_query(
+        """
         SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro
         FROM public.tb_clientes
         ORDER BY data_cadastro DESC;
-    """)
+        """
+    )
     if clients_data:
         st.subheader("All Clients")
         columns = ["Full Name", "Birth Date", "Gender", "Phone", "Email", "Address", "Register Date"]
@@ -795,18 +837,19 @@ def generate_invoice_for_printer(df):
     cnpj = "05.365.434/0001-09"
     phone = "(13) 99154-5481"
 
-    invoice_note = []
-    invoice_note.append("==================================================")
-    invoice_note.append("                      INVOICE                     ")
-    invoice_note.append("==================================================")
-    invoice_note.append(f"Company:  {company}")
-    invoice_note.append(f"Address:  {address}")
-    invoice_note.append(f"City:     {city}")
-    invoice_note.append(f"CNPJ:     {cnpj}")
-    invoice_note.append(f"Phone:    {phone}")
-    invoice_note.append("--------------------------------------------------")
-    invoice_note.append("DESCRIPTION           QTY       TOTAL")
-    invoice_note.append("--------------------------------------------------")
+    invoice_note = [
+        "==================================================",
+        "                      INVOICE                     ",
+        "==================================================",
+        f"Company:  {company}",
+        f"Address:  {address}",
+        f"City:     {city}",
+        f"CNPJ:     {cnpj}",
+        f"Phone:    {phone}",
+        "--------------------------------------------------",
+        "DESCRIPTION           QTY       TOTAL",
+        "--------------------------------------------------",
+    ]
 
     grouped_df = df.groupby('Product').agg({'Quantity': 'sum', 'total': 'sum'}).reset_index()
     total_general = 0
@@ -850,7 +893,6 @@ def reports_page():
             x=alt.X("Product", sort=None),
             y="Total_Sold"
         ).properties(width=600, height=400)
-
         st.altair_chart(chart, use_container_width=True)
     else:
         st.info("No sold data found in vw_total_sold.")
@@ -876,8 +918,10 @@ def reports_page():
         st.info("No data found in vw_total_por_tipo_pagamento.")
 
 # URL to the hosted video file
-video_url = "https://github.com/veigakiko/appBeach/raw/refs/heads/main/20241224_0437_Vibrant%20Beach%20Tennis_remix_01jfvsjewve73t9bq6sb9hcc2q.mp4"
-
+video_url = (
+    "https://github.com/veigakiko/appBeach/raw/refs/heads/main/"
+    "20241224_0437_Vibrant%20Beach%20Tennis_remix_01jfvsjewve73t9bq6sb9hcc2q.mp4"
+)
 
 def login_page():
     """
@@ -893,7 +937,6 @@ def login_page():
             font-family: Arial, sans-serif;
             overflow: hidden;
         }}
-
         .background {{
             position: fixed;
             top: 0;
@@ -903,7 +946,6 @@ def login_page():
             z-index: -1;
             overflow: hidden;
         }}
-
         .block-container {{
             background: rgba(255, 255, 255, 0.8);
             padding: 40px;
@@ -912,7 +954,6 @@ def login_page():
             margin: 100px auto;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }}
-
         video {{
             width: 100%;
             height: 100%;
@@ -956,7 +997,6 @@ if "logged_in" not in st.session_state:
 
 if not st.session_state.logged_in:
     login_page()
-
 
 #####################
 # Initialization & Main App
