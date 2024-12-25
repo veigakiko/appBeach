@@ -15,7 +15,7 @@ load_dotenv()
 
 ####################
 # Database Utilities
-#####################
+####################
 @st.cache_resource
 def get_db_connection():
     """
@@ -23,11 +23,11 @@ def get_db_connection():
     """
     try:
         conn = psycopg2.connect(
-            host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
-            database="beachtennis",
-            user="kiko",
-            password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
-            port=5432
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            port=os.getenv("DB_PORT")
         )
         return conn
     except OperationalError as e:
@@ -748,127 +748,3 @@ def generate_invoice_for_printer(df):
     invoice_note.append("==================================================")
 
     st.text("\n".join(invoice_note))
-
-#####################
-# Login Page
-#####################
-def login_page():
-    # Link direto do vídeo hospedado no Streamable
-    video_url = "https://cdn.streamable.com/video/mp4/96jd85.mp4"  # Substitua pelo link direto obtido
-
-    # CSS personalizado para posicionar o vídeo de fundo e estilizar o formulário de login
-    page_bg_video = f"""
-    <style>
-    /* Estilos para o vídeo de fundo */
-    .background-video {{
-        position: fixed;
-        right: 0;
-        bottom: 0;
-        min-width: 100%; 
-        min-height: 100%;
-        z-index: -1;
-        object-fit: cover; /* Garante que o vídeo cubra todo o fundo sem distorção */
-    }}
-    /* Container do formulário de login */
-    .login-container {{
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(255, 255, 255, 0.85); /* Fundo semi-transparente para melhor legibilidade */
-        padding: 40px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        max-width: 400px;
-        width: 90%;
-    }}
-    /* Estilos para os títulos */
-    .login-container h1 {{
-        text-align: center;
-        margin-bottom: 20px;
-    }}
-    </style>
-    
-    <!-- Vídeo de fundo -->
-    <video autoplay muted loop class="background-video">
-        <source src="{video_url}" type="video/mp4">
-        Seu navegador não suporta o elemento de vídeo.
-    </video>
-    
-    <!-- Container do formulário de login -->
-    <div class="login-container">
-    """
-
-    # Adiciona o CSS e o vídeo de fundo ao Streamlit
-    st.markdown(page_bg_video, unsafe_allow_html=True)
-
-    # Conteúdo do formulário de login dentro do container
-    with st.form(key='login_form'):
-        st.markdown("<h1>Beach Club</h1>", unsafe_allow_html=True)
-        username = st.text_input("Nome de Usuário")
-        password = st.text_input("Senha", type="password")
-        submit_login = st.form_submit_button(label="Login")
-
-    if submit_login:
-        # Dois usuários: admin / caixa
-        if username == "admin" and password == "adminbeach":
-            st.session_state.logged_in = True
-            st.session_state.username = "admin"
-            st.success("Login bem-sucedido!")
-            st.experimental_rerun()
-        elif username == "caixa" and password == "caixabeach":
-            st.session_state.logged_in = True
-            st.session_state.username = "caixa"
-            st.success("Login bem-sucedido!")
-            st.experimental_rerun()
-        else:
-            st.error("Nome de usuário ou senha incorretos.")
-
-    # Fecha o div do container do formulário
-    st.markdown("</div>", unsafe_allow_html=True)
-
-#####################
-# Initialization
-#####################
-if 'data' not in st.session_state:
-    st.session_state.data = load_all_data()
-
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-
-if not st.session_state.logged_in:
-    login_page()
-else:
-    selected_page = sidebar_navigation()
-
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = selected_page
-    elif selected_page != st.session_state.current_page:
-        refresh_data()
-        st.session_state.current_page = selected_page
-        if selected_page == "Home":
-            st.session_state.home_page_initialized = False
-
-    # Page Routing
-    if selected_page == "Home":
-        home_page()
-    elif selected_page == "Orders":
-        orders_page()
-    elif selected_page == "Products":
-        products_page()
-    elif selected_page == "Stock":
-        stock_page()
-    elif selected_page == "Clients":
-        clients_page()
-    elif selected_page == "Nota Fiscal":
-        invoice_page()
-
-    with st.sidebar:
-        if st.button("Logout"):
-            keys_to_reset = ['home_page_initialized']
-            for key in keys_to_reset:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.session_state.logged_in = False
-            st.success("Desconectado com sucesso!")
-            st.experimental_rerun()
