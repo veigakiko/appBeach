@@ -215,7 +215,7 @@ def home_page():
             st.error(f"Erro ao gerar o resumo Stock vs. Orders: {e}")
 
         ########################################
-        # 4) Another table: total sold per product
+        # 4) Total Sold by Product (New Table)
         ########################################
         st.markdown("**Total Sold by Product**")
         sold_query = """
@@ -228,7 +228,6 @@ def home_page():
         sold_data = run_query(sold_query)
         if sold_data:
             df_sold = pd.DataFrame(sold_data, columns=["Product", "Total_Sold"])
-            # Hide index
             st.dataframe(df_sold.style.hide_index(), use_container_width=True)
         else:
             st.info("Nenhum produto vendido encontrado.")
@@ -391,8 +390,6 @@ def products_page():
         columns = ["Supplier", "Product", "Quantity", "Unit Value", "Total Value", "Creation Date"]
         df_products = pd.DataFrame(products_data, columns=columns)
 
-        # Removed debug print here
-
         st.dataframe(df_products, use_container_width=True)
 
         if st.session_state.get("username") == "admin":
@@ -493,7 +490,7 @@ O registro exclusivo de entradas permite garantir uma gestão eficiente, evitand
     with st.form(key='stock_form'):
         product = st.selectbox("Product", product_list)
         quantity = st.number_input("Quantity", min_value=1, step=1)
-        transaction = st.selectbox("Transaction Type", ["Entrada"])
+        transaction = st.selectbox("Transaction Type", ["Entrada"])  # Only entry allowed
         date = st.date_input("Date", value=datetime.now().date())
         submit_stock = st.form_submit_button(label="Register")
 
@@ -518,8 +515,6 @@ O registro exclusivo de entradas permite garantir uma gestão eficiente, evitand
         st.subheader("All Stock Records")
         columns = ["Product", "Quantity", "Transaction", "Date"]
         df_stock = pd.DataFrame(stock_data, columns=columns)
-
-        # Removed debug print here
 
         st.dataframe(df_stock, use_container_width=True)
 
@@ -557,7 +552,7 @@ O registro exclusivo de entradas permite garantir uma gestão eficiente, evitand
                         )
                         edit_transaction = st.selectbox(
                             "Transaction Type",
-                            ["Entrada", "Saída"],
+                            ["Entrada", "Saída"],  # In case an admin wants to correct a wrong entry
                             index=["Entrada", "Saída"].index(original_transaction) if original_transaction in ["Entrada", "Saída"] else 0
                         )
                         edit_date = st.date_input("Date", value=original_date.date())
@@ -645,16 +640,14 @@ def clients_page():
             st.subheader("Edit or Delete an Existing Client")
             # Since we only have Full Name + Register Date in the table,
             # we must fetch the relevant unique identifier for editing/deleting
-            # Typically, you'd have an email or ID. Let's assume we still
-            # want to select by Full Name (less robust, but works for demonstration)
-            
-            # Let's collect distinct Full Names from the DF
+            # Typically, you'd have an ID or email. Let's assume we still
+            # want to select by Full Name for demonstration.
+
             full_names_list = df_clients["Full Name"].unique().tolist()
             selected_full_name = st.selectbox("Select a client by Full Name:", [""] + full_names_list)
             
             if selected_full_name:
-                # We need to look up the original client email or ID
-                # For demonstration, let's do a quick query to find that client's email
+                # We need to look up the original client email or ID for robust editing/deletion
                 matching_email_query = """
                     SELECT email 
                     FROM public.tb_clientes
