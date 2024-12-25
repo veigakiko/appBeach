@@ -129,8 +129,12 @@ def home_page():
     st.title("🎾Boituva Beach Club 🎾")
     st.write("📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     
+    # Only show these summaries if the logged-in user is 'admin'
     if st.session_state.get("username") == "admin":
-        # Open Orders Summary
+        
+        ########################################
+        # 1) Open Orders Summary
+        ########################################
         st.markdown("**Open Orders Summary**")
         open_orders_query = """
         SELECT "Cliente", SUM("total") as Total
@@ -143,17 +147,23 @@ def home_page():
         if open_orders_data:
             df_open_orders_display = pd.DataFrame(open_orders_data, columns=["Client", "Total"])
             total_open = df_open_orders_display["Total"].sum()
+            # Format total values
             df_open_orders_display["Total_display"] = df_open_orders_display["Total"].apply(
                 lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
+            # Show only "Client" + "Total_display"
             df_display_open = df_open_orders_display[["Client", "Total_display"]]
-            st.dataframe(df_display_open, use_container_width=True)
+            st.dataframe(df_display_open.style.hide_index(), use_container_width=True)
+            
+            # Show total sum
             formatted_total_open = f"R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             st.markdown(f"**Total Geral (Open Orders):** {formatted_total_open}")
         else:
             st.info("Nenhum pedido em aberto encontrado.")
 
-        # Closed Orders Summary
+        ########################################
+        # 2) Closed Orders Summary
+        ########################################
         st.markdown("**Closed Orders Summary**")
         closed_orders_query = """
         SELECT DATE("Data") as Date, SUM("total") as Total
@@ -169,15 +179,21 @@ def home_page():
             df_closed_orders_display["Total_display"] = df_closed_orders_display["Total"].apply(
                 lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
+            # Reformat date
             df_closed_orders_display["Date"] = pd.to_datetime(df_closed_orders_display["Date"]).dt.strftime('%Y-%m-%d')
+            # Show only "Date" + "Total_display"
             df_display_closed = df_closed_orders_display[["Date", "Total_display"]]
-            st.dataframe(df_display_closed, use_container_width=True)
+            st.dataframe(df_display_closed.style.hide_index(), use_container_width=True)
+            
+            # Show total sum
             formatted_total_closed = f"R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             st.markdown(f"**Total Geral (Closed Orders):** {formatted_total_closed}")
         else:
             st.info("Nenhum pedido fechado encontrado.")
 
-        # Stock vs. Orders Summary
+        ########################################
+        # 3) Stock vs. Orders Summary
+        ########################################
         st.markdown("## Stock vs. Orders Summary")
         try:
             stock_vs_orders_query = """
@@ -191,11 +207,35 @@ def home_page():
                     stock_vs_orders_data, 
                     columns=["Product", "Total_in_STOCK"]
                 )
-                st.dataframe(df_stock_vs_orders, use_container_width=True)
+                # Show only "Product" + "Total_in_STOCK"
+                st.dataframe(df_stock_vs_orders.style.hide_index(), use_container_width=True)
             else:
                 st.info("Não há dados na view vw_stock_vs_orders_summary.")
         except Exception as e:
             st.error(f"Erro ao gerar o resumo Stock vs. Orders: {e}")
+
+        ########################################
+        # 4) Another table: total sold per product
+        ########################################
+        st.markdown("**Total Sold by Product**")
+        sold_query = """
+            SELECT "Produto", SUM("Quantidade") AS total_sold
+            FROM public.tb_pedido
+            WHERE status != 'em aberto'
+            GROUP BY "Produto"
+            ORDER BY total_sold DESC;
+        """
+        sold_data = run_query(sold_query)
+        if sold_data:
+            df_sold = pd.DataFrame(sold_data, columns=["Product", "Total_Sold"])
+            # Hide index
+            st.dataframe(df_sold.style.hide_index(), use_container_width=True)
+        else:
+            st.info("Nenhum produto vendido encontrado.")
+
+    else:
+        # For users that are not admin, you can display a simplified message or dashboard
+        st.info("Bem-vindo(a) ao Boituva Beach Club!")
 
 #####################
 # Orders Page
