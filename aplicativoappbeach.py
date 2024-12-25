@@ -917,15 +917,20 @@ video_url = (
     # "https://raw.githubusercontent.com/veigakiko/appBeach/main/20241224_0437_Vibrant%20Beach%20Tennis_remix_01jfvsjewve73t9bq6sb9hcc2q.mp4"
 )
 
+import streamlit as st
+
+# URL de um vídeo de teste que permite embedding
+video_url = "https://www.w3schools.com/howto/rain.mp4"  # Vídeo de teste
+
 def login_page():
     """
-    Renderiza a página de login com um vídeo de fundo que roda automaticamente e em loop.
+    Renderiza a página de login com um vídeo de fundo.
     """
     # CSS personalizado para o vídeo de fundo e o formulário de login
     st.markdown(
         f"""
         <style>
-        /* Estilos para remover margens e padding */
+        /* Remover margens e padding */
         body {{
             margin: 0;
             padding: 0;
@@ -951,7 +956,7 @@ def login_page():
             object-fit: cover;
         }}
 
-        /* Estilos para o container do formulário de login */
+        /* Container do formulário de login */
         .login-container {{
             position: absolute;
             top: 50%;
@@ -990,14 +995,10 @@ def login_page():
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
-        if username == "admin" and password == "adminbeach":
+        # Lógica simples de autenticação para teste
+        if username == "admin" and password == "adminpass":
             st.session_state.logged_in = True
             st.session_state.username = "admin"
-            st.success("Login realizado com sucesso!")
-            st.experimental_rerun()
-        elif username == "caixa" and password == "caixabeach":
-            st.session_state.logged_in = True
-            st.session_state.username = "caixa"
             st.success("Login realizado com sucesso!")
             st.experimental_rerun()
         else:
@@ -1005,6 +1006,25 @@ def login_page():
 
     # Fechar o div do container
     st.markdown("</div>", unsafe_allow_html=True)
+
+# Inicialização do estado da sessão
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+# Exibir a página de login se não estiver logado
+if not st.session_state.logged_in:
+    login_page()
+    st.stop()
+
+# Se estiver logado, exibir uma mensagem simples
+st.title("Bem-vindo ao Beach Club App!")
+st.write(f"Olá, {st.session_state.username}!")
+
+# Botão de logout
+if st.button("Logout"):
+    st.session_state.logged_in = False
+    st.experimental_rerun()
+
 
 #####################
 # APP MAIN SECTION
