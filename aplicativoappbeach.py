@@ -220,12 +220,10 @@ def home_page():
         # 4) Another table: Total Sold by Product
         ########################################
         st.markdown("**Total Sold by Product**")
+        # Use the newly created view: vw_total_sold
         sold_query = """
-            SELECT "Produto", SUM("Quantidade") AS total_sold
-            FROM public.tb_pedido
-            WHERE status != 'em aberto'
-            GROUP BY "Produto"
-            ORDER BY total_sold DESC;
+            SELECT "Produto", total_sold
+            FROM public.vw_total_sold;
         """
         sold_data = run_query(sold_query)
         if sold_data:
@@ -636,7 +634,6 @@ def clients_page():
         columns = ["Full Name", "Register Date"]
         df_clients = pd.DataFrame(clients_data, columns=columns)
         
-        # Only display 'Full Name' + 'Register Date'
         st.dataframe(df_clients, use_container_width=True)
 
         if st.session_state.get("username") == "admin":
