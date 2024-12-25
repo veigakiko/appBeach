@@ -201,7 +201,7 @@ def home_page():
         except Exception as e:
             st.error(f"Erro ao gerar o resumo Stock vs. Orders: {e}")
 
-        # NEW FUNCTIONALITY: Total Sold by Product (using vw_total_sold)
+        # Total Sold by Product (using vw_total_sold)
         st.markdown("**Total Sold by Product**")
         total_sold_query = """
             SELECT "Produto", total_sold
@@ -214,6 +214,24 @@ def home_page():
             st.table(df_total_sold)
         else:
             st.info("Nenhum produto vendido encontrado.")
+
+        ##################################################
+        # Display the vw_cliente_sum_total view (NEW)
+        ##################################################
+        st.markdown("**Sum by Client (vw_cliente_sum_total)**")
+        client_sum_query = """
+            SELECT "Cliente", total_geral
+            FROM public.vw_cliente_sum_total;
+        """
+        client_sum_data = run_query(client_sum_query)
+        if client_sum_data:
+            df_client_sum = pd.DataFrame(client_sum_data, columns=["Client", "Total_Geral"])
+            st.table(df_client_sum)
+        else:
+            st.info("Nenhum dado encontrado na vw_cliente_sum_total.")
+
+    else:
+        st.info("Bem-vindo(a) ao Boituva Beach Club!")
 
 #####################
 # Orders Page
@@ -291,7 +309,6 @@ def orders_page():
                             value=int(original_quantity)
                         )
                         edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix", "Received - Cash"]
-                        # Keep the same index if possible
                         if original_status in edit_status_list:
                             edit_status_index = edit_status_list.index(original_status)
                         else:
@@ -779,7 +796,6 @@ def login_page():
         unsafe_allow_html=True
     )
 
-    # (Optional) Logo rendering, as in your original code
     logo_url = "https://res.cloudinary.com/lptennis/image/upload/v1657233475/kyz4k7fcptxt7x7mu9qu.jpg"
     try:
         response = requests.get(logo_url)
@@ -792,30 +808,24 @@ def login_page():
     st.title("Beach Club")
     st.write("Por favor, insira suas credenciais para acessar o aplicativo.")
 
-    # ----------------
-    # 1) LOGIN FORM
-    # ----------------
     with st.form(key='login_form'):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
-        # Just adapt your login checks as needed...
-        if username == "admin" and password == "adminbeach123":
+        # Two users: admin / caixa
+        if username == "admin" and password == "adminbeach":
             st.session_state.logged_in = True
             st.session_state.username = "admin"
             st.success("Login bem-sucedido!")
-            st.experimental_rerun()
         elif username == "caixa" and password == "caixabeach":
             st.session_state.logged_in = True
             st.session_state.username = "caixa"
             st.success("Login bem-sucedido!")
-            st.experimental_rerun()
         else:
             st.error("Nome de usuário ou senha incorretos.")
 
-    
 #####################
 # Initialization
 #####################
