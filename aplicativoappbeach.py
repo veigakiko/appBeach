@@ -182,7 +182,7 @@ def home_page():
         else:
             st.info("Nenhum pedido fechado encontrado.")
 
-        # NEW CODE: Using the VIEW "vw_stock_vs_orders_summary"
+        # View "vw_stock_vs_orders_summary"
         st.markdown("## Stock vs. Orders Summary")
         try:
             stock_vs_orders_query = """
@@ -201,7 +201,7 @@ def home_page():
         except Exception as e:
             st.error(f"Erro ao gerar o resumo Stock vs. Orders: {e}")
 
-        # NEW FUNCTIONALITY: Total Sold by Product (using vw_total_sold)
+        # Total Sold by Product (using vw_total_sold)
         st.markdown("**Total Sold by Product**")
         total_sold_query = """
             SELECT "Produto", total_sold
@@ -214,6 +214,39 @@ def home_page():
             st.table(df_total_sold)
         else:
             st.info("Nenhum produto vendido encontrado.")
+
+        ##################################################
+        # Display the vw_cliente_sum_total view
+        ##################################################
+        st.markdown("**Sum by Client (vw_cliente_sum_total)**")
+        client_sum_query = """
+            SELECT "Cliente", total_geral
+            FROM public.vw_cliente_sum_total;
+        """
+        client_sum_data = run_query(client_sum_query)
+        if client_sum_data:
+            df_client_sum = pd.DataFrame(client_sum_data, columns=["Client", "Total_Geral"])
+            st.table(df_client_sum)
+        else:
+            st.info("Nenhum dado encontrado na vw_cliente_sum_total.")
+
+        ############################################################
+        # NEW: Display vw_total_por_tipo_pagamento (Payment Type)
+        ############################################################
+        st.markdown("**Sum by Payment Type (vw_total_por_tipo_pagamento)**")
+        payment_type_query = """
+            SELECT payment_type, total_sold
+            FROM public.vw_total_por_tipo_pagamento;
+        """
+        payment_type_data = run_query(payment_type_query)
+        if payment_type_data:
+            df_payment_type = pd.DataFrame(payment_type_data, columns=["Payment_Type", "Total_Sold"])
+            st.table(df_payment_type)
+        else:
+            st.info("Nenhum dado encontrado na vw_total_por_tipo_pagamento.")
+
+    else:
+        st.info("Bem-vindo(a) ao Boituva Beach Club!")
 
 #####################
 # Orders Page
@@ -291,7 +324,6 @@ def orders_page():
                             value=int(original_quantity)
                         )
                         edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix", "Received - Cash"]
-                        # Keep the same index if possible
                         if original_status in edit_status_list:
                             edit_status_index = edit_status_list.index(original_status)
                         else:
