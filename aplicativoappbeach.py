@@ -27,8 +27,8 @@ def get_db_connection():
             database=os.getenv("DB_NAME"),
             user=os.getenv("DB_USER"),
             password=os.getenv("DB_PASSWORD"),
-            port=os.getenv("DB_PORT")
-            # sslmode='require'  # Descomente se necessário
+            port=os.getenv("DB_PORT"),
+            sslmode='require'  # Adicione esta linha se seu provedor de banco de dados exigir SSL
         )
         return conn
     except OperationalError as e:
@@ -135,7 +135,7 @@ def home_page():
     st.title("🎾 Boituva Beach Club 🎾")
     st.write("📍 Av. Do Trabalhador, 1879 🏆 5° Open BBC")
     
-    # Só exibe estes resumos se o user for admin
+    # Só exibe estes resumos se o usuário for admin
     if st.session_state.get("username") == "admin":
         ############################
         # Display Open Orders Summary
