@@ -15,7 +15,7 @@ load_dotenv()
 
 ####################
 # Database Utilities
-####################
+#####################
 @st.cache_resource
 def get_db_connection():
     """
@@ -23,11 +23,11 @@ def get_db_connection():
     """
     try:
         conn = psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            database=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            port=os.getenv("DB_PORT")
+            host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
+            database="beachtennis",
+            user="kiko",
+            password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
+            port=5432
         )
         return conn
     except OperationalError as e:
