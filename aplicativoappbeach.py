@@ -11,24 +11,23 @@ import altair as alt
 
 ####################
 # Database Utilities
-####################
+#####################
 @st.cache_resource
 def get_db_connection():
     """
-    Returns a persistent connection to the PostgreSQL database using psycopg2.
-    In production, read credentials from st.secrets or environment variables.
+    Retorna uma conexão persistente com o banco de dados usando psycopg2.
     """
     try:
         conn = psycopg2.connect(
-            host="YOUR_DB_HOST",
-            database="YOUR_DB_NAME",
-            user="YOUR_DB_USER",
-            password="YOUR_DB_PASSWORD",
+            host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
+            database="beachtennis",
+            user="kiko",
+            password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
             port=5432
         )
         return conn
     except OperationalError as e:
-        st.error(f"Failed to connect to the database: {e}")
+        st.error("Não foi possível conectar ao banco de dados. Por favor, tente novamente mais tarde.")
         return None
 
 def run_query(query, values=None):
