@@ -8,6 +8,8 @@ from PIL import Image
 import requests
 from io import BytesIO
 import altair as alt
+import streamlit as st
+from pathlib import Path
 
 ####################
 # Database Utilities
@@ -873,46 +875,70 @@ def reports_page():
     else:
         st.info("No data found in vw_total_por_tipo_pagamento.")
 
-#####################
-# Login Page
-#####################
+# URL to the hosted video file
+video_url = "https://github.com/veigakiko/appBeach/raw/refs/heads/main/20241224_0437_Vibrant%20Beach%20Tennis_remix_01jfvsjewve73t9bq6sb9hcc2q.mp4"
+
+
 def login_page():
-    # Minimal styling for login
+    """
+    Renders the login page with a video background and updated title.
+    """
+    # Set custom CSS for the video background
     st.markdown(
-        """
+        f"""
         <style>
-        body {
-            background-color: white;
-        }
-        .block-container {
-            padding-top: 100px;
-            padding-bottom: 100px;
-            text-align: center;
-        }
+        body {{
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }}
+
+        .background {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }}
+
+        .block-container {{
+            background: rgba(255, 255, 255, 0.8);
+            padding: 40px;
+            border-radius: 10px;
+            max-width: 400px;
+            margin: 100px auto;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }}
+
+        video {{
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }}
         </style>
+        <div class="background">
+            <video autoplay muted loop>
+                <source src="{video_url}" type="video/mp4">
+                Your browser does not support HTML5 video.
+            </video>
+        </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
-    logo_url = "https://res.cloudinary.com/lptennis/image/upload/v1657233475/kyz4k7fcptxt7x7mu9qu.jpg"
-    try:
-        response = requests.get(logo_url)
-        response.raise_for_status()
-        logo = Image.open(BytesIO(response.content))
-        st.image(logo, use_column_width=False)
-    except requests.exceptions.RequestException as e:
-        st.error("Failed to load logo.")
-
-    st.title("Boituva Beach Club Login")
+    # Login form
+    st.title("Beach Club")
     st.write("Please enter your credentials to access the application.")
 
-    with st.form(key='login_form'):
+    with st.form(key="login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
-        # Two example users: admin / caixa
         if username == "admin" and password == "adminbeach":
             st.session_state.logged_in = True
             st.session_state.username = "admin"
@@ -923,6 +949,14 @@ def login_page():
             st.success("Login successful!")
         else:
             st.error("Incorrect username or password.")
+
+# Ensure this is part of the app's flow
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if not st.session_state.logged_in:
+    login_page()
+
 
 #####################
 # Initialization & Main App
