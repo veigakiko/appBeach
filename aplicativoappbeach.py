@@ -147,11 +147,12 @@ def home_page():
         if open_orders_data:
             df_open_orders_display = pd.DataFrame(open_orders_data, columns=["Client", "Total"])
             total_open = df_open_orders_display["Total"].sum()
-            # Format total values
+            
+            # Format the total values
             df_open_orders_display["Total_display"] = df_open_orders_display["Total"].apply(
                 lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
-            # Show only "Client" + "Total_display"
+            # Show only "Client" + "Total_display", hide the index
             df_display_open = df_open_orders_display[["Client", "Total_display"]]
             st.dataframe(df_display_open.style.hide_index(), use_container_width=True)
             
@@ -176,12 +177,13 @@ def home_page():
         if closed_orders_data:
             df_closed_orders_display = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
             total_closed = df_closed_orders_display["Total"].sum()
+            
             df_closed_orders_display["Total_display"] = df_closed_orders_display["Total"].apply(
                 lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
-            # Reformat date
+            # Format the date
             df_closed_orders_display["Date"] = pd.to_datetime(df_closed_orders_display["Date"]).dt.strftime('%Y-%m-%d')
-            # Show only "Date" + "Total_display"
+            # Show only "Date" + "Total_display", hide the index
             df_display_closed = df_closed_orders_display[["Date", "Total_display"]]
             st.dataframe(df_display_closed.style.hide_index(), use_container_width=True)
             
@@ -207,7 +209,7 @@ def home_page():
                     stock_vs_orders_data, 
                     columns=["Product", "Total_in_STOCK"]
                 )
-                # Show only "Product" + "Total_in_STOCK"
+                # Show only "Product" + "Total_in_STOCK", hide the index
                 st.dataframe(df_stock_vs_orders.style.hide_index(), use_container_width=True)
             else:
                 st.info("Não há dados na view vw_stock_vs_orders_summary.")
@@ -215,7 +217,7 @@ def home_page():
             st.error(f"Erro ao gerar o resumo Stock vs. Orders: {e}")
 
         ########################################
-        # 4) Total Sold by Product (New Table)
+        # 4) Another table: Total Sold by Product
         ########################################
         st.markdown("**Total Sold by Product**")
         sold_query = """
@@ -228,12 +230,13 @@ def home_page():
         sold_data = run_query(sold_query)
         if sold_data:
             df_sold = pd.DataFrame(sold_data, columns=["Product", "Total_Sold"])
+            # Hide index, display only Product / Total_Sold
             st.dataframe(df_sold.style.hide_index(), use_container_width=True)
         else:
             st.info("Nenhum produto vendido encontrado.")
 
     else:
-        # For users that are not admin, you can display a simplified message or dashboard
+        # For non-admin users, display a simpler message or partial dashboard
         st.info("Bem-vindo(a) ao Boituva Beach Club!")
 
 #####################
@@ -490,7 +493,7 @@ O registro exclusivo de entradas permite garantir uma gestão eficiente, evitand
     with st.form(key='stock_form'):
         product = st.selectbox("Product", product_list)
         quantity = st.number_input("Quantity", min_value=1, step=1)
-        transaction = st.selectbox("Transaction Type", ["Entrada"])  # Only entry allowed
+        transaction = st.selectbox("Transaction Type", ["Entrada"])
         date = st.date_input("Date", value=datetime.now().date())
         submit_stock = st.form_submit_button(label="Register")
 
@@ -552,7 +555,7 @@ O registro exclusivo de entradas permite garantir uma gestão eficiente, evitand
                         )
                         edit_transaction = st.selectbox(
                             "Transaction Type",
-                            ["Entrada", "Saída"],  # In case an admin wants to correct a wrong entry
+                            ["Entrada", "Saída"],
                             index=["Entrada", "Saída"].index(original_transaction) if original_transaction in ["Entrada", "Saída"] else 0
                         )
                         edit_date = st.date_input("Date", value=original_date.date())
@@ -638,16 +641,10 @@ def clients_page():
 
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Client")
-            # Since we only have Full Name + Register Date in the table,
-            # we must fetch the relevant unique identifier for editing/deleting
-            # Typically, you'd have an ID or email. Let's assume we still
-            # want to select by Full Name for demonstration.
-
             full_names_list = df_clients["Full Name"].unique().tolist()
             selected_full_name = st.selectbox("Select a client by Full Name:", [""] + full_names_list)
             
             if selected_full_name:
-                # We need to look up the original client email or ID for robust editing/deletion
                 matching_email_query = """
                     SELECT email 
                     FROM public.tb_clientes
@@ -658,8 +655,7 @@ def clients_page():
                 result_email = run_query(matching_email_query, (selected_full_name,))
                 if result_email:
                     client_email = result_email[0][0]  # email in first row
-                    # proceed with edit/delete
-                    original_name = selected_full_name  # from the DF
+                    original_name = selected_full_name
 
                     with st.form(key='edit_client_form'):
                         edit_name = st.text_input("Full Name", value=original_name, max_chars=100)
