@@ -779,6 +779,7 @@ def login_page():
         unsafe_allow_html=True
     )
 
+    # (Optional) Logo rendering, as in your original code
     logo_url = "https://res.cloudinary.com/lptennis/image/upload/v1657233475/kyz4k7fcptxt7x7mu9qu.jpg"
     try:
         response = requests.get(logo_url)
@@ -791,23 +792,57 @@ def login_page():
     st.title("Beach Club")
     st.write("Por favor, insira suas credenciais para acessar o aplicativo.")
 
+    # ----------------
+    # 1) LOGIN FORM
+    # ----------------
     with st.form(key='login_form'):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
-        # Two users: admin / caixa
-        if username == "admin" and password == "adminbeach":
+        # Just adapt your login checks as needed...
+        if username == "admin" and password == "adminbeach123":
             st.session_state.logged_in = True
             st.session_state.username = "admin"
             st.success("Login bem-sucedido!")
+            st.experimental_rerun()
         elif username == "caixa" and password == "caixabeach":
             st.session_state.logged_in = True
             st.session_state.username = "caixa"
             st.success("Login bem-sucedido!")
+            st.experimental_rerun()
         else:
             st.error("Nome de usuário ou senha incorretos.")
+
+    # ----------------
+    # 2) REGISTRATION FORM
+    # ----------------
+    st.markdown("---")
+    st.subheader("Register a New User")
+    st.write("Preencha os campos para criar um novo usuário.")
+
+    with st.form(key='register_form'):
+        reg_username = st.text_input("New Username")
+        reg_password = st.text_input("New Password", type="password")
+        reg_email = st.text_input("Email")
+        submit_register = st.form_submit_button(label="Register")
+
+    if submit_register:
+        # If all fields are filled in
+        if reg_username and reg_password and reg_email:
+            # Insert into your DB table "public.username_login"
+            register_query = """
+                INSERT INTO public.username_login (username, "password", email)
+                VALUES (%s, %s, %s);
+            """
+            success = run_insert(register_query, (reg_username, reg_password, reg_email))
+            if success:
+                st.success("User registered successfully! You can now log in with your new credentials.")
+            else:
+                st.error("Failed to register user. Please check if the user already exists or if there's a DB error.")
+        else:
+            st.warning("Please fill in all required fields (Username, Password, Email) before registering.")
 
 #####################
 # Initialization
