@@ -7,10 +7,15 @@ import pandas as pd
 from PIL import Image
 import requests
 from io import BytesIO
+from dotenv import load_dotenv
+import os
+
+# Carrega as variáveis de ambiente do arquivo .env
+load_dotenv()
 
 ####################
 # Database Utilities
-####################
+#####################
 @st.cache_resource
 def get_db_connection():
     """
@@ -28,7 +33,7 @@ def get_db_connection():
     except OperationalError as e:
         st.error("Não foi possível conectar ao banco de dados. Por favor, tente novamente mais tarde.")
         return None
-
+        
 def run_query(query, values=None):
     """
     Executa uma consulta de leitura (SELECT) e retorna os dados obtidos.
@@ -748,52 +753,106 @@ def generate_invoice_for_printer(df):
 # Login Page
 #####################
 def login_page():
-    st.markdown(
-        """
-        <style>
-        body {
-            background-color: white;
-        }
-        .block-container {
-            padding-top: 100px;
-            padding-bottom: 100px;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+    # Link direto do vídeo hospedado no Streamable
+    video_url = "https://cdn.streamable.com/video/mp4/96jd85.mp4"  # Substitua pelo link direto obtido
 
-    logo_url = "https://res.cloudinary.com/lptennis/image/upload/v1657233475/kyz4k7fcptxt7x7mu9qu.jpg"
-    try:
-        response = requests.get(logo_url)
-        response.raise_for_status()
-        logo = Image.open(BytesIO(response.content))
-        st.image(logo, use_column_width=False)
-    except requests.exceptions.RequestException as e:
-        st.error("Falha ao carregar o logotipo.")
+    # CSS personalizado para posicionar o vídeo de fundo e estilizar o formulário de login
+    page_bg_video = f"""
+    <style>
+    /* Estilos para o vídeo de fundo */
+    .background-video {{
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        min-width: 100%; 
+        min-height: 100%;
+        z-index: -1;
+        object-fit: cover; /* Garante que o vídeo cubra todo o fundo sem distorção */
+    }}
+    /* Container do formulário de login */
+    .login-container {{
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(255, 255, 255, 0.85); /* Fundo semi-transparente para melhor legibilidade */
+        padding: 40px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        max-width: 400px;
+        width: 90%;
+    }}
+    /* Estilos para os títulos */
+    .login-container h1 {{
+        text-align: center;
+        margin-bottom: 20px;
+        color: #1b4f72;
+    }}
+    /* Estilos para os campos de entrada */
+    .login-container input {{
+        width: 100%;
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+    }}
+    /* Estilos para o botão de login */
+    .login-container button {{
+        width: 100%;
+        padding: 10px;
+        background-color: #1b4f72;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+    }}
+    .login-container button:hover {{
+        background-color: #145a7c;
+    }}
+    </style>
+    
+    <!-- Vídeo de fundo -->
+    <video autoplay muted loop class="background-video">
+        <source src="{video_url}" type="video/mp4">
+        Seu navegador não suporta o elemento de vídeo.
+    </video>
+    
+    <!-- Container do formulário de login -->
+    <div class="login-container">
+    """
 
-    st.title("Beach Club")
-    st.write("Por favor, insira suas credenciais para acessar o aplicativo.")
+    # Adiciona o CSS e o vídeo de fundo ao Streamlit
+    st.markdown(page_bg_video, unsafe_allow_html=True)
 
+    # Conteúdo do formulário de login dentro do container
     with st.form(key='login_form'):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
+        st.markdown("<h1>Beach Club</h1>", unsafe_allow_html=True)
+        username = st.text_input("Nome de Usuário")
+        password = st.text_input("Senha", type="password")
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
-        # Dois usuários: admin / caixa
-        if username == "admin" and password == "adminbeach":
+        admin_username = os.getenv("ADMIN_USERNAME")
+        admin_password = os.getenv("ADMIN_PASSWORD")
+        caixa_username = os.getenv("CAIXA_USERNAME")
+        caixa_password = os.getenv("CAIXA_PASSWORD")
+        
+        if username == admin_username and password == admin_password:
             st.session_state.logged_in = True
             st.session_state.username = "admin"
-            st.success("Login bem-sucedido!")
+            st.success("Login bem-sucedido como Admin!")
             st.experimental_rerun()
-        elif username == "caixa" and password == "caixabeach":
+        elif username == caixa_username and password == caixa_password:
             st.session_state.logged_in = True
             st.session_state.username = "caixa"
-            st.success("Login bem-sucedido!")
+            st.success("Login bem-sucedido como Caixa!")
             st.experimental_rerun()
         else:
             st.error("Nome de usuário ou senha incorretos.")
+
+    # Fecha o div do container do formulário
+    st.markdown("</div>", unsafe_allow_html=True)
 
 #####################
 # Initialization
