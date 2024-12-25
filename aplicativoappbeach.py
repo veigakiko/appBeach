@@ -922,70 +922,77 @@ import streamlit as st
 # URL de um vídeo de teste que permite embedding
 video_url = "https://www.w3schools.com/howto/rain.mp4"  # Vídeo de teste
 
+import streamlit as st
+
 def login_page():
     """
-    Renderiza a página de login com um vídeo de fundo.
+    Renderiza a página de login com um vídeo de fundo usando iframe.
     """
-    # CSS personalizado para o vídeo de fundo e o formulário de login
-    st.markdown(
-        f"""
-        <style>
-        /* Remover margens e padding */
-        body {{
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            overflow: hidden;
-        }}
+    # URL do vídeo de fundo (corrija conforme necessário)
+    video_url = "https://streamable.com/e/96jd85"  # URL corrigida sem o '?'
 
-        /* Container do vídeo de fundo */
-        .background {{
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            overflow: hidden;
-        }}
+    # CSS personalizado para posicionar o iframe como fundo e o formulário sobre ele
+    page_bg_img = f"""
+    <style>
+    /* Remover margens e padding padrão */
+    body {{
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        height: 100vh;
+        overflow: hidden;
+    }}
 
-        /* Estilos para o vídeo */
-        video {{
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }}
+    /* Container do vídeo de fundo */
+    .background {{
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        overflow: hidden;
+    }}
 
-        /* Container do formulário de login */
-        .login-container {{
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.85);
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            max-width: 400px;
-            width: 90%;
-        }}
+    /* Estilos para o iframe */
+    .background iframe {{
+        width: 100%;
+        height: 100%;
+        border: none;
+    }}
 
-        /* Estilos para os títulos */
-        .login-container h1 {{
-            text-align: center;
-            margin-bottom: 20px;
-        }}
-        </style>
-        <div class="background">
-            <video autoplay muted loop>
-                <source src="{video_url}" type="video/mp4">
-                Seu navegador não suporta HTML5 video.
-            </video>
-        </div>
-        <div class="login-container">
-        """,
-        unsafe_allow_html=True,
-    )
+    /* Container do formulário de login */
+    .login-container {{
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(255, 255, 255, 0.85);
+        padding: 40px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        max-width: 400px;
+        width: 90%;
+    }}
+
+    /* Estilos para os títulos */
+    .login-container h1 {{
+        text-align: center;
+        margin-bottom: 20px;
+    }}
+    </style>
+
+    <!-- Embed do vídeo de fundo -->
+    <div class="background">
+        <iframe src="{video_url}" allow="fullscreen" allowfullscreen></iframe>
+    </div>
+
+    <!-- Container do formulário de login -->
+    <div class="login-container">
+    """
+
+    # Adiciona o HTML acima ao Streamlit
+    st.markdown(page_bg_img, unsafe_allow_html=True)
 
     # Formulário de login dentro do container
     with st.form(key="login_form"):
@@ -995,7 +1002,7 @@ def login_page():
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
-        # Lógica simples de autenticação para teste
+        # Lógica de autenticação (substitua conforme necessário)
         if username == "admin" and password == "adminpass":
             st.session_state.logged_in = True
             st.session_state.username = "admin"
@@ -1004,7 +1011,7 @@ def login_page():
         else:
             st.error("Usuário ou senha incorretos.")
 
-    # Fechar o div do container
+    # Fecha o div do container do formulário
     st.markdown("</div>", unsafe_allow_html=True)
 
 # Inicialização do estado da sessão
@@ -1016,7 +1023,7 @@ if not st.session_state.logged_in:
     login_page()
     st.stop()
 
-# Se estiver logado, exibir uma mensagem simples
+# Se estiver logado, exibir o conteúdo principal do aplicativo
 st.title("Bem-vindo ao Beach Club App!")
 st.write(f"Olá, {st.session_state.username}!")
 
