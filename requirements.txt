@@ -17,3 +17,10 @@ pandas
 pillow
 requests
 python-dotenv
+streamlit
+streamlit-option-menu
+psycopg2-binary
+pandas
+pillow
+requests
+python-dotenv
