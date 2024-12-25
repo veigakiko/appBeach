@@ -10,9 +10,22 @@ import os
 # Carrega as variáveis de ambiente do arquivo .env
 load_dotenv()
 
+# Credenciais do banco de dados
+DB_HOST=dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com
+DB_NAME=beachtennis
+DB_USER=kiko
+DB_PASSWORD=ff15dHpkRtuoNgeF8eWjpqymWLleEM00
+DB_PORT=5432
+
+# Credenciais de Login
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=adminbeach
+CAIXA_USERNAME=caixa
+CAIXA_PASSWORD=caixabeach
+
 ####################
 # Database Utilities
-#####################
+####################
 @st.cache_resource
 def get_db_connection():
     """
@@ -20,11 +33,12 @@ def get_db_connection():
     """
     try:
         conn = psycopg2.connect(
-            host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
-            database="beachtennis",
-            user="kiko",
-            password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
-            port=5432
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            port=os.getenv("DB_PORT"),
+            sslmode='require'  # Adicione esta linha se seu provedor de banco de dados exigir SSL
         )
         return conn
     except OperationalError as e:
