@@ -838,7 +838,7 @@ def login_page():
         caixa_username = os.getenv("CAIXA_USERNAME")
         caixa_password = os.getenv("CAIXA_PASSWORD")
         
-        if username == admin_username and password == admin_password:
+        if username == admin and password == admin:
             st.session_state.logged_in = True
             st.session_state.username = "admin"
             st.success("Login bem-sucedido como Admin!")
