@@ -201,41 +201,43 @@ def home_page():
             st.info("Nenhum pedido fechado encontrado.")
 
         st.markdown("## Stock vs. Orders Summary")
-        try:
-            stock_vs_orders_query = """
-                SELECT product, stock_quantity, orders_quantity, total_in_stock
-                FROM public.vw_stock_vs_orders_summary
-            """
-            stock_vs_orders_data = run_query(stock_vs_orders_query)
-            if stock_vs_orders_data:
-                # Cria o DataFrame com as colunas nomeadas
-                df_stock_vs_orders = pd.DataFrame(
-                    stock_vs_orders_data, 
-                    columns=["Product", "Stock_Quantity", "Orders_Quantity", "Total_in_Stock"]
-                )
+try:
+    stock_vs_orders_query = """
+        SELECT product, stock_quantity, orders_quantity, total_in_stock
+        FROM public.vw_stock_vs_orders_summary
+    """
+    stock_vs_orders_data = run_query(stock_vs_orders_query)
+    if stock_vs_orders_data:
+        # Cria o DataFrame com as colunas nomeadas
+        df_stock_vs_orders = pd.DataFrame(
+            stock_vs_orders_data, 
+            columns=["Product", "Stock_Quantity", "Orders_Quantity", "Total_in_Stock"]
+        )
 
-                # Formata a coluna "Total_in_Stock" como moeda (R$)
-                df_stock_vs_orders["Total_in_Stock_display"] = df_stock_vs_orders["Total_in_Stock"].apply(format_currency)
+        # Não vamos aplicar format_currency, pois não é monetário:
+        df_stock_vs_orders["Total_in_Stock_display"] = df_stock_vs_orders["Total_in_Stock"]
 
-                # Prepara apenas as colunas que serão exibidas
-                df_display = df_stock_vs_orders[[
-                    "Product",
-                    "Stock_Quantity",
-                    "Orders_Quantity",
-                    "Total_in_Stock_display"
-                ]]
+        # Agora, definimos quais colunas queremos exibir na tabela
+        df_display = df_stock_vs_orders[[
+            "Product",
+            "Stock_Quantity",
+            "Orders_Quantity",
+            "Total_in_Stock_display"
+        ]]
 
-                # Exibe como tabela (similar ao Closed Orders Summary)
-                st.table(df_display)
+        # Exibe como tabela (para manter o mesmo visual do Closed Orders)
+        st.table(df_display)
 
-                # Calcula e exibe o Total Geral de 'Total_in_Stock'
-                total_stock_value = df_stock_vs_orders["Total_in_Stock"].sum()
-                st.markdown(f"**Total Geral (Stock vs. Orders):** {format_currency(total_stock_value)}")
-            else:
-                st.info("Não há dados na view vw_stock_vs_orders_summary.")
-        except Exception as e:
-            st.error(f"Erro ao gerar o resumo Stock vs. Orders: {e}")
+        # Se quiser, calcule o somatório total_in_stock:
+        total_stock_value = df_stock_vs_orders["Total_in_Stock"].sum()
 
+        # Exibindo apenas como número inteiro ou float (sem formatação monetária)
+        # Se for inteiro, você pode converter com int() se tiver certeza que não tem decimais
+        st.markdown(f"**Total Geral (Stock vs. Orders):** {int(total_stock_value)}")
+    else:
+        st.info("Não há dados na view vw_stock_vs_orders_summary.")
+except Exception as e:
+    st.error(f"Erro ao gerar o resumo Stock vs. Orders: {e}")
 
 #####################
 # PÁGINA ORDERS
