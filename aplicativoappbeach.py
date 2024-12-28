@@ -201,43 +201,43 @@ def home_page():
             st.info("Nenhum pedido fechado encontrado.")
 
         st.markdown("## Stock vs. Orders Summary")
-try:
-    stock_vs_orders_query = """
-        SELECT product, stock_quantity, orders_quantity, total_in_stock
-        FROM public.vw_stock_vs_orders_summary
-    """
-    stock_vs_orders_data = run_query(stock_vs_orders_query)
-    if stock_vs_orders_data:
-        # Cria o DataFrame com as colunas nomeadas
-        df_stock_vs_orders = pd.DataFrame(
-            stock_vs_orders_data, 
-            columns=["Product", "Stock_Quantity", "Orders_Quantity", "Total_in_Stock"]
-        )
+        try:
+            stock_vs_orders_query = """
+                SELECT product, stock_quantity, orders_quantity, total_in_stock
+                FROM public.vw_stock_vs_orders_summary
+            """
+            stock_vs_orders_data = run_query(stock_vs_orders_query)
+            if stock_vs_orders_data:
+                # Cria o DataFrame com as colunas nomeadas
+                df_stock_vs_orders = pd.DataFrame(
+                    stock_vs_orders_data, 
+                    columns=["Product", "Stock_Quantity", "Orders_Quantity", "Total_in_Stock"]
+                )
 
-        # Não vamos aplicar format_currency, pois não é monetário:
-        df_stock_vs_orders["Total_in_Stock_display"] = df_stock_vs_orders["Total_in_Stock"]
+                # Aqui, NÃO usamos format_currency, pois não é monetário.
+                # Vamos apenas exibir o valor original, seja int ou float.
+                df_stock_vs_orders["Total_in_Stock_display"] = df_stock_vs_orders["Total_in_Stock"]
 
-        # Agora, definimos quais colunas queremos exibir na tabela
-        df_display = df_stock_vs_orders[[
-            "Product",
-            "Stock_Quantity",
-            "Orders_Quantity",
-            "Total_in_Stock_display"
-        ]]
+                # Define as colunas a serem exibidas na tabela
+                df_display = df_stock_vs_orders[[
+                    "Product",
+                    "Stock_Quantity",
+                    "Orders_Quantity",
+                    "Total_in_Stock_display"
+                ]]
 
-        # Exibe como tabela (para manter o mesmo visual do Closed Orders)
-        st.table(df_display)
+                # Exibe como tabela (similar ao Closed Orders Summary)
+                st.table(df_display)
 
-        # Se quiser, calcule o somatório total_in_stock:
-        total_stock_value = df_stock_vs_orders["Total_in_Stock"].sum()
+                # Calcula e exibe o somatório de 'Total_in_Stock'
+                # Se for inteiro, podemos converter para int()
+                total_stock_value = df_stock_vs_orders["Total_in_Stock"].sum()
+                st.markdown(f"**Total Geral (Stock vs. Orders):** {int(total_stock_value)}")
+            else:
+                st.info("Não há dados na view vw_stock_vs_orders_summary.")
+        except Exception as e:
+            st.error(f"Erro ao gerar o resumo Stock vs. Orders: {e}")
 
-        # Exibindo apenas como número inteiro ou float (sem formatação monetária)
-        # Se for inteiro, você pode converter com int() se tiver certeza que não tem decimais
-        st.markdown(f"**Total Geral (Stock vs. Orders):** {int(total_stock_value)}")
-    else:
-        st.info("Não há dados na view vw_stock_vs_orders_summary.")
-except Exception as e:
-    st.error(f"Erro ao gerar o resumo Stock vs. Orders: {e}")
 
 #####################
 # PÁGINA ORDERS
@@ -608,11 +608,12 @@ Com este sistema, você poderá monitorar todas as adições ao estoque com maio
                                 value=int(original_quantity)
                             )
                         with col3:
-                            # Permitindo alterar para 'Saída', se quiser
+                            # Permitindo alterar para 'Saída', se desejar
                             edit_transaction = st.selectbox(
                                 "Transaction Type",
                                 ["Entrada", "Saída"],
-                                index=["Entrada", "Saída"].index(original_transaction) if original_transaction in ["Entrada", "Saída"] else 0
+                                index=["Entrada", "Saída"].index(original_transaction)
+                                if original_transaction in ["Entrada", "Saída"] else 0
                             )
                         with col4:
                             edit_date = st.date_input("Date", value=original_date.date())
