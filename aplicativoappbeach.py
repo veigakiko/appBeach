@@ -19,6 +19,7 @@ def format_currency(value: float) -> str:
     """
     return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
+
 def download_df_as_csv(df: pd.DataFrame, filename: str, label: str = "Baixar CSV"):
     """
     Exibe um botão de download de um DataFrame como CSV.
@@ -30,6 +31,7 @@ def download_df_as_csv(df: pd.DataFrame, filename: str, label: str = "Baixar CSV
         file_name=filename,
         mime="text/csv",
     )
+
 
 ########################
 # CONEXÃO COM BANCO
@@ -52,6 +54,7 @@ def get_db_connection():
         st.error("Não foi possível conectar ao banco de dados. Por favor, tente novamente mais tarde.")
         return None
 
+
 def run_query(query, values=None):
     """
     Executa uma consulta de leitura (SELECT) e retorna os dados obtidos.
@@ -68,6 +71,7 @@ def run_query(query, values=None):
             conn.rollback()
         st.error(f"Erro ao executar a consulta: {e}")
         return []
+
 
 def run_insert(query, values):
     """
@@ -86,6 +90,7 @@ def run_insert(query, values):
             conn.rollback()
         st.error(f"Erro ao executar a consulta: {e}")
         return False
+
 
 #####################
 # CARREGAMENTO DE DADOS
@@ -110,11 +115,13 @@ def load_all_data():
         st.error(f"Erro ao carregar os dados: {e}")
     return data
 
+
 def refresh_data():
     """
     Recarrega todos os dados e atualiza o estado da sessão.
     """
     st.session_state.data = load_all_data()
+
 
 #####################
 # MENU LATERAL
@@ -145,6 +152,7 @@ def sidebar_navigation():
             },
         )
     return selected
+
 
 #####################
 # PÁGINA HOME
@@ -200,15 +208,34 @@ def home_page():
             """
             stock_vs_orders_data = run_query(stock_vs_orders_query)
             if stock_vs_orders_data:
+                # Cria o DataFrame com as colunas nomeadas
                 df_stock_vs_orders = pd.DataFrame(
                     stock_vs_orders_data, 
                     columns=["Product", "Stock_Quantity", "Orders_Quantity", "Total_in_Stock"]
                 )
-                st.dataframe(df_stock_vs_orders)
+
+                # Formata a coluna "Total_in_Stock" como moeda (R$)
+                df_stock_vs_orders["Total_in_Stock_display"] = df_stock_vs_orders["Total_in_Stock"].apply(format_currency)
+
+                # Prepara apenas as colunas que serão exibidas
+                df_display = df_stock_vs_orders[[
+                    "Product",
+                    "Stock_Quantity",
+                    "Orders_Quantity",
+                    "Total_in_Stock_display"
+                ]]
+
+                # Exibe como tabela (similar ao Closed Orders Summary)
+                st.table(df_display)
+
+                # Calcula e exibe o Total Geral de 'Total_in_Stock'
+                total_stock_value = df_stock_vs_orders["Total_in_Stock"].sum()
+                st.markdown(f"**Total Geral (Stock vs. Orders):** {format_currency(total_stock_value)}")
             else:
                 st.info("Não há dados na view vw_stock_vs_orders_summary.")
         except Exception as e:
             st.error(f"Erro ao gerar o resumo Stock vs. Orders: {e}")
+
 
 #####################
 # PÁGINA ORDERS
@@ -224,7 +251,7 @@ def orders_page():
     product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
 
     with st.form(key='order_form'):
-        # Carrega lista de clientes da tb_clientes (não só do tb_pedido)
+        # Carrega lista de clientes da tb_clientes
         clientes = run_query('SELECT nome_completo FROM public.tb_clientes ORDER BY nome_completo;')
         customer_list = [""] + [row[0] for row in clientes]
 
@@ -349,6 +376,7 @@ def orders_page():
                             st.error("Failed to update the order.")
     else:
         st.info("No orders found.")
+
 
 #####################
 # PÁGINA PRODUCTS
@@ -486,6 +514,7 @@ def products_page():
                                 st.error("Failed to delete the product.")
     else:
         st.info("No products found.")
+
 
 #####################
 # PÁGINA STOCK
@@ -627,6 +656,7 @@ Com este sistema, você poderá monitorar todas as adições ao estoque com maio
     else:
         st.info("No stock records found.")
 
+
 #####################
 # PÁGINA CLIENTS
 #####################
@@ -690,7 +720,7 @@ def clients_page():
                     with col1:
                         edit_name = st.text_input("Full Name", value=original_name, max_chars=100)
                     with col2:
-                        st.write("")  # Espaço vazio
+                        st.write("")  # Espaço para layout
                     col_upd, col_del = st.columns(2)
                     with col_upd:
                         update_button = st.form_submit_button(label="Update Client")
@@ -725,6 +755,7 @@ def clients_page():
                             st.error("Failed to delete the client.")
     else:
         st.info("No clients found.")
+
 
 #####################
 # PÁGINA NOTA FISCAL
@@ -768,6 +799,7 @@ def invoice_page():
     else:
         st.warning("Por favor, selecione um cliente.")
 
+
 def process_payment(client, payment_status):
     query = """
     UPDATE public.tb_pedido
@@ -780,6 +812,7 @@ def process_payment(client, payment_status):
         refresh_data()
     else:
         st.error("Erro ao atualizar o status.")
+
 
 def generate_invoice_for_printer(df: pd.DataFrame):
     """
@@ -808,7 +841,7 @@ def generate_invoice_for_printer(df: pd.DataFrame):
     total_general = 0
 
     for _, row in grouped_df.iterrows():
-        description = f"{row['Produto'][:20]:<20}"  # limit to 20 chars
+        description = f"{row['Produto'][:20]:<20}"  # limitando a 20 chars
         quantity = f"{int(row['Quantidade']):>5}"
         total = row['total']
         total_general += total
@@ -822,6 +855,7 @@ def generate_invoice_for_printer(df: pd.DataFrame):
     invoice_note.append("==================================================")
 
     st.text("\n".join(invoice_note))
+
 
 #####################
 # PÁGINA DE LOGIN
@@ -871,6 +905,7 @@ def login_page():
             st.success("Login bem-sucedido!")
         else:
             st.error("Nome de usuário ou senha incorretos.")
+
 
 #####################
 # INICIALIZAÇÃO
