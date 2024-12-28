@@ -200,7 +200,8 @@ def home_page():
         else:
             st.info("Nenhum pedido fechado encontrado.")
 
-        st.markdown("## Stock vs. Orders Summary")
+        # Ajuste para deixar o texto com o mesmo padrão de fonte ("** ... **"):
+        st.markdown("**Stock vs. Orders Summary**")
         try:
             stock_vs_orders_query = """
                 SELECT product, stock_quantity, orders_quantity, total_in_stock
@@ -214,25 +215,22 @@ def home_page():
                     columns=["Product", "Stock_Quantity", "Orders_Quantity", "Total_in_Stock"]
                 )
 
-                # Aqui, NÃO usamos format_currency, pois não é monetário.
-                # Vamos apenas exibir o valor original, seja int ou float.
+                # Não é valor monetário; mantemos valor bruto
                 df_stock_vs_orders["Total_in_Stock_display"] = df_stock_vs_orders["Total_in_Stock"]
 
-                # Define as colunas a serem exibidas na tabela
-                df_display = df_stock_vs_orders[[
-                    "Product",
-                    "Stock_Quantity",
-                    "Orders_Quantity",
-                    "Total_in_Stock_display"
-                ]]
+                # Ordenar do maior para o menor considerando 'Total_in_Stock'
+                df_stock_vs_orders.sort_values("Total_in_Stock", ascending=False, inplace=True)
 
-                # Exibe como tabela (similar ao Closed Orders Summary)
+                # Exibir apenas as colunas 'Product' e 'Total_in_Stock_display'
+                df_display = df_stock_vs_orders[["Product", "Total_in_Stock_display"]]
+
                 st.table(df_display)
 
-                # Calcula e exibe o somatório de 'Total_in_Stock'
-                # Se for inteiro, podemos converter para int()
+                # Soma total_in_stock (se quiser exibir ao final)
                 total_stock_value = df_stock_vs_orders["Total_in_Stock"].sum()
-                st.markdown(f"**Total Geral (Stock vs. Orders):** {int(total_stock_value)}")
+                # Convertendo para int se for sempre inteiro
+                total_stock_value = int(total_stock_value)
+                st.markdown(f"**Total Geral (Stock vs. Orders):** {total_stock_value}")
             else:
                 st.info("Não há dados na view vw_stock_vs_orders_summary.")
         except Exception as e:
