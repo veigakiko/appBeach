@@ -192,6 +192,13 @@ def login_page():
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
+        # Aqui você pode usar variáveis de ambiente ou st.secrets se quiser:
+        # admin_user = os.getenv("ADMIN_USERNAME", "admin")
+        # admin_pass = os.getenv("ADMIN_PASSWORD", "adminbeach")
+        # caixa_user = os.getenv("CAIXA_USERNAME", "caixa")
+        # caixa_pass = os.getenv("CAIXA_PASSWORD", "caixabeach")
+        
+        # Por ora, mantendo fixo:
         if username == "admin" and password == "adminbeach":
             st.session_state.logged_in = True
             st.session_state.username = "admin"
@@ -213,7 +220,7 @@ def test_db_connection():
     exibindo uma mensagem de sucesso ou de erro detalhada.
     """
     if not validate_env_vars():
-        # Se variáveis de ambiente estão faltando, pare aqui.
+        # Se variáveis de ambiente estão faltando, interrompe a execução.
         st.stop()
 
     # Testa conexão simples
@@ -245,7 +252,7 @@ if 'logged_in' not in st.session_state:
 if not st.session_state.logged_in:
     login_page()
 else:
-    # Navegação lateral
+    # Exibe o menu lateral
     selected_page = sidebar_navigation()
 
     if 'current_page' not in st.session_state:
@@ -268,6 +275,7 @@ else:
     elif selected_page == "Nota Fiscal":
         st.title("Página Nota Fiscal")
 
+    # Botão de Logout na sidebar
     with st.sidebar:
         if st.button("Logout"):
             st.session_state.logged_in = False
