@@ -19,6 +19,8 @@ load_dotenv()
 def format_currency(value: float) -> str:
     """
     Formata um valor para o formato monetário brasileiro: R$ x.xx
+    Exemplo:
+       1234.56 -> "R$ 1.234,56"
     """
     return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -34,6 +36,21 @@ def download_df_as_csv(df: pd.DataFrame, filename: str, label: str = "Baixar CSV
         file_name=filename,
         mime="text/csv",
     )
+
+
+########################
+# VERIFICAÇÃO DAS VARIÁVEIS DE AMBIENTE
+########################
+def validate_env_vars():
+    """
+    Verifica se as variáveis de ambiente necessárias para conexão ao banco estão setadas.
+    """
+    required_vars = ["DB_HOST", "DB_NAME", "DB_USER", "DB_PASSWORD", "DB_PORT"]
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    if missing_vars:
+        st.error(f"As seguintes variáveis de ambiente estão ausentes: {', '.join(missing_vars)}")
+        return False
+    return True
 
 
 ########################
@@ -54,7 +71,8 @@ def get_db_connection():
         )
         return conn
     except OperationalError as e:
-        st.error("Não foi possível conectar ao banco de dados. Verifique as configurações e tente novamente.")
+        # Exibe a mensagem de erro completa para diagnóstico
+        st.error(f"Não foi possível conectar ao banco de dados: {e}")
         return None
 
 
@@ -74,6 +92,8 @@ def run_query(query, values=None):
             conn.rollback()
         st.error(f"Erro ao executar a consulta: {e}")
         return []
+    finally:
+        conn.close()
 
 
 def run_insert(query, values):
@@ -93,6 +113,8 @@ def run_insert(query, values):
             conn.rollback()
         st.error(f"Erro ao executar a consulta: {e}")
         return False
+    finally:
+        conn.close()
 
 
 #####################
@@ -183,17 +205,47 @@ def login_page():
 
 
 #####################
+# TESTE DE CONEXÃO
+#####################
+def test_db_connection():
+    """
+    Testa a conexão ao banco antes de carregar dados,
+    exibindo uma mensagem de sucesso ou de erro detalhada.
+    """
+    if not validate_env_vars():
+        # Se variáveis de ambiente estão faltando, pare aqui.
+        st.stop()
+
+    # Testa conexão simples
+    conn = get_db_connection()
+    if conn is not None:
+        st.success("Teste de conexão ao banco de dados: OK!")
+        conn.close()
+    else:
+        st.stop()  # Interrompe a execução se a conexão falhar
+
+
+#####################
 # INICIALIZAÇÃO
 #####################
+# 1. Testa a conexão imediatamente (opcional, mas útil para diagnóstico)
+if "db_tested" not in st.session_state:
+    test_db_connection()
+    st.session_state.db_tested = True
+
+# 2. Carrega dados na sessão
 if 'data' not in st.session_state:
     st.session_state.data = load_all_data()
 
+# 3. Flag de login
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
+# 4. Se não estiver logado, mostra a página de login
 if not st.session_state.logged_in:
     login_page()
 else:
+    # Navegação lateral
     selected_page = sidebar_navigation()
 
     if 'current_page' not in st.session_state:
@@ -202,7 +254,7 @@ else:
         refresh_data()
         st.session_state.current_page = selected_page
 
-    # Roteamento de Páginas
+    # Roteamento de páginas
     if selected_page == "Home":
         st.title("Página Home")
     elif selected_page == "Orders":
