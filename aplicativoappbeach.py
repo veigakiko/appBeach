@@ -11,12 +11,16 @@ from io import BytesIO
 ####################
 # Database Utilities
 #####################
-@st.cache_resource
+
 def get_db_connection():
     """
-    Retorna uma conexão persistente com o banco de dados usando psycopg2 e st.secrets.
+    Retorna uma conexão com o banco de dados usando psycopg2.
+    Abre e fecha a cada chamada (sem cache).
     """
     try:
+        # Se estiver usando segredos do Streamlit, acesse assim:
+        # host=st.secrets["db"]["host"], etc.
+        # Caso contrário, use valores fixos ou variáveis de ambiente.
         conn = psycopg2.connect(
             host=st.secrets["db"]["host"],
             database=st.secrets["db"]["name"],
@@ -32,6 +36,7 @@ def get_db_connection():
 def run_query(query, values=None):
     """
     Executa uma consulta de leitura (SELECT) e retorna os dados obtidos.
+    Abre e fecha a conexão a cada chamada.
     """
     conn = get_db_connection()
     if conn is None:
@@ -41,8 +46,7 @@ def run_query(query, values=None):
             cursor.execute(query, values or ())
             return cursor.fetchall()
     except Exception as e:
-        if conn:
-            conn.rollback()
+        conn.rollback()
         st.error(f"Erro ao executar a consulta: {e}")
         return []
     finally:
@@ -51,6 +55,7 @@ def run_query(query, values=None):
 def run_insert(query, values):
     """
     Executa uma consulta de inserção, atualização ou deleção (INSERT, UPDATE ou DELETE).
+    Também abre e fecha a conexão a cada chamada.
     """
     conn = get_db_connection()
     if conn is None:
@@ -61,8 +66,7 @@ def run_insert(query, values):
         conn.commit()
         return True
     except Exception as e:
-        if conn:
-            conn.rollback()
+        conn.rollback()
         st.error(f"Erro ao executar a consulta: {e}")
         return False
     finally:
@@ -107,7 +111,8 @@ def sidebar_navigation():
     with st.sidebar:
         st.title("Boituva Beach Club 🎾")
         selected = option_menu(
-            "Menu Principal", ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
+            "Menu Principal", 
+            ["Home", "Orders", "Products", "Stock", "Clients", "Nota Fiscal"],
             icons=["house", "file-text", "box", "list-task", "layers", "receipt"],
             menu_icon="cast",
             default_index=0,
@@ -135,9 +140,7 @@ def home_page():
     
     # Só exibe estes resumos se o user for admin
     if st.session_state.get("username") == "admin":
-        ############################
-        # Display Open Orders Summary
-        ############################
+        # Open Orders Summary
         st.markdown("**Open Orders Summary**")
         open_orders_query = """
         SELECT "Cliente", SUM("total") as Total
@@ -148,21 +151,18 @@ def home_page():
         """
         open_orders_data = run_query(open_orders_query, ('em aberto',))
         if open_orders_data:
-            df_open_orders_display = pd.DataFrame(open_orders_data, columns=["Client", "Total"])
-            total_open = df_open_orders_display["Total"].sum()
-            df_open_orders_display["Total_display"] = df_open_orders_display["Total"].apply(
+            df_open = pd.DataFrame(open_orders_data, columns=["Client", "Total"])
+            total_open = df_open["Total"].sum()
+            df_open["Total_display"] = df_open["Total"].apply(
                 lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
-            df_display_open = df_open_orders_display[["Client", "Total_display"]]
-            st.table(df_display_open)
+            st.table(df_open[["Client", "Total_display"]])
             formatted_total_open = f"R$ {total_open:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             st.markdown(f"**Total Geral (Open Orders):** {formatted_total_open}")
         else:
             st.info("Nenhum pedido em aberto encontrado.")
 
-        ############################
-        # Display Closed Orders Summary
-        ############################
+        # Closed Orders Summary
         st.markdown("**Closed Orders Summary**")
         closed_orders_query = """
         SELECT DATE("Data") as Date, SUM("total") as Total
@@ -173,33 +173,32 @@ def home_page():
         """
         closed_orders_data = run_query(closed_orders_query, ('em aberto',))
         if closed_orders_data:
-            df_closed_orders_display = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
-            total_closed = df_closed_orders_display["Total"].sum()
-            df_closed_orders_display["Total_display"] = df_closed_orders_display["Total"].apply(
+            df_closed = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
+            total_closed = df_closed["Total"].sum()
+            df_closed["Total_display"] = df_closed["Total"].apply(
                 lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
-            df_closed_orders_display["Date"] = pd.to_datetime(df_closed_orders_display["Date"]).dt.strftime('%Y-%m-%d')
-            df_display_closed = df_closed_orders_display[["Date", "Total_display"]]
-            st.table(df_display_closed)
+            df_closed["Date"] = pd.to_datetime(df_closed["Date"]).dt.strftime('%Y-%m-%d')
+            st.table(df_closed[["Date", "Total_display"]])
             formatted_total_closed = f"R$ {total_closed:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             st.markdown(f"**Total Geral (Closed Orders):** {formatted_total_closed}")
         else:
             st.info("Nenhum pedido fechado encontrado.")
 
-        # NEW CODE: Using the VIEW "vw_stock_vs_orders_summary"
+        # Stock vs. Orders Summary (vw_stock_vs_orders_summary)
         st.markdown("## Stock vs. Orders Summary")
         try:
             stock_vs_orders_query = """
                 SELECT product, stock_quantity, orders_quantity, total_in_stock
                 FROM public.vw_stock_vs_orders_summary
             """
-            stock_vs_orders_data = run_query(stock_vs_orders_query)
-            if stock_vs_orders_data:
-                df_stock_vs_orders = pd.DataFrame(
-                    stock_vs_orders_data, 
-                    columns=["Product", "Stock_Quantity", "Orders_Quantity", "Total_in_STOCK"]
+            stock_vs_data = run_query(stock_vs_orders_query)
+            if stock_vs_data:
+                df_stock_vs = pd.DataFrame(
+                    stock_vs_data, 
+                    columns=["Product", "Stock_Quantity", "Orders_Quantity", "Total_in_Stock"]
                 )
-                st.dataframe(df_stock_vs_orders)
+                st.dataframe(df_stock_vs)
             else:
                 st.info("Não há dados na view vw_stock_vs_orders_summary.")
         except Exception as e:
@@ -274,12 +273,7 @@ def orders_page():
                             product_list,
                             index=product_list.index(original_product) if original_product in product_list else 0
                         )
-                        edit_quantity = st.number_input(
-                            "Quantity",
-                            min_value=1,
-                            step=1,
-                            value=int(original_quantity)
-                        )
+                        edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
                         edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix", "Received - Cash"]
                         if original_status in edit_status_list:
                             edit_status_index = edit_status_list.index(original_status)
@@ -295,9 +289,7 @@ def orders_page():
                         DELETE FROM public.tb_pedido
                         WHERE "Cliente" = %s AND "Produto" = %s AND "Data" = %s;
                         """
-                        success = run_insert(delete_query, (
-                            original_client, original_product, original_date
-                        ))
+                        success = run_insert(delete_query, (original_client, original_product, original_date))
                         if success:
                             st.success("Order deleted successfully!")
                             refresh_data()
@@ -385,17 +377,12 @@ def products_page():
                     with st.form(key='edit_product_form'):
                         edit_supplier = st.text_input("Supplier", value=original_supplier, max_chars=100)
                         edit_product = st.text_input("Product", value=original_product, max_chars=100)
-                        edit_quantity = st.number_input(
-                            "Quantity",
-                            min_value=1,
-                            step=1,
-                            value=int(original_quantity)
-                        )
+                        edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
                         edit_unit_value = st.number_input(
-                            "Unit Value",
-                            min_value=0.0,
-                            step=0.01,
-                            format="%.2f",
+                            "Unit Value", 
+                            min_value=0.0, 
+                            step=0.01, 
+                            format="%.2f", 
                             value=float(original_unit_value)
                         )
                         edit_creation_date = st.date_input("Creation Date", value=original_creation_date)
@@ -432,7 +419,9 @@ def products_page():
                             DELETE FROM public.tb_products
                             WHERE supplier = %s AND product = %s AND creation_date = %s;
                             """
-                            success = run_insert(delete_query, (original_supplier, original_product, original_creation_date))
+                            success = run_insert(delete_query, (
+                                original_supplier, original_product, original_creation_date
+                            ))
                             if success:
                                 st.success("Product deleted successfully!")
                                 refresh_data()
@@ -513,12 +502,7 @@ O registro exclusivo de entradas permite garantir uma gestão eficiente, evitand
                             product_list,
                             index=product_list.index(original_product) if original_product in product_list else 0
                         )
-                        edit_quantity = st.number_input(
-                            "Quantity",
-                            min_value=1,
-                            step=1,
-                            value=int(original_quantity)
-                        )
+                        edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
                         edit_transaction = st.selectbox(
                             "Transaction Type",
                             ["Entrada", "Saída"],
@@ -598,7 +582,10 @@ def clients_page():
             st.warning("Please fill in the Full Name field.")
 
     # Display all clients
-    clients_data = run_query("SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro FROM public.tb_clientes ORDER BY data_cadastro DESC;")
+    clients_data = run_query("""
+        SELECT nome_completo, data_nascimento, genero, telefone, email, endereco, data_cadastro
+        FROM public.tb_clientes ORDER BY data_cadastro DESC;
+    """)
     if clients_data:
         st.subheader("All Clients")
         columns = ["Full Name", "Birth Date", "Gender", "Phone", "Email", "Address", "Register Date"]
@@ -731,7 +718,7 @@ def generate_invoice_for_printer(df):
     total_general = 0
 
     for _, row in grouped_df.iterrows():
-        description = f"{row['Produto'][:20]:<20}"  # limit to 20 chars
+        description = f"{row['Produto'][:20]:<20}"
         quantity = f"{int(row['Quantidade']):>5}"
         total = row['total']
         total_general += total
@@ -784,7 +771,6 @@ def login_page():
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
-        # Two users: admin / caixa
         if username == "admin" and password == "adminbeach":
             st.session_state.logged_in = True
             st.session_state.username = "admin"
