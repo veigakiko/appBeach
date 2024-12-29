@@ -7,7 +7,6 @@ import pandas as pd
 from PIL import Image
 import requests
 from io import BytesIO
-from decouple import config
 import os
 
 ########################
@@ -43,11 +42,11 @@ def get_db_connection():
     """
     try:
         conn = psycopg2.connect(
-            host=config("DB_HOST", default=os.getenv("DB_HOST")),
-            database=config("DB_NAME", default=os.getenv("DB_NAME")),
-            user=config("DB_USER", default=os.getenv("DB_USER")),
-            password=config("DB_PASSWORD", default=os.getenv("DB_PASSWORD")),
-            port=config("DB_PORT", default=os.getenv("DB_PORT", "5432"))
+            host=os.getenv("DB_HOST", "localhost"),
+            database=os.getenv("DB_NAME", "beachtennis"),
+            user=os.getenv("DB_USER", "postgres"),
+            password=os.getenv("DB_PASSWORD", "password"),
+            port=os.getenv("DB_PORT", "5432")
         )
         return conn
     except OperationalError as e:
@@ -158,21 +157,6 @@ def sidebar_navigation():
 # PÁGINA DE LOGIN
 #####################
 def login_page():
-    st.markdown(
-        """
-        <style>
-        body {
-            background-color: white;
-        }
-        .block-container {
-            padding-top: 100px;
-            padding-bottom: 100px;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
     st.title("Beach Club")
     st.write("Por favor, insira suas credenciais para acessar o aplicativo.")
 
@@ -182,7 +166,6 @@ def login_page():
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
-        # Dois usuários possíveis: admin / caixa
         if username == "admin" and password == "adminbeach":
             st.session_state.logged_in = True
             st.session_state.username = "admin"
