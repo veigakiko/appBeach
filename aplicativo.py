@@ -34,23 +34,23 @@ def download_df_as_csv(df: pd.DataFrame, filename: str, label: str = "Baixar CSV
 
 
 ########################
-# CONEXÃO COM BANCO
+# CONEXÃO COM BANCO (SEM CACHE)
 ########################
-@st.cache_resource
 def get_db_connection():
     """
-    Retorna uma conexão persistente com o banco de dados usando psycopg2.
+    Retorna uma conexão com o banco de dados usando st.secrets e psycopg2.
+    Abre e fecha a cada consulta (sem uso de cache).
     """
     try:
         conn = psycopg2.connect(
-            host="dpg-ct76kgij1k6c73b3utk0-a.oregon-postgres.render.com",
-            database="beachtennis",
-            user="kiko",
-            password="ff15dHpkRtuoNgeF8eWjpqymWLleEM00",
-            port=5432
+            host=st.secrets["db"]["host"],
+            database=st.secrets["db"]["name"],
+            user=st.secrets["db"]["user"],
+            password=st.secrets["db"]["password"],
+            port=st.secrets["db"]["port"]
         )
         return conn
-    except OperationalError as e:
+    except OperationalError:
         st.error("Não foi possível conectar ao banco de dados. Por favor, tente novamente mais tarde.")
         return None
 
@@ -58,6 +58,7 @@ def get_db_connection():
 def run_query(query, values=None):
     """
     Executa uma consulta de leitura (SELECT) e retorna os dados obtidos.
+    Abre e fecha a conexão a cada chamada.
     """
     conn = get_db_connection()
     if conn is None:
@@ -67,15 +68,17 @@ def run_query(query, values=None):
             cursor.execute(query, values or ())
             return cursor.fetchall()
     except Exception as e:
-        if conn:
-            conn.rollback()
+        conn.rollback()
         st.error(f"Erro ao executar a consulta: {e}")
         return []
+    finally:
+        conn.close()
 
 
 def run_insert(query, values):
     """
     Executa uma consulta de inserção, atualização ou deleção (INSERT, UPDATE ou DELETE).
+    Abre e fecha a conexão a cada chamada.
     """
     conn = get_db_connection()
     if conn is None:
@@ -86,10 +89,11 @@ def run_insert(query, values):
         conn.commit()
         return True
     except Exception as e:
-        if conn:
-            conn.rollback()
+        conn.rollback()
         st.error(f"Erro ao executar a consulta: {e}")
         return False
+    finally:
+        conn.close()
 
 
 #####################
@@ -200,7 +204,6 @@ def home_page():
         else:
             st.info("Nenhum pedido fechado encontrado.")
 
-        # Ajuste para deixar o texto com o mesmo padrão de fonte ("** ... **"):
         st.markdown("**Stock vs. Orders Summary**")
         try:
             stock_vs_orders_query = """
@@ -209,26 +212,18 @@ def home_page():
             """
             stock_vs_orders_data = run_query(stock_vs_orders_query)
             if stock_vs_orders_data:
-                # Cria o DataFrame com as colunas nomeadas
                 df_stock_vs_orders = pd.DataFrame(
                     stock_vs_orders_data, 
                     columns=["Product", "Stock_Quantity", "Orders_Quantity", "Total_in_Stock"]
                 )
 
-                # Não é valor monetário; mantemos valor bruto
+                # Exemplo de manipulação
                 df_stock_vs_orders["Total_in_Stock_display"] = df_stock_vs_orders["Total_in_Stock"]
-
-                # Ordenar do maior para o menor considerando 'Total_in_Stock'
                 df_stock_vs_orders.sort_values("Total_in_Stock", ascending=False, inplace=True)
-
-                # Exibir apenas as colunas 'Product' e 'Total_in_Stock_display'
                 df_display = df_stock_vs_orders[["Product", "Total_in_Stock_display"]]
-
                 st.table(df_display)
 
-                # Soma total_in_stock (se quiser exibir ao final)
                 total_stock_value = df_stock_vs_orders["Total_in_Stock"].sum()
-                # Convertendo para int se for sempre inteiro
                 total_stock_value = int(total_stock_value)
                 st.markdown(f"**Total Geral (Stock vs. Orders):** {total_stock_value}")
             else:
@@ -244,14 +239,12 @@ def orders_page():
     st.title("Orders")
     st.subheader("Register a new order")
 
-    # Criando um pequeno filtro de nome do cliente para exibição da tabela abaixo
     search_client = st.text_input("Filtrar por Nome de Cliente (na tabela abaixo):")
 
     product_data = st.session_state.data.get("products", [])
     product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
 
     with st.form(key='order_form'):
-        # Carrega lista de clientes da tb_clientes
         clientes = run_query('SELECT nome_completo FROM public.tb_clientes ORDER BY nome_completo;')
         customer_list = [""] + [row[0] for row in clientes]
 
@@ -287,16 +280,12 @@ def orders_page():
         columns = ["Client", "Product", "Quantity", "Date", "Status"]
         df_orders = pd.DataFrame(orders_data, columns=columns)
 
-        # Filtra a tabela se o usuário digitou algo
         if search_client:
             df_orders = df_orders[df_orders["Client"].str.contains(search_client, case=False)]
 
         st.dataframe(df_orders, use_container_width=True)
-
-        # Botão para exportar CSV
         download_df_as_csv(df_orders, "orders.csv", label="Download Orders CSV")
 
-        # Admin-only edit/delete
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Order")
             df_orders["unique_key"] = df_orders.apply(
@@ -327,12 +316,7 @@ def orders_page():
                                 index=product_list.index(original_product) if original_product in product_list else 0
                             )
                         with col2:
-                            edit_quantity = st.number_input(
-                                "Quantity",
-                                min_value=1,
-                                step=1,
-                                value=int(original_quantity)
-                            )
+                            edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
                         with col3:
                             edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix", "Received - Cash"]
                             if original_status in edit_status_list:
@@ -422,10 +406,8 @@ def products_page():
         df_products = pd.DataFrame(products_data, columns=columns)
         st.dataframe(df_products, use_container_width=True)
 
-        # Botão para exportar CSV
         download_df_as_csv(df_products, "products.csv", label="Download Products CSV")
 
-        # Admin-only edit/delete
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Product")
             df_products["unique_key"] = df_products.apply(
@@ -566,10 +548,8 @@ Com este sistema, você poderá monitorar todas as adições ao estoque com maio
         df_stock = pd.DataFrame(stock_data, columns=columns)
         st.dataframe(df_stock, use_container_width=True)
 
-        # Botão para exportar CSV
         download_df_as_csv(df_stock, "stock.csv", label="Download Stock CSV")
 
-        # Admin-only edit/delete
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Stock Record")
             df_stock["unique_key"] = df_stock.apply(
@@ -599,14 +579,8 @@ Com este sistema, você poderá monitorar todas as adições ao estoque com maio
                                 index=product_list.index(original_product) if original_product in product_list else 0
                             )
                         with col2:
-                            edit_quantity = st.number_input(
-                                "Quantity",
-                                min_value=1,
-                                step=1,
-                                value=int(original_quantity)
-                            )
+                            edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
                         with col3:
-                            # Permitindo alterar para 'Saída', se desejar
                             edit_transaction = st.selectbox(
                                 "Transaction Type",
                                 ["Entrada", "Saída"],
@@ -671,7 +645,6 @@ def clients_page():
 
     if submit_client:
         if nome_completo:
-            # Exemplos de valores default
             data_nascimento = datetime(2000, 1, 1).date()
             genero = "Man"
             telefone = "0000-0000"
@@ -690,7 +663,6 @@ def clients_page():
         else:
             st.warning("Please fill in the Full Name field.")
 
-    # Display all clients
     clients_data = run_query(
         """SELECT nome_completo, data_nascimento, genero,
                   telefone, email, endereco, data_cadastro
@@ -703,10 +675,8 @@ def clients_page():
         df_clients = pd.DataFrame(clients_data, columns=columns)
         st.dataframe(df_clients, use_container_width=True)
 
-        # Botão de download
         download_df_as_csv(df_clients, "clients.csv", label="Download Clients CSV")
 
-        # Admin-only edit/delete
         if st.session_state.get("username") == "admin":
             st.subheader("Edit or Delete an Existing Client")
             client_emails = df_clients["Email"].unique().tolist()
@@ -844,9 +814,9 @@ def generate_invoice_for_printer(df: pd.DataFrame):
     for _, row in grouped_df.iterrows():
         description = f"{row['Produto'][:20]:<20}"  # limitando a 20 chars
         quantity = f"{int(row['Quantidade']):>5}"
-        total = row['total']
-        total_general += total
-        total_formatted = format_currency(total)
+        total_item = row['total']
+        total_general += total_item
+        total_formatted = format_currency(total_item)
         invoice_note.append(f"{description} {quantity} {total_formatted}")
 
     invoice_note.append("--------------------------------------------------")
@@ -883,7 +853,7 @@ def login_page():
         response.raise_for_status()
         logo = Image.open(BytesIO(response.content))
         st.image(logo, use_column_width=False)
-    except requests.exceptions.RequestException as e:
+    except requests.exceptions.RequestException:
         st.error("Falha ao carregar o logotipo.")
 
     st.title("Beach Club")
@@ -895,7 +865,6 @@ def login_page():
         submit_login = st.form_submit_button(label="Login")
 
     if submit_login:
-        # Dois usuários possíveis: admin / caixa
         if username == "admin" and password == "adminbeach":
             st.session_state.logged_in = True
             st.session_state.username = "admin"
@@ -946,7 +915,6 @@ else:
 
     with st.sidebar:
         if st.button("Logout"):
-            # Opcional: limpar dados de página
             keys_to_reset = ['home_page_initialized']
             for key in keys_to_reset:
                 if key in st.session_state:
