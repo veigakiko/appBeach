@@ -11,3 +11,6 @@ plotly
 requests
 matplotlib
 python-dotenv
+streamlit
+psycopg2
+python-decouple
