@@ -14,3 +14,5 @@ python-dotenv
 streamlit
 psycopg2
 python-decouple
+fpdf2==2.6.6
+twilio==7.21.1
