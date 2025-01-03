@@ -23,7 +23,6 @@ def format_currency(value: float) -> str:
     """
     return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-
 def download_df_as_csv(df: pd.DataFrame, filename: str, label: str = "Baixar CSV"):
     """
     Exibe um botão de download de um DataFrame como CSV.
@@ -35,7 +34,6 @@ def download_df_as_csv(df: pd.DataFrame, filename: str, label: str = "Baixar CSV
         file_name=filename,
         mime="text/csv",
     )
-
 
 def download_df_as_excel(df: pd.DataFrame, filename: str, label: str = "Baixar Excel"):
     """
@@ -52,7 +50,6 @@ def download_df_as_excel(df: pd.DataFrame, filename: str, label: str = "Baixar E
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
-
 def download_df_as_json(df: pd.DataFrame, filename: str, label: str = "Baixar JSON"):
     """
     Exibe um botão de download de um DataFrame como JSON.
@@ -65,7 +62,6 @@ def download_df_as_json(df: pd.DataFrame, filename: str, label: str = "Baixar JS
         mime="application/json",
     )
 
-
 def download_df_as_html(df: pd.DataFrame, filename: str, label: str = "Baixar HTML"):
     """
     Exibe um botão de download de um DataFrame como HTML.
@@ -77,7 +73,6 @@ def download_df_as_html(df: pd.DataFrame, filename: str, label: str = "Baixar HT
         file_name=filename,
         mime="text/html",
     )
-
 
 def download_df_as_parquet(df: pd.DataFrame, filename: str, label: str = "Baixar Parquet"):
     """
@@ -112,7 +107,6 @@ def get_db_connection():
         st.error("Não foi possível conectar ao banco de dados. Por favor, tente novamente mais tarde.")
         return None
 
-
 def run_query(query, values=None):
     """
     Executa uma consulta de leitura (SELECT) e retorna os dados obtidos.
@@ -131,7 +125,6 @@ def run_query(query, values=None):
         return []
     finally:
         conn.close()
-
 
 def run_insert(query, values):
     """
@@ -152,7 +145,6 @@ def run_insert(query, values):
         return False
     finally:
         conn.close()
-
 
 #####################
 # CARREGAMENTO DE DADOS
@@ -177,13 +169,11 @@ def load_all_data():
         st.error(f"Erro ao carregar os dados: {e}")
     return data
 
-
 def refresh_data():
     """
     Recarrega todos os dados e atualiza o estado da sessão.
     """
     st.session_state.data = load_all_data()
-
 
 #####################
 # MENU LATERAL
@@ -215,7 +205,6 @@ def sidebar_navigation():
         )
     return selected
 
-
 #####################
 # FUNÇÕES ADICIONAIS PARA ENVIO
 #####################
@@ -239,7 +228,6 @@ def convert_df_to_pdf(df: pd.DataFrame) -> bytes:
         pdf.ln()
 
     return pdf.output(dest='S').encode('latin1')
-
 
 def send_email(recipient_email: str, subject: str, body: str, attachment_bytes: bytes, attachment_filename: str):
     """
@@ -265,7 +253,6 @@ def send_email(recipient_email: str, subject: str, body: str, attachment_bytes: 
     except Exception as e:
         st.error(f"Falha ao enviar e-mail: {e}")
 
-
 def send_whatsapp(recipient_number: str, media_url: str):
     """
     Envia uma mensagem WhatsApp com um link para o PDF.
@@ -281,7 +268,6 @@ def send_whatsapp(recipient_number: str, media_url: str):
         st.success(f"Mensagem enviada com sucesso para {recipient_number}!")
     except Exception as e:
         st.error(f"Falha ao enviar mensagem via WhatsApp: {e}")
-
 
 def upload_pdf_to_fileio(pdf_bytes: bytes) -> str:
     """
@@ -963,7 +949,6 @@ def invoice_page():
     else:
         st.warning("Por favor, selecione um cliente.")
 
-
 def process_payment(client, payment_status):
     query = """
     UPDATE public.tb_pedido
@@ -976,7 +961,6 @@ def process_payment(client, payment_status):
         refresh_data()
     else:
         st.error("Erro ao atualizar o status.")
-
 
 def generate_invoice_for_printer(df: pd.DataFrame):
     """
