@@ -14,9 +14,3 @@ python-dotenv
 streamlit
 psycopg2
 python-decouple
-fpdf2==2.6.6
-twilio==7.21.1
-fpdf==1.7.2
-twilio==7.19.0
-xlsxwriter==3.0.9
-pyarrow==11.0.0
