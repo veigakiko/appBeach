@@ -7,6 +7,10 @@ import pandas as pd
 from PIL import Image
 import requests
 from io import BytesIO
+from fpdf import FPDF
+import smtplib
+from email.message import EmailMessage
+from twilio.rest import Client
 
 ########################
 # UTILIDADES GERAIS
@@ -32,6 +36,60 @@ def download_df_as_csv(df: pd.DataFrame, filename: str, label: str = "Baixar CSV
         mime="text/csv",
     )
 
+
+def download_df_as_excel(df: pd.DataFrame, filename: str, label: str = "Baixar Excel"):
+    """
+    Exibe um botão de download de um DataFrame como Excel.
+    """
+    towrite = BytesIO()
+    with pd.ExcelWriter(towrite, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Stock_vs_Orders')
+    towrite.seek(0)
+    st.download_button(
+        label=label,
+        data=towrite,
+        file_name=filename,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+def download_df_as_json(df: pd.DataFrame, filename: str, label: str = "Baixar JSON"):
+    """
+    Exibe um botão de download de um DataFrame como JSON.
+    """
+    json_data = df.to_json(orient='records', lines=True)
+    st.download_button(
+        label=label,
+        data=json_data,
+        file_name=filename,
+        mime="application/json",
+    )
+
+
+def download_df_as_html(df: pd.DataFrame, filename: str, label: str = "Baixar HTML"):
+    """
+    Exibe um botão de download de um DataFrame como HTML.
+    """
+    html_data = df.to_html(index=False)
+    st.download_button(
+        label=label,
+        data=html_data,
+        file_name=filename,
+        mime="text/html",
+    )
+
+
+def download_df_as_parquet(df: pd.DataFrame, filename: str, label: str = "Baixar Parquet"):
+    """
+    Exibe um botão de download de um DataFrame como Parquet.
+    """
+    parquet_data = df.to_parquet(index=False)
+    st.download_button(
+        label=label,
+        data=parquet_data,
+        file_name=filename,
+        mime="application/octet-stream",
+    )
 
 ########################
 # CONEXÃO COM BANCO (SEM CACHE)
@@ -159,6 +217,96 @@ def sidebar_navigation():
 
 
 #####################
+# FUNÇÕES ADICIONAIS PARA ENVIO
+#####################
+def convert_df_to_pdf(df: pd.DataFrame) -> bytes:
+    """
+    Converte um DataFrame em PDF.
+    """
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+
+    # Adicionar cabeçalhos
+    for column in df.columns:
+        pdf.cell(60, 10, column, border=1)
+    pdf.ln()
+
+    # Adicionar linhas de dados
+    for index, row in df.iterrows():
+        for item in row:
+            pdf.cell(60, 10, str(item), border=1)
+        pdf.ln()
+
+    return pdf.output(dest='S').encode('latin1')
+
+
+def send_email(recipient_email: str, subject: str, body: str, attachment_bytes: bytes, attachment_filename: str):
+    """
+    Envia um e-mail com um anexo PDF.
+    """
+    try:
+        msg = EmailMessage()
+        msg['Subject'] = subject
+        msg['From'] = st.secrets["email"]["sender_email"]
+        msg['To'] = recipient_email
+        msg.set_content(body)
+
+        # Anexar o PDF
+        msg.add_attachment(attachment_bytes, maintype='application', subtype='pdf', filename=attachment_filename)
+
+        # Conectar ao servidor SMTP e enviar o e-mail
+        with smtplib.SMTP(st.secrets["email"]["smtp_server"], st.secrets["email"]["smtp_port"]) as server:
+            server.starttls()
+            server.login(st.secrets["email"]["sender_email"], st.secrets["email"]["sender_password"])
+            server.send_message(msg)
+
+        st.success(f"E-mail enviado com sucesso para {recipient_email}!")
+    except Exception as e:
+        st.error(f"Falha ao enviar e-mail: {e}")
+
+
+def send_whatsapp(recipient_number: str, media_url: str):
+    """
+    Envia uma mensagem WhatsApp com um link para o PDF.
+    """
+    try:
+        client = Client(st.secrets["twilio"]["account_sid"], st.secrets["twilio"]["auth_token"])
+        message = client.messages.create(
+            body="Olá,\n\nSegue em anexo o resumo de Estoque vs. Pedidos.",
+            from_=st.secrets["twilio"]["whatsapp_from"],
+            to=f"whatsapp:{recipient_number}",
+            media_url=[media_url]
+        )
+        st.success(f"Mensagem enviada com sucesso para {recipient_number}!")
+    except Exception as e:
+        st.error(f"Falha ao enviar mensagem via WhatsApp: {e}")
+
+
+def upload_pdf_to_fileio(pdf_bytes: bytes) -> str:
+    """
+    Faz upload do PDF para File.io e retorna a URL pública.
+    """
+    try:
+        response = requests.post(
+            'https://file.io/',
+            files={'file': ('stock_vs_orders_summary.pdf', pdf_bytes, 'application/pdf')}
+        )
+        if response.status_code == 200:
+            json_resp = response.json()
+            if json_resp['success']:
+                return json_resp['link']
+            else:
+                st.error("Falha no upload do arquivo.")
+                return ""
+        else:
+            st.error("Erro ao conectar com o serviço de upload.")
+            return ""
+    except Exception as e:
+        st.error(f"Erro ao fazer upload do arquivo: {e}")
+        return ""
+
+#####################
 # PÁGINA HOME
 #####################
 def home_page():
@@ -185,29 +333,6 @@ def home_page():
         else:
             st.info("Nenhum pedido em aberto encontrado.")
 
-        # -------------------------------
-        # Removed Closed Orders Summary
-        # -------------------------------
-
-        # st.markdown("**Closed Orders Summary**")
-        # closed_orders_query = """
-        # SELECT DATE("Data") as Date, SUM("total") as Total
-        # FROM public.vw_pedido_produto
-        # WHERE status != %s
-        # GROUP BY DATE("Data")
-        # ORDER BY DATE("Data") DESC;
-        # """
-        # closed_orders_data = run_query(closed_orders_query, ('em aberto',))
-        # if closed_orders_data:
-        #     df_closed_orders = pd.DataFrame(closed_orders_data, columns=["Date", "Total"])
-        #     total_closed = df_closed_orders["Total"].sum()
-        #     df_closed_orders["Total_display"] = df_closed_orders["Total"].apply(format_currency)
-        #     df_closed_orders["Date"] = pd.to_datetime(df_closed_orders["Date"]).dt.strftime('%Y-%m-%d')
-        #     st.table(df_closed_orders[["Date", "Total_display"]])
-        #     st.markdown(f"**Total Geral (Closed Orders):** {format_currency(total_closed)}")
-        # else:
-        #     st.info("Nenhum pedido fechado encontrado.")
-
         st.markdown("**Stock vs. Orders Summary**")
         try:
             stock_vs_orders_query = """
@@ -221,7 +346,7 @@ def home_page():
                     columns=["Product", "Stock_Quantity", "Orders_Quantity", "Total_in_Stock"]
                 )
 
-                # Exemplo de manipulação
+                # Manipulação dos dados
                 df_stock_vs_orders["Total_in_Stock_display"] = df_stock_vs_orders["Total_in_Stock"]
                 df_stock_vs_orders.sort_values("Total_in_Stock", ascending=False, inplace=True)
                 df_display = df_stock_vs_orders[["Product", "Total_in_Stock_display"]]
@@ -231,17 +356,78 @@ def home_page():
                 total_stock_value = int(total_stock_value)
                 st.markdown(f"**Total Geral (Stock vs. Orders):** {total_stock_value}")
 
-                # -------------------------------
-                # Add Download Button for Stock vs. Orders Summary
-                # -------------------------------
-                df_download = df_stock_vs_orders.copy()
-                df_download["Total_in_Stock"] = df_download["Total_in_Stock"].astype(int)
-                download_df_as_csv(df_download, "stock_vs_orders_summary.csv", label="Download Stock vs. Orders CSV")
+                # Adicionar botões de download
+                st.markdown("### Exportar Stock vs. Orders Summary")
+                download_options = ["CSV", "Excel", "JSON", "HTML", "PDF", "Parquet"]
+                selected_format = st.selectbox("Selecione o formato de exportação:", download_options)
+
+                if selected_format == "CSV":
+                    download_df_as_csv(df_stock_vs_orders, "stock_vs_orders_summary.csv", label="Baixar CSV")
+                elif selected_format == "Excel":
+                    download_df_as_excel(df_stock_vs_orders, "stock_vs_orders_summary.xlsx", label="Baixar Excel")
+                elif selected_format == "JSON":
+                    download_df_as_json(df_stock_vs_orders, "stock_vs_orders_summary.json", label="Baixar JSON")
+                elif selected_format == "HTML":
+                    download_df_as_html(df_stock_vs_orders, "stock_vs_orders_summary.html", label="Baixar HTML")
+                elif selected_format == "PDF":
+                    pdf_data = convert_df_to_pdf(df_stock_vs_orders)
+                    st.download_button(
+                        label="Baixar PDF",
+                        data=pdf_data,
+                        file_name="stock_vs_orders_summary.pdf",
+                        mime="application/pdf",
+                    )
+                elif selected_format == "Parquet":
+                    download_df_as_parquet(df_stock_vs_orders, "stock_vs_orders_summary.parquet", label="Baixar Parquet")
+
+                # Adicionar opções de envio por E-mail e WhatsApp
+                st.markdown("### Enviar Stock vs. Orders Summary")
+
+                # Gerar PDF
+                pdf_bytes = convert_df_to_pdf(df_stock_vs_orders)
+
+                # **Envio por E-mail**
+                st.subheader("Enviar por E-mail")
+                with st.form(key='send_email_form'):
+                    recipient_email = st.text_input("E-mail do Destinatário")
+                    email_subject = st.text_input("Assunto do E-mail", value="Resumo de Estoque vs. Pedidos")
+                    email_body = st.text_area("Corpo do E-mail", value="Olá,\n\nSegue em anexo o resumo de Estoque vs. Pedidos.\n\nAtenciosamente,\nBoituva Beach Club")
+                    submit_email = st.form_submit_button(label="Enviar E-mail")
+
+                if submit_email:
+                    if recipient_email:
+                        send_email(
+                            recipient_email=recipient_email,
+                            subject=email_subject,
+                            body=email_body,
+                            attachment_bytes=pdf_bytes,
+                            attachment_filename="stock_vs_orders_summary.pdf"
+                        )
+                    else:
+                        st.warning("Por favor, insira o e-mail do destinatário.")
+
+                # **Envio por WhatsApp com Upload Automático**
+                st.subheader("Enviar por WhatsApp")
+                with st.form(key='send_whatsapp_form'):
+                    recipient_whatsapp = st.text_input("Número do WhatsApp (com código do país, ex: +5511999999999)")
+                    whatsapp_message = st.text_area("Mensagem", value="Olá,\n\nSegue em anexo o resumo de Estoque vs. Pedidos.\n\nAtenciosamente,\nBoituva Beach Club")
+                    submit_whatsapp = st.form_submit_button(label="Enviar via WhatsApp")
+
+                if submit_whatsapp:
+                    if recipient_whatsapp:
+                        # Fazer upload do PDF para obter a URL
+                        media_url = upload_pdf_to_fileio(pdf_bytes)
+                        if media_url:
+                            send_whatsapp(
+                                recipient_number=recipient_whatsapp,
+                                media_url=media_url  # URL pública do PDF
+                            )
+                    else:
+                        st.warning("Por favor, insira o número do WhatsApp.")
             else:
                 st.info("Não há dados na view vw_stock_vs_orders_summary.")
         except Exception as e:
             st.error(f"Erro ao gerar o resumo Stock vs. Orders: {e}")
-
 
 #####################
 # PÁGINA ORDERS
@@ -251,7 +437,7 @@ def orders_page():
     st.subheader("Register a new order")
 
     # -------------------------------
-    # Removed Filter by Customer Name
+    # Removido Campo de Filtragem por Nome de Cliente
     # -------------------------------
     # search_client = st.text_input("Filtrar por Nome de Cliente (na tabela abaixo):")
 
@@ -295,7 +481,7 @@ def orders_page():
         df_orders = pd.DataFrame(orders_data, columns=columns)
 
         # -------------------------------
-        # Removed Filtering Logic
+        # Removida Lógica de Filtragem
         # -------------------------------
         # if search_client:
         #     df_orders = df_orders[df_orders["Client"].str.contains(search_client, case=False)]
@@ -377,7 +563,6 @@ def orders_page():
                             st.error("Failed to update the order.")
     else:
         st.info("No orders found.")
-
 
 #####################
 # PÁGINA PRODUCTS
@@ -514,7 +699,6 @@ def products_page():
     else:
         st.info("No products found.")
 
-
 #####################
 # PÁGINA STOCK
 #####################
@@ -648,7 +832,6 @@ Com este sistema, você poderá monitorar todas as adições ao estoque com maio
     else:
         st.info("No stock records found.")
 
-
 #####################
 # PÁGINA CLIENTS
 #####################
@@ -743,7 +926,6 @@ def clients_page():
                             st.error("Failed to delete the client.")
     else:
         st.info("No clients found.")
-
 
 #####################
 # PÁGINA NOTA FISCAL
@@ -844,7 +1026,6 @@ def generate_invoice_for_printer(df: pd.DataFrame):
 
     st.text("\n".join(invoice_note))
 
-
 #####################
 # PÁGINA DE LOGIN
 #####################
@@ -892,7 +1073,6 @@ def login_page():
             st.success("Login bem-sucedido!")
         else:
             st.error("Nome de usuário ou senha incorretos.")
-
 
 #####################
 # INICIALIZAÇÃO
