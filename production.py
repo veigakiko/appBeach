@@ -436,11 +436,6 @@ def orders_page():
     st.title("Orders")
     st.subheader("Register a new order")
 
-    # -------------------------------
-    # Removido Campo de Filtragem por Nome de Cliente
-    # -------------------------------
-    # search_client = st.text_input("Filtrar por Nome de Cliente (na tabela abaixo):")
-
     product_data = st.session_state.data.get("products", [])
     product_list = [""] + [row[1] for row in product_data] if product_data else ["No products available"]
 
@@ -480,12 +475,6 @@ def orders_page():
         columns = ["Client", "Product", "Quantity", "Date", "Status"]
         df_orders = pd.DataFrame(orders_data, columns=columns)
 
-        # -------------------------------
-        # Removida Lógica de Filtragem
-        # -------------------------------
-        # if search_client:
-        #     df_orders = df_orders[df_orders["Client"].str.contains(search_client, case=False)]
-
         st.dataframe(df_orders, use_container_width=True)
         download_df_as_csv(df_orders, "orders.csv", label="Download Orders CSV")
 
@@ -519,7 +508,12 @@ def orders_page():
                                 index=product_list.index(original_product) if original_product in product_list else 0
                             )
                         with col2:
-                            edit_quantity = st.number_input("Quantity", min_value=1, step=1, value=int(original_quantity))
+                            edit_quantity = st.number_input(
+                                "Quantity",
+                                min_value=1,
+                                step=1,
+                                value=int(original_quantity)
+                            )
                         with col3:
                             edit_status_list = ["em aberto", "Received - Debited", "Received - Credit", "Received - Pix", "Received - Cash"]
                             if original_status in edit_status_list:
